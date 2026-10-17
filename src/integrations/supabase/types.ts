@@ -14,16 +14,249 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          created_at: string
+          department: string | null
+          email: string | null
+          full_name: string
+          id: string
+          is_active: boolean
+        }
+        Insert: {
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          full_name?: string
+          id: string
+          is_active?: boolean
+        }
+        Update: {
+          created_at?: string
+          department?: string | null
+          email?: string | null
+          full_name?: string
+          id?: string
+          is_active?: boolean
+        }
+        Relationships: []
+      }
+      reservation_history: {
+        Row: {
+          action: string
+          changed_by: string | null
+          created_at: string
+          id: string
+          new_data: Json | null
+          old_data: Json | null
+          owner_id: string
+          reservation_id: string
+        }
+        Insert: {
+          action: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          owner_id: string
+          reservation_id: string
+        }
+        Update: {
+          action?: string
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          owner_id?: string
+          reservation_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_history_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_view_grants: {
+        Row: {
+          created_at: string
+          id: string
+          owner_id: string
+          viewer_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          owner_id: string
+          viewer_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          owner_id?: string
+          viewer_id?: string
+        }
+        Relationships: []
+      }
+      reservations: {
+        Row: {
+          cancel_reason: string | null
+          cancelled_at: string | null
+          created_at: string
+          created_by: string
+          customer_name: string
+          customer_phone: string | null
+          end_at: string
+          id: string
+          memo: string | null
+          room: string | null
+          service: string
+          start_at: string
+          status: Database["public"]["Enums"]["reservation_status"]
+          updated_at: string
+        }
+        Insert: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string
+          customer_name: string
+          customer_phone?: string | null
+          end_at: string
+          id?: string
+          memo?: string | null
+          room?: string | null
+          service: string
+          start_at: string
+          status?: Database["public"]["Enums"]["reservation_status"]
+          updated_at?: string
+        }
+        Update: {
+          cancel_reason?: string | null
+          cancelled_at?: string | null
+          created_at?: string
+          created_by?: string
+          customer_name?: string
+          customer_phone?: string | null
+          end_at?: string
+          id?: string
+          memo?: string | null
+          room?: string | null
+          service?: string
+          start_at?: string
+          status?: Database["public"]["Enums"]["reservation_status"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      schedule_shares: {
+        Row: {
+          schedule_id: string
+          user_id: string
+        }
+        Insert: {
+          schedule_id: string
+          user_id: string
+        }
+        Update: {
+          schedule_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "schedule_shares_schedule_id_fkey"
+            columns: ["schedule_id"]
+            isOneToOne: false
+            referencedRelation: "schedules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      schedules: {
+        Row: {
+          created_at: string
+          end_at: string
+          id: string
+          memo: string | null
+          owner_id: string
+          start_at: string
+          title: string
+          visibility: Database["public"]["Enums"]["schedule_visibility"]
+        }
+        Insert: {
+          created_at?: string
+          end_at: string
+          id?: string
+          memo?: string | null
+          owner_id?: string
+          start_at: string
+          title: string
+          visibility?: Database["public"]["Enums"]["schedule_visibility"]
+        }
+        Update: {
+          created_at?: string
+          end_at?: string
+          id?: string
+          memo?: string | null
+          owner_id?: string
+          start_at?: string
+          title?: string
+          visibility?: Database["public"]["Enums"]["schedule_visibility"]
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      can_view_owner: {
+        Args: { _owner: string; _viewer: string }
+        Returns: boolean
+      }
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
+      is_schedule_owner: {
+        Args: { _schedule: string; _user: string }
+        Returns: boolean
+      }
+      is_schedule_shared: {
+        Args: { _schedule: string; _user: string }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "internal" | "external"
+      reservation_status: "confirmed" | "completed" | "cancelled" | "no_show"
+      schedule_visibility: "public" | "selected" | "private"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +383,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "internal", "external"],
+      reservation_status: ["confirmed", "completed", "cancelled", "no_show"],
+      schedule_visibility: ["public", "selected", "private"],
+    },
   },
 } as const
