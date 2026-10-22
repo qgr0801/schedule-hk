@@ -18,7 +18,7 @@ import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, ST
 import { STATUS_ORDER, useCardLookups } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
-export function ReservationDialog({ res, onClose }: { res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "limited">>) | null; onClose: () => void }) {
+export function ReservationDialog({ res, onClose }: { res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access">>) | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
@@ -29,7 +29,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
   const [busy, setBusy] = useState(false);
   const history = useQuery({
     queryKey: ["history", res?.id],
-    enabled: !!res && !res.limited,
+    enabled: !!res && !res.access,
     queryFn: async () => {
       const { data, error } = await supabase.from("reservation_history").select("*").eq("reservation_id", res!.id).order("created_at", { ascending: false });
       if (error) throw error;
@@ -38,7 +38,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
   });
   const statusHistory = useQuery({
     queryKey: ["status_history", res?.id],
-    enabled: !!res && !res.limited,
+    enabled: !!res && !res.access,
     queryFn: async () => {
       const { data, error } = await supabase.from("reservation_status_history").select("*").eq("reservation_id", res!.id).order("created_at", { ascending: false });
       if (error) throw error;
@@ -55,21 +55,36 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
     .map((id) => L.category(id))
     .filter((c) => !!c);
 
-  if (res.limited) {
+  if (res.access) {
     return (
       <Dialog open onOpenChange={(o) => !o && onClose()}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">다른 직원 예약 <StatusBadge status={res.status} /></DialogTitle>
+            <DialogTitle className="flex flex-wrap items-center gap-2">
+              {res.access === "pii" ? res.customer_name : "다른 직원 예약"} <StatusBadge status={res.status} />
+              {res.access !== "block" && cats.map((c) => <CategoryBadge key={c!.id} cat={c!} />)}
+            </DialogTitle>
           </DialogHeader>
           <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
-            <dt className="text-muted-foreground">시술</dt><dd>{res.service}</dd>
+            <dt className="text-muted-foreground">예약 항목</dt><dd>{res.public_service}</dd>
+            {res.access !== "block" && (<><dt className="text-muted-foreground">상세 시술</dt><dd>{res.service}</dd></>)}
+            {res.access === "pii" && (<>
+              <dt className="text-muted-foreground">연락처</dt><dd>{res.customer_phone || "-"}</dd>
+              <dt className="text-muted-foreground">메모</dt><dd className="whitespace-pre-wrap">{res.memo || "-"}</dd>
+            </>)}
+            {res.access !== "block" && (<><dt className="text-muted-foreground">등록</dt><dd>{name(res.created_by)}</dd></>)}
             <dt className="text-muted-foreground">일시</dt>
             <dd>{format(new Date(res.start_at), "M월 d일 (EEE) HH:mm", { locale: ko })} – {format(new Date(res.end_at), "HH:mm")}</dd>
             <dt className="text-muted-foreground">담당</dt><dd>{name(res.staff_id ?? res.created_by)}</dd>
             <dt className="text-muted-foreground">섹션</dt><dd>{sectionName || "미지정"}</dd>
           </dl>
-          <p className="text-xs text-muted-foreground">다른 직원의 예약은 예약 현황과 시술 항목만 볼 수 있습니다.</p>
+          <p className="text-xs text-muted-foreground">
+            {res.access === "block"
+              ? "다른 직원의 예약은 시간, 섹션, 공개용 예약 항목, 상태만 표시됩니다."
+              : res.access === "detail"
+                ? "고객 개인정보는 별도 열람 권한이 있어야 볼 수 있습니다."
+                : "열람만 가능하며 수정·취소는 등록자와 관리자만 할 수 있습니다."}
+          </p>
         </DialogContent>
       </Dialog>
     );
@@ -100,6 +115,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
         <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
           <dt className="text-muted-foreground">예약자</dt><dd>{res.customer_name}</dd>
           <dt className="text-muted-foreground">시술</dt><dd>{res.service}</dd>
+          <dt className="text-muted-foreground">공개용</dt><dd>{res.public_service}</dd>
           <dt className="text-muted-foreground">일시</dt>
           <dd>{format(new Date(res.start_at), "M월 d일 (EEE) HH:mm", { locale: ko })} – {format(new Date(res.end_at), "HH:mm")}</dd>
           <dt className="text-muted-foreground">등록</dt><dd>{name(res.created_by)}</dd>

@@ -44,6 +44,9 @@ export const SERVICES = [
   "제모",
 ];
 
+/** Calendar-facing item names shown to other staff instead of the detailed service. */
+export const PUBLIC_SERVICES = ["시술", "상담", "피부 관리", "레이저", "주사 시술", "리프팅", "제모", "기타 예약"];
+
 export type Me = { id: string; email: string; name: string; role: Role };
 
 export const meQuery = queryOptions({
@@ -90,7 +93,10 @@ export const sectionsQuery = queryOptions({
 
 export function dbErrorMessage(e: unknown): string {
   const err = e as { code?: string; message?: string };
-  if (err?.code === "23P01") return "같은 시간대에 이미 예약이 있습니다. 다른 시간을 선택해 주세요.";
+  if (err?.code === "23P01")
+    return err.message?.includes("취소된")
+      ? "취소된 예약의 시간대는 재사용할 수 없도록 설정되어 있습니다."
+      : "같은 담당자 또는 같은 섹션(시술실)에 이미 예약이 있습니다. 다른 시간을 선택해 주세요.";
   if (err?.code === "42501") return "이 작업을 수행할 권한이 없습니다.";
   if (err?.code === "23514") return "종료 시간은 시작 시간보다 늦어야 합니다.";
   return err?.message ?? "오류가 발생했습니다.";

@@ -34,7 +34,7 @@ function CustomersPage() {
   const digits = q.replace(/\D/g, "");
   const list = (customers ?? []).filter(
     (c) =>
-      (!q.trim() || c.name.includes(q.trim()) || (!!digits && (c.phone ?? "").replace(/\D/g, "").includes(digits))) &&
+      (!q.trim() || c.name.includes(q.trim()) || String(c.customer_no) === q.trim().replace(/^No\.?\s*/i, "") || (!!digits && (c.phone ?? "").replace(/\D/g, "").includes(digits))) &&
       (!cat || c.category_id === cat || c.customer_category_tags.some((t) => t.category_id === cat)),
   );
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "-";
@@ -47,7 +47,7 @@ function CustomersPage() {
         action={<Button onClick={() => setEdit("new")}>+ 고객 등록</Button>}
       />
       <div className="mb-4 flex flex-wrap gap-2">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름 또는 전화번호 검색" className="max-w-xs" />
+        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름, 고객번호, 전화번호 검색" className="max-w-xs" />
         <select value={cat} onChange={(e) => setCat(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm" aria-label="고객 구분 필터">
           <option value="">전체 고객 구분</option>
           {L.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
@@ -60,7 +60,7 @@ function CustomersPage() {
             <Panel key={c.id} className="p-4">
               <button className="w-full text-left" onClick={() => setEdit(c)}>
                 <div className="flex items-center justify-between gap-2">
-                  <b>{c.name}</b>
+                  <span><span className="mr-1.5 text-xs text-muted-foreground">No.{c.customer_no}</span><b>{c.name}</b></span>
                   <span className="text-xs text-muted-foreground">{maskPhone(c.phone)}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">

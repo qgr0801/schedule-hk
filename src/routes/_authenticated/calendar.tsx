@@ -62,12 +62,18 @@ function CalendarPage() {
       const [r, s, sh] = await Promise.all([
         supabase.from("reservations").select("*, customer:customers(category_id, customer_category_tags(category_id))").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
         supabase.from("schedules").select("*").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
-        supabase.rpc("shared_reservations", { _from: range.from.toISOString(), _to: range.to.toISOString() }),
+        supabase.rpc("calendar_reservations", { _from: range.from.toISOString(), _to: range.to.toISOString() }),
       ]);
       if (sh.error) throw sh.error;
+      // Other staff's reservations: the server already removed anything this user may not see.
       const shared: ResWithCustomer[] = (sh.data ?? []).map((x) => ({
-        ...x, limited: true, customer_name: "다른 직원 예약", customer_phone: null, memo: null, room: null, customer_id: null,
-        cancel_reason: null, cancelled_at: null, created_at: x.start_at, updated_at: x.start_at, customer: null,
+        id: x.id, created_by: x.created_by, staff_id: x.staff_id, status: x.status, section: x.section, room: x.room,
+        start_at: x.start_at, end_at: x.end_at, public_service: x.public_service,
+        service: x.access === "block" ? x.public_service : (x.service ?? x.public_service),
+        customer_name: x.customer_name ?? "다른 직원 예약", customer_phone: x.customer_phone, memo: x.memo,
+        customer_id: null, cancel_reason: null, cancelled_at: null, created_at: x.start_at, updated_at: x.start_at,
+        access: x.access as ResWithCustomer["access"],
+        customer: x.category_id ? { category_id: x.category_id, customer_category_tags: [] } : null,
       }));
       if (r.error) throw r.error;
       if (s.error) throw s.error;

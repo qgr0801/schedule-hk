@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { cardColors, DEFAULT_CATEGORIES, DEFAULT_STATUS_COLORS, maskPhone, STATUS_ORDER } from "@/lib/display";
-import { LIMITED_FIELDS } from "@/components/ReservationCard";
+import { allowedFields, BLOCK_FIELDS } from "@/components/ReservationCard";
 
 describe("display rules", () => {
   it("masks the middle of a phone number", () => {
@@ -33,11 +33,19 @@ describe("display rules", () => {
     expect(c.background).not.toBe(DEFAULT_STATUS_COLORS.confirmed.bg_color);
   });
 
-  it("shared reservations of other staff never show customer, phone or memo", () => {
-    expect(LIMITED_FIELDS).not.toContain("customer");
-    expect(LIMITED_FIELDS).not.toContain("phone");
-    expect(LIMITED_FIELDS).not.toContain("memo");
-    expect(LIMITED_FIELDS).toContain("service");
-    expect(LIMITED_FIELDS).toContain("status");
+  it("block view of other staff's reservations never shows customer, phone or memo", () => {
+    const all = ["time", "customer", "category", "service", "creator", "staff", "status", "phone", "memo"] as const;
+    const block = allowedFields("block", [...all]);
+    expect(block).not.toContain("customer");
+    expect(block).not.toContain("phone");
+    expect(block).not.toContain("memo");
+    expect(block).not.toContain("category");
+    expect(block).toContain("service");
+    expect(BLOCK_FIELDS).toContain("status");
+  });
+
+  it("detail access still hides personal info", () => {
+    const detail = allowedFields("detail", ["time", "customer", "phone", "memo", "service", "category"]);
+    expect(detail).toEqual(["time", "service", "category"]);
   });
 });
