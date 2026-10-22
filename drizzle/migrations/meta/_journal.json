@@ -50,6 +50,13 @@
       "when": 1792653867987,
       "tag": "0006_customers_read_own_new_rows",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1792657322249,
+      "tag": "0007_staff_menu_field_permissions",
+      "breakpoints": true
     }
   ]
 }
