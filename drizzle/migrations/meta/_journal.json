@@ -71,6 +71,13 @@
       "when": 1792666261406,
       "tag": "0009_profiles_self_admin_read_and_staff_directory",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1792667137538,
+      "tag": "0010_settings_read_active_staff_only",
+      "breakpoints": true
     }
   ]
 }
