@@ -10,6 +10,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel } from "@/components/PageHeader";
+import { ReservationCard, type ResWithCustomer } from "@/components/ReservationCard";
 import { ReservationDialog } from "@/components/ReservationDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import {
   type Reservation, type Schedule, type Visibility,
 } from "@/lib/app";
 import { cn } from "@/lib/utils";
+import { displayQuery, useCardLookups, type CalView, type ColorMode } from "@/lib/display";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({ meta: [{ title: "예약 캘린더 | Schedule HK" }] }),
@@ -28,7 +30,7 @@ export const Route = createFileRoute("/_authenticated/calendar")({
 });
 
 type View = "month" | "week" | "day";
-type Item = { kind: "res"; r: Reservation } | { kind: "sch"; s: Schedule };
+type Item = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
 
 function CalendarPage() {
   const [view, setView] = useState<View>("week");
@@ -38,6 +40,12 @@ function CalendarPage() {
   const [schView, setSchView] = useState<Schedule | null>(null);
   const [secOpen, setSecOpen] = useState(false);
   const [staff, setStaff] = useState("");
+  const [sectionF, setSectionF] = useState("");
+  const [catF, setCatF] = useState("");
+  const [showCancelled, setShowCancelled] = useState(false);
+  const qc = useQueryClient();
+  const L = useCardLookups();
+  const { data: allSections } = useQuery(sectionsQuery);
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
 
@@ -52,18 +60,23 @@ function CalendarPage() {
     queryKey: ["calendar", range.from.toISOString(), range.to.toISOString()],
     queryFn: async () => {
       const [r, s] = await Promise.all([
-        supabase.from("reservations").select("*").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).neq("status", "cancelled").order("start_at"),
+        supabase.from("reservations").select("*, customer:customers(category_id, customer_category_tags(category_id))").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
         supabase.from("schedules").select("*").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
       ]);
       if (r.error) throw r.error;
       if (s.error) throw s.error;
-      return { res: r.data, sch: s.data };
+      return { res: r.data as ResWithCustomer[], sch: s.data };
     },
   });
 
   const items: Item[] = [
-    ...(data?.res ?? []).filter((r) => !staff || r.created_by === staff).map((r) => ({ kind: "res" as const, r })),
-    ...(data?.sch ?? []).filter((s) => !staff || s.owner_id === staff).map((s) => ({ kind: "sch" as const, s })),
+    ...(data?.res ?? [])
+      .filter((r) => showCancelled || r.status !== "cancelled")
+      .filter((r) => !staff || (r.staff_id ?? r.created_by) === staff)
+      .filter((r) => !sectionF || String(r.section ?? "") === sectionF)
+      .filter((r) => !catF || r.customer?.category_id === catF || !!r.customer?.customer_category_tags.some((t) => t.category_id === catF))
+      .map((r) => ({ kind: "res" as const, r })),
+    ...(sectionF || catF ? [] : (data?.sch ?? []).filter((s) => !staff || s.owner_id === staff).map((s) => ({ kind: "sch" as const, s }))),
   ];
   const start = (i: Item) => new Date(i.kind === "res" ? i.r.start_at : i.s.start_at);
   const dayItems = (d: Date) => items.filter((i) => isSameDay(start(i), d)).sort((a, b) => +start(a) - +start(b));
@@ -73,24 +86,28 @@ function CalendarPage() {
   const title =
     view === "month" ? format(cursor, "yyyy년 M월") : view === "week" ? `${format(range.from, "M.d")} – ${format(range.to, "M.d")}` : format(cursor, "M월 d일 (EEE)", { locale: ko });
 
-  const Chip = ({ i, compact }: { i: Item; compact?: boolean }) =>
+  const Chip = ({ i }: { i: Item }) =>
     i.kind === "res" ? (
-      <button onClick={() => setSel(i.r)} className={cn("block w-full truncate rounded-md bg-primary px-2 py-1 text-left text-xs text-primary-foreground", !compact && "py-2")}>
-        <b>{format(new Date(i.r.start_at), "HH:mm")}</b> {i.r.customer_name}
-        {!compact && <span className="block opacity-80">{i.r.service} · {name(i.r.created_by)}</span>}
-      </button>
+      <ReservationCard r={i.r} view="week" name={name} onClick={() => setSel(i.r)} />
     ) : (
-      <button onClick={() => setSchView(i.s)} className={cn("block w-full truncate rounded-md border border-primary/30 bg-accent px-2 py-1 text-left text-xs text-accent-foreground", !compact && "py-2")}>
+      <button onClick={() => setSchView(i.s)} className="block w-full truncate rounded-md border border-primary/30 bg-accent px-2 py-2 text-left text-xs text-accent-foreground">
         <b>{format(new Date(i.s.start_at), "HH:mm")}</b> {i.s.title}
-        {!compact && <span className="block opacity-70">일정 · {name(i.s.owner_id)} · {VIS_LABEL[i.s.visibility]}</span>}
+        <span className="block opacity-70">일정 · {name(i.s.owner_id)} · {VIS_LABEL[i.s.visibility]}</span>
       </button>
     );
+  const mode = L.display(view).color_mode;
+  async function setMode(m: ColorMode) {
+    const { error } = await supabase.from("calendar_display_settings").update({ color_mode: m }).eq("view", view);
+    if (error) { toast.error(dbErrorMessage(error)); return; }
+    qc.invalidateQueries({ queryKey: displayQuery.queryKey });
+  }
+  const selCls = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 
   return (
     <div>
       <PageHeader
         title="캘린더"
-        desc="예약(진한 네이비)과 일반 일정(연한 네이비)을 권한에 맞게 표시합니다."
+        desc="카드 배경은 예약 상태, 왼쪽 띠는 담당자, 작은 배지는 고객 구분입니다."
         action={<Button variant="outline" onClick={() => setSchOpen(true)}>+ 일정 추가</Button>}
       />
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -107,11 +124,33 @@ function CalendarPage() {
           <Button size="icon" variant="ghost" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
           <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>오늘</Button>
         </div>
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
         {me?.role !== "external" && (
-          <select value={staff} onChange={(e) => setStaff(e.target.value)} className="ml-auto h-9 rounded-md border border-input bg-background px-3 text-sm">
-            <option value="">전체 직원</option>
+          <select value={staff} onChange={(e) => setStaff(e.target.value)} className={selCls} aria-label="담당자 필터">
+            <option value="">전체 담당자</option>
             {profiles?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
           </select>
+        )}
+        <select value={sectionF} onChange={(e) => setSectionF(e.target.value)} className={selCls} aria-label="섹션 필터">
+          <option value="">전체 섹션</option>
+          {(allSections ?? []).filter((x) => x.active).map((x) => <option key={x.position} value={String(x.position)}>{x.name}</option>)}
+        </select>
+        <select value={catF} onChange={(e) => setCatF(e.target.value)} className={selCls} aria-label="고객 구분 필터">
+          <option value="">전체 고객 구분</option>
+          {L.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+        </select>
+        <label className="flex items-center gap-2 rounded-md border bg-background px-3 py-1.5 text-sm">
+          <Checkbox checked={showCancelled} onCheckedChange={(v) => setShowCancelled(!!v)} /> 취소 예약 표시
+        </label>
+        {me?.role === "admin" && (
+          <div className="ml-auto flex rounded-lg bg-background p-1 shadow-card" role="group" aria-label="색상 보기">
+            {(["status", "staff"] as ColorMode[]).map((m) => (
+              <button key={m} onClick={() => setMode(m)} className={cn("rounded-md px-3 py-1 text-xs", mode === m ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+                {m === "status" ? "상태별 색상" : "담당자별 색상"}
+              </button>
+            ))}
+          </div>
         )}
       </div>
 
@@ -127,11 +166,15 @@ function CalendarPage() {
                 <button key={d.toISOString()} onClick={() => { setCursor(d); setView("day"); }} className={cn("min-h-20 border-b border-r p-1 text-left align-top sm:min-h-28", !isSameMonth(d, cursor) && "bg-muted/60 text-muted-foreground")}>
                   <div className={cn("mb-1 text-xs", isSameDay(d, new Date()) && "inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground")}>{format(d, "d")}</div>
                   <div className="hidden space-y-0.5 sm:block">
-                    {its.slice(0, 3).map((i, k) => (
-                      <div key={k} className={cn("truncate rounded px-1 text-[11px]", i.kind === "res" ? "bg-primary text-primary-foreground" : "bg-accent text-accent-foreground")}>
-                        {format(start(i), "HH:mm")} {i.kind === "res" ? i.r.customer_name : i.s.title}
-                      </div>
-                    ))}
+                    {its.slice(0, 3).map((i, k) =>
+                      i.kind === "res" ? (
+                        <ReservationCard key={k} r={i.r} view="month" name={name} compact />
+                      ) : (
+                        <div key={k} className="truncate rounded bg-accent px-1 text-[11px] text-accent-foreground">
+                          {format(start(i), "HH:mm")} {i.s.title}
+                        </div>
+                      ),
+                    )}
                     {its.length > 3 && <div className="text-[11px] text-muted-foreground">+{its.length - 3}건</div>}
                   </div>
                   {its.length > 0 && <div className="text-[11px] font-semibold text-primary sm:hidden">{its.length}건</div>}
@@ -167,6 +210,7 @@ function CalendarPage() {
           onRes={setSel}
           onSch={setSchView}
           onSettings={() => setSecOpen(true)}
+          sectionFilter={sectionF ? Number(sectionF) : null}
         />
       )}
 
@@ -269,8 +313,9 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
 
 
 function DayBoard({
-  items, date, isAdmin, name, onRes, onSch, onSettings,
+  items, date, isAdmin, name, onRes, onSch, onSettings, sectionFilter,
 }: {
+  sectionFilter: number | null;
   items: Item[];
   date: Date;
   isAdmin: boolean;
@@ -281,7 +326,7 @@ function DayBoard({
 }) {
   const navigate = useNavigate();
   const { data: allSections } = useQuery(sectionsQuery);
-  const sections = (allSections ?? []).filter((s) => s.active);
+  const sections = (allSections ?? []).filter((s) => s.active && (!sectionFilter || s.position === sectionFilter));
   const activeNos = new Set(sections.map((s) => s.position));
   const colOf = (i: Item) => (i.kind === "res" && i.r.section && activeNos.has(i.r.section) ? i.r.section : 0);
   const hasOther = items.some((i) => colOf(i) === 0);
@@ -333,11 +378,7 @@ function DayBoard({
                   <div key={c.key} className="group relative space-y-1 border-r p-1 last:border-r-0">
                     {its.map((i, k) =>
                       i.kind === "res" ? (
-                        <button key={k} onClick={() => onRes(i.r)} className="block w-full rounded-md bg-primary px-2 py-1.5 text-left text-xs text-primary-foreground">
-                          <span className="block opacity-80">{format(startOf(i), "HH:mm")}–{format(endOf(i), "HH:mm")} · {i.r.service}</span>
-                          <span className="block truncate font-semibold">예약자 {i.r.customer_name}</span>
-                          <span className="block truncate opacity-80">담당 {name(i.r.created_by) || "-"}</span>
-                        </button>
+                        <ReservationCard key={k} r={i.r} view="day" name={name} onClick={() => onRes(i.r)} />
                       ) : (
                         <button key={k} onClick={() => onSch(i.s)} className="block w-full rounded-md border border-primary/30 bg-accent px-2 py-1.5 text-left text-xs text-accent-foreground">
                           <span className="block opacity-70">{format(startOf(i), "HH:mm")}–{format(endOf(i), "HH:mm")} · 일정</span>
