@@ -43,8 +43,8 @@ export function CardView({
   categories: Pick<Category, "name" | "color">[];
   creatorName: string;
   staffName: string;
-  compact?: boolean;
-  onClick?: () => void;
+  compact?: boolean | undefined;
+  onClick?: (() => void) | undefined;
 }) {
   const c = cardColors(mode, status, staffColor);
   const has = (f: CardField) => fields.includes(f);
@@ -100,9 +100,9 @@ export function ReservationCard({
   r: ResWithCustomer;
   view: CalView;
   name: (id: string) => string;
-  compact?: boolean;
-  onClick?: () => void;
-  modeOverride?: ColorMode;
+  compact?: boolean | undefined;
+  onClick?: (() => void) | undefined;
+  modeOverride?: ColorMode | undefined;
 }) {
   const L = useCardLookups();
   const d = L.display(view);
