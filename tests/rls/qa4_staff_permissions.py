@@ -40,6 +40,14 @@ try:
     st = json.load(open(state_path))
 except FileNotFoundError:
     st = {}
+    # Re-use the fake QA4 data from an earlier run if it exists.
+    for n in "ABC":
+        _, c = get(A, f"customers?name=eq.QA4가상고객{n}&select=id,customer_no")
+        _, r = get(A, f"reservations?customer_name=eq.QA4가상고객{n}&start_at=gte.2027-01-15T00:00:00%2B09:00&start_at=lte.2027-01-15T23:59:00%2B09:00&select=id")
+        if c and r: st[n] = {"cust": c[0]["id"], "no": c[0]["customer_no"], "res": r[0]["id"]}
+    if len(st) == 3: json.dump(st, open(state_path, "w"))
+if len(st) < 3:
+    st = {}
     for i, (n, t) in enumerate((("A", A), ("B", B), ("C", C))):
         s, c = post(t, "customers?select=id,customer_no", {"name": f"QA4가상고객{n}", "phone": f"010-0000-000{i+1}", "memo": f"QA4 테스트 메모 {n}"})
         assert s == 201, (s, c)
