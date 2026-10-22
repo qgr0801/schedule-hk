@@ -34,7 +34,7 @@ function AppShell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const items = me ? NAV.filter((n) => canMenu(me.role, me.perms, n.key)) : [];
+  const items = me?.active ? NAV.filter((n) => canMenu(me.role, me.perms, n.key)) : [];
   const guard = menuForPath(path);
   const blocked = !!me && !!guard && !canMenu(me.role, me.perms, guard);
   const showFab = !!me && canMenu(me.role, me.perms, "reservation_new") && !path.startsWith("/reservations/new");
@@ -111,6 +111,13 @@ function AppShell() {
             ) : (
               <p className="text-sm text-muted-foreground">계정 정보를 불러오는 중…</p>
             )}
+          </div>
+        ) : !me.active ? (
+          <div className="mx-auto mt-16 max-w-md rounded-xl border bg-card p-8 text-center shadow-card">
+            <Lock className="mx-auto mb-3 h-8 w-8 text-primary" />
+            <h1 className="mb-1 text-lg font-bold text-primary">비활성화된 계정입니다</h1>
+            <p className="mb-4 text-sm text-muted-foreground">관리자가 이 계정의 사용을 중지했습니다. 다시 사용하려면 관리자에게 문의해 주세요.</p>
+            <button onClick={signOut} className="text-sm font-semibold text-primary underline">로그아웃</button>
           </div>
         ) : blocked ? (
           <div className="mx-auto mt-16 max-w-md rounded-xl border bg-card p-8 text-center shadow-card">

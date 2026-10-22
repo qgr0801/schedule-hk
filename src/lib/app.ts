@@ -48,7 +48,7 @@ export const SERVICES = [
 /** Calendar-facing item names shown to other staff instead of the detailed service. */
 export const PUBLIC_SERVICES = ["시술", "피부상담", "성형상담", "피부관리", "바디관리"];
 
-export type Me = { id: string; email: string; name: string; role: Role; perms: Perms };
+export type Me = { id: string; email: string; name: string; role: Role; perms: Perms; active: boolean };
 
 export const meQuery = queryOptions({
   queryKey: ["me"],
@@ -61,7 +61,7 @@ export const meQuery = queryOptions({
     } = await supabase.auth.getUser();
     if (!user) return null;
     const [{ data: p }, { data: r }, { data: s }] = await Promise.all([
-      supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+      supabase.from("profiles").select("full_name, is_active").eq("id", user.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
       supabase.from("staff_view_scopes").select("scope, menus, fields").eq("user_id", user.id).maybeSingle(),
     ]);
@@ -72,12 +72,14 @@ export const meQuery = queryOptions({
       name: p?.full_name || user.email || "",
       role,
       perms: effectivePerms(role, s as Partial<Perms> | null),
+      // Deactivated accounts get no data from the server; the shell shows a notice instead of empty screens.
+      active: p?.is_active !== false,
     };
   },
 });
 
 /** Name-only staff directory (staff_directory RPC); full profile rows are self/admin only. */
-export type StaffProfile = Omit<Profile, "email">;
+export type StaffProfile = Omit<Profile, "email" | "is_test">;
 
 export const profilesQuery = queryOptions({
   queryKey: ["profiles"],
