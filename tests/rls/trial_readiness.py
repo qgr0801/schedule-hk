@@ -81,11 +81,11 @@ check("드래그 이동: 내부 직원이 관리자 예약 이동 불가", s == 
 
 b = res(A, st["B"]["res"])[0]
 s, j = req("PATCH", A, f"reservations?id=eq.{st['A']['res']}", {"start_at": b["start_at"], "end_at": b["end_at"], "staff_id": me["B"]})
-check("중복 방지: 같은 담당자 시간대로 이동 시 서버 거부(23P01)", s == 409 and (j or {}).get("code") == "23P01", f"{s} {(j or {}).get('code')}")
+check("중복 방지: 같은 담당자 시간대로 이동 시 서버 거부(23P01)", s in (400, 409) and (j or {}).get("code") == "23P01", f"{s} {(j or {}).get('code')}")
 s, j = req("POST", A, "rpc/find_overlaps", {"_start": b["start_at"], "_end": b["end_at"], "_staff": me["B"], "_section": None, "_exclude": st["A"]["res"]})
 check("중복 방지: 이동 전 겹침 미리 확인(find_overlaps)", s == 200 and len(j) >= 1, f"{len(j or [])}")
 s, j = req("POST", C, "reservations", {"customer_name": "QA4가상중복", "service": "보톡스", "start_at": b["start_at"], "end_at": b["end_at"], "staff_id": me["B"], "status": "confirmed"})
-check("중복 방지: 다른 직원 담당 시간에 새 예약 등록 거부", s in (409, 403, 401), f"{s} {(j or {}).get('code') if isinstance(j, dict) else j}")
+check("중복 방지: 다른 직원 담당 시간에 새 예약 등록 거부", s in (400, 409) and (j or {}).get("code") == "23P01", f"{s} {(j or {}).get('code') if isinstance(j, dict) else j}")
 check("중복 방지 후 원래 예약 그대로", res(A, st["A"]["res"])[0]["start_at"] != b["start_at"])
 
 fails = [n for r, n in results if r == "실패"]
