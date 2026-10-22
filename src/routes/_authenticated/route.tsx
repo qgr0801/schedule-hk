@@ -1,7 +1,8 @@
 import { createFileRoute, redirect, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, LayoutDashboard, ListChecks, LogOut, PlusCircle, Users, ClipboardList, CalendarCheck2, Contact, Palette, Lock } from "lucide-react";
+import { CalendarDays, LayoutDashboard, ListChecks, LogOut, PlusCircle, Plus, Users, ClipboardList, CalendarCheck2, Contact, Palette, Lock } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { OfflineBanner } from "@/components/OfflineBanner";
 import { meQuery, ROLE_LABEL } from "@/lib/app";
 import { canMenu, menuForPath, type MenuKey } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
@@ -34,6 +35,7 @@ function AppShell() {
   const items = me ? NAV.filter((n) => canMenu(me.role, me.perms, n.key)) : [];
   const guard = menuForPath(path);
   const blocked = !!me && !!guard && !canMenu(me.role, me.perms, guard);
+  const showFab = !!me && canMenu(me.role, me.perms, "reservation_new") && !path.startsWith("/reservations/new");
 
   async function signOut() {
     await qc.cancelQueries();
