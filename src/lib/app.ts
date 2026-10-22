@@ -61,7 +61,7 @@ export const meQuery = queryOptions({
     } = await supabase.auth.getUser();
     if (!user) return null;
     const [{ data: p }, { data: r }, { data: s }] = await Promise.all([
-      supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
+      supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
       supabase.from("staff_view_scopes").select("scope, menus, fields").eq("user_id", user.id).maybeSingle(),
     ]);
@@ -76,12 +76,26 @@ export const meQuery = queryOptions({
   },
 });
 
+/** Columns every signed-in staff member may read; e-mail addresses are admin-only (staffEmailsQuery). */
+export const PROFILE_COLS = "id, full_name, department, is_active, created_at";
+export type StaffProfile = Omit<Profile, "email">;
+
 export const profilesQuery = queryOptions({
   queryKey: ["profiles"],
-  queryFn: async () => {
-    const { data, error } = await supabase.from("profiles").select("*").order("full_name");
+  queryFn: async (): Promise<StaffProfile[]> => {
+    const { data, error } = await supabase.from("profiles").select(PROFILE_COLS).order("full_name");
     if (error) throw error;
     return data;
+  },
+});
+
+/** Staff e-mail addresses: the server returns all of them to admins, only your own to others. */
+export const staffEmailsQuery = queryOptions({
+  queryKey: ["staff_emails"],
+  queryFn: async () => {
+    const { data, error } = await supabase.rpc("staff_emails");
+    if (error) throw error;
+    return new Map(data.map((r) => [r.id, r.email]));
   },
 });
 
