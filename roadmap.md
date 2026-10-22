@@ -39,7 +39,7 @@
 - [x] Re-run scan and regression tests after approved changes
 
 ## Critical 재검토 (no blanket ignore)
-- [ ] List every table/policy in the remaining Critical; separate shared settings vs personal data
-- [ ] Probe PII exposure (customer name/no/phone/memo, staff PII) per role with fake data
-- [ ] Replace "everyone" read rules with a real staff-only rule where possible; keep booking features
-- [ ] Rescan and report whether Critical is gone
+- [x] List every table/policy in the remaining Critical; separate shared settings vs personal data
+- [x] Probe PII exposure (customer name/no/phone/memo, staff PII) per role with fake data
+- [x] Replace "everyone" read rules with a real staff-only rule where possible; keep booking features
+- [x] Rescan and report whether Critical is gone
