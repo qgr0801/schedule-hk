@@ -654,6 +654,7 @@ export type Database = {
         }
         Returns: boolean
       }
+      is_active_staff: { Args: { _user: string }; Returns: boolean }
       is_schedule_owner: {
         Args: { _schedule: string; _user: string }
         Returns: boolean
