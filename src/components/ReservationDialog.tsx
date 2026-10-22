@@ -27,6 +27,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [moving, setMoving] = useState(false);
   const history = useQuery({
     queryKey: ["history", res?.id],
     enabled: !!res && !res.access,
@@ -166,7 +167,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
                     type="button"
                     disabled={busy || current}
                     onClick={() => (s === "cancelled" ? setConfirming(true) : apply(s))}
-                    className={cn("h-10 rounded-md border-2 text-sm font-semibold transition-opacity disabled:cursor-default", current ? "ring-2 ring-offset-1" : "hover:opacity-80")}
+                    className={cn("h-11 rounded-md border-2 text-sm font-semibold transition-opacity disabled:cursor-default", current ? "ring-2 ring-offset-1" : "hover:opacity-80")}
                     style={{ color: c.text_color, background: c.bg_color, borderColor: c.border_color, ["--tw-ring-color" as string]: c.border_color }}
                   >
                     {STATUS_LABEL[s]}{current && " ✓"}
@@ -175,10 +176,18 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
               })}
             </div>
             {canEdit && (
-              <Button asChild size="sm" variant="outline">
-                <Link to="/reservations/new" search={{ id: res.id }}>예약 내용 수정</Link>
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button asChild variant="outline" className="h-11">
+                  <Link to="/reservations/new" search={{ id: res.id }}>예약 수정</Link>
+                </Button>
+                {res.status !== "cancelled" && (
+                  <Button variant="outline" className="h-11" onClick={() => setMoving((m) => !m)} aria-expanded={moving}>
+                    예약 이동
+                  </Button>
+                )}
+              </div>
             )}
+            {moving && canEdit && res.status !== "cancelled" && <MoveForm res={res} onDone={onClose} />}
           </div>
         )}
 

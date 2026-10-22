@@ -240,6 +240,7 @@ function CalendarPage() {
       </div>
 
       {view === "month" && (
+        <div {...swipe}>
         <Panel className="p-0">
           <div className="grid grid-cols-7 border-b text-center text-xs text-muted-foreground">
             {["월", "화", "수", "목", "금", "토", "일"].map((d) => <div key={d} className="py-2">{d}</div>)}
@@ -268,6 +269,7 @@ function CalendarPage() {
             })}
           </div>
         </Panel>
+        </div>
       )}
 
       {view === "week" && (
