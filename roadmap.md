@@ -46,10 +46,11 @@
 
 ## 7일 시범 운영 준비 (2026-10-23~29, uploaded spec)
 - [x] Trial mode + test-data flag; 10 fake customers + 15 fake reservations (10/23~29)
-- [ ] Staff invite by e-mail + set-own-password page + forgot password
-- [ ] Account activate/deactivate (sign-in ban)
-- [ ] Staff name change by admin (user question)
-- [ ] Trial feedback screen (admin)
-- [ ] Test-data badges + trial banner + trial-mode switch
-- [ ] Pre-release checks: dependency scan, quick/deep scan, signed-out block, per-role tests, mobile, backup guide
+- [x] Staff invite by e-mail + set-own-password page + forgot password
+- [x] Account activate/deactivate (sign-in ban)
+- [x] Staff name change by admin (user question)
+- [x] Trial feedback screen (admin)
+- [x] Test-data badges + trial banner + trial-mode switch
+- [x] Pre-release checks: dependency scan, quick/deep scan, signed-out block, per-role tests, mobile, backup guide
 - [ ] Test-data reset: not built — only on admin request
+- [ ] Invite e-mail links only work after publishing (user approval needed); deep scan re-run after today's changes
