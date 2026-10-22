@@ -19,10 +19,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
   dbErrorMessage, MAX_SECTIONS, meQuery, profilesQuery, sectionsQuery, VIS_LABEL,
-  type Reservation, type Schedule, type Visibility,
+  type Schedule, type Visibility,
 } from "@/lib/app";
 import { cn } from "@/lib/utils";
-import { displayQuery, useCardLookups, type CalView, type ColorMode } from "@/lib/display";
+import { displayQuery, useCardLookups, type ColorMode } from "@/lib/display";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({ meta: [{ title: "예약 캘린더 | Schedule HK" }] }),
@@ -35,7 +35,7 @@ type Item = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
 function CalendarPage() {
   const [view, setView] = useState<View>("week");
   const [cursor, setCursor] = useState(new Date());
-  const [sel, setSel] = useState<Reservation | null>(null);
+  const [sel, setSel] = useState<ResWithCustomer | null>(null);
   const [schOpen, setSchOpen] = useState(false);
   const [schView, setSchView] = useState<Schedule | null>(null);
   const [secOpen, setSecOpen] = useState(false);
@@ -320,7 +320,7 @@ function DayBoard({
   date: Date;
   isAdmin: boolean;
   name: (id: string) => string;
-  onRes: (r: Reservation) => void;
+  onRes: (r: ResWithCustomer) => void;
   onSch: (s: Schedule) => void;
   onSettings: () => void;
 }) {
