@@ -14,6 +14,125 @@ export type Database = {
   }
   public: {
     Tables: {
+      calendar_display_settings: {
+        Row: {
+          color_mode: string
+          fields: string[]
+          updated_at: string
+          view: string
+        }
+        Insert: {
+          color_mode?: string
+          fields?: string[]
+          updated_at?: string
+          view: string
+        }
+        Update: {
+          color_mode?: string
+          fields?: string[]
+          updated_at?: string
+          view?: string
+        }
+        Relationships: []
+      }
+      customer_categories: {
+        Row: {
+          color: string
+          id: string
+          name: string
+          position: number
+          slot: number
+          updated_at: string
+        }
+        Insert: {
+          color: string
+          id?: string
+          name: string
+          position: number
+          slot: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string
+          id?: string
+          name?: string
+          position?: number
+          slot?: number
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      customer_category_tags: {
+        Row: {
+          category_id: string
+          customer_id: string
+        }
+        Insert: {
+          category_id: string
+          customer_id: string
+        }
+        Update: {
+          category_id?: string
+          customer_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customer_category_tags_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "customer_categories"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "customer_category_tags_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      customers: {
+        Row: {
+          category_id: string | null
+          created_at: string
+          created_by: string
+          id: string
+          memo: string | null
+          name: string
+          phone: string | null
+          updated_at: string
+        }
+        Insert: {
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          memo?: string | null
+          name: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category_id?: string | null
+          created_at?: string
+          created_by?: string
+          id?: string
+          memo?: string | null
+          name?: string
+          phone?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "customers_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "customer_categories"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       day_sections: {
         Row: {
           active: boolean
@@ -100,6 +219,71 @@ export type Database = {
           },
         ]
       }
+      reservation_status_history: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          from_status: Database["public"]["Enums"]["reservation_status"] | null
+          id: string
+          owner_id: string
+          reason: string | null
+          reservation_id: string
+          to_status: Database["public"]["Enums"]["reservation_status"]
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: Database["public"]["Enums"]["reservation_status"] | null
+          id?: string
+          owner_id: string
+          reason?: string | null
+          reservation_id: string
+          to_status: Database["public"]["Enums"]["reservation_status"]
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          from_status?: Database["public"]["Enums"]["reservation_status"] | null
+          id?: string
+          owner_id?: string
+          reason?: string | null
+          reservation_id?: string
+          to_status?: Database["public"]["Enums"]["reservation_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "reservation_status_history_reservation_id_fkey"
+            columns: ["reservation_id"]
+            isOneToOne: false
+            referencedRelation: "reservations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      reservation_status_settings: {
+        Row: {
+          bg_color: string
+          border_color: string
+          status: Database["public"]["Enums"]["reservation_status"]
+          text_color: string
+          updated_at: string
+        }
+        Insert: {
+          bg_color: string
+          border_color: string
+          status: Database["public"]["Enums"]["reservation_status"]
+          text_color: string
+          updated_at?: string
+        }
+        Update: {
+          bg_color?: string
+          border_color?: string
+          status?: Database["public"]["Enums"]["reservation_status"]
+          text_color?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       reservation_view_grants: {
         Row: {
           created_at: string
@@ -127,6 +311,7 @@ export type Database = {
           cancelled_at: string | null
           created_at: string
           created_by: string
+          customer_id: string | null
           customer_name: string
           customer_phone: string | null
           end_at: string
@@ -135,6 +320,7 @@ export type Database = {
           room: string | null
           section: number | null
           service: string
+          staff_id: string | null
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
           updated_at: string
@@ -144,6 +330,7 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           created_by?: string
+          customer_id?: string | null
           customer_name: string
           customer_phone?: string | null
           end_at: string
@@ -152,6 +339,7 @@ export type Database = {
           room?: string | null
           section?: number | null
           service: string
+          staff_id?: string | null
           start_at: string
           status?: Database["public"]["Enums"]["reservation_status"]
           updated_at?: string
@@ -161,6 +349,7 @@ export type Database = {
           cancelled_at?: string | null
           created_at?: string
           created_by?: string
+          customer_id?: string | null
           customer_name?: string
           customer_phone?: string | null
           end_at?: string
@@ -169,17 +358,32 @@ export type Database = {
           room?: string | null
           section?: number | null
           service?: string
+          staff_id?: string | null
           start_at?: string
           status?: Database["public"]["Enums"]["reservation_status"]
           updated_at?: string
         }
         Relationships: [
           {
+            foreignKeyName: "reservations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "reservations_section_fkey"
             columns: ["section"]
             isOneToOne: false
             referencedRelation: "day_sections"
             referencedColumns: ["position"]
+          },
+          {
+            foreignKeyName: "reservations_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -239,6 +443,32 @@ export type Database = {
         }
         Relationships: []
       }
+      staff_color_settings: {
+        Row: {
+          color: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_color_settings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -262,6 +492,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_edit_customer: {
+        Args: { _customer: string; _user: string }
+        Returns: boolean
+      }
+      can_view_customer: {
+        Args: { _customer: string; _viewer: string }
+        Returns: boolean
+      }
       can_view_owner: {
         Args: { _owner: string; _viewer: string }
         Returns: boolean
@@ -281,6 +519,7 @@ export type Database = {
         Args: { _schedule: string; _user: string }
         Returns: boolean
       }
+      suggest_staff_color: { Args: { _n: number }; Returns: string }
     }
     Enums: {
       app_role: "admin" | "internal" | "external"

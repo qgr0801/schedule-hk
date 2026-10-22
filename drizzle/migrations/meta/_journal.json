@@ -22,6 +22,13 @@
       "when": 1792651667037,
       "tag": "0002_status_enum_pending_changed",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792651717302,
+      "tag": "0003_colors_categories_display",
+      "breakpoints": true
     }
   ]
 }
