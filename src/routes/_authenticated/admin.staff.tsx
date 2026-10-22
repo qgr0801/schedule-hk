@@ -1,10 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { UserPlus } from "lucide-react";
-import { useEffect, useState } from "react";
+import { MoreHorizontal, Search, UserPlus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel } from "@/components/PageHeader";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
@@ -13,80 +12,45 @@ import {
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import {
+  DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { cn } from "@/lib/utils";
-import { dbErrorMessage, meQuery, profilesQuery, ROLE_LABEL, staffEmailsQuery, type Role } from "@/lib/app";
-import { PUBLIC_APP_URL, staffAppOrigin } from "@/lib/app-url";
+import { StaffEditDialog, type EditTab } from "@/components/staff/StaffEditDialog";
 import {
-  describePerms, effectivePerms, FIELDS, MENUS, ROLE_CODE, SCOPE_LABEL, TEMPLATES,
-  type FieldKey, type MenuKey, type Perms, type Scope,
-} from "@/lib/permissions";
-import { inviteStaff, renameStaff, resendSetupLink, setStaffActive, staffAccounts } from "@/lib/staff.functions";
+  accountsQuery, describeLog, permissionLogQuery, refreshStaff, rolesQuery, scopesQuery, staffProfilesQuery, type StaffRow,
+} from "@/components/staff/staff-data";
+import { cn } from "@/lib/utils";
+import { meQuery, ROLE_LABEL, staffEmailsQuery, type Role } from "@/lib/app";
+import { PUBLIC_APP_URL, staffAppOrigin } from "@/lib/app-url";
+import { effectivePerms, ROLE_CODE, SCOPE_LABEL, type Perms } from "@/lib/permissions";
+import { ACCOUNT_LABEL } from "@/lib/staff-rules";
+import { inviteStaff, setStaffActive } from "@/lib/staff.functions";
 
-function RenameDialog({ target, onClose }: { target: { id: string; name: string } | null; onClose: () => void }) {
-  const qc = useQueryClient();
-  const [name, setName] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => { if (target) setName(target.name); }, [target]);
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!target) return;
-    setBusy(true);
-    try {
-      await renameStaff({ data: { userId: target.id, fullName: name } });
-      toast.success(`이름을 '${name.trim()}'(으)로 바꿨습니다.`);
-      qc.invalidateQueries({ queryKey: profilesQuery.queryKey });
-      qc.invalidateQueries({ queryKey: ["me"] });
-      onClose();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "이름을 바꾸지 못했습니다.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-w-sm">
-        <DialogHeader>
-          <DialogTitle>직원 이름 변경</DialogTitle>
-          <DialogDescription>캘린더와 예약 카드에 보이는 이름이 함께 바뀝니다. 예약 기록은 그대로 남습니다.</DialogDescription>
-        </DialogHeader>
-        <form onSubmit={submit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="rename">이름</Label>
-            <Input id="rename" required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} className="h-11 text-base" />
-          </div>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>취소</Button>
-            <Button type="submit" disabled={busy || !name.trim() || name.trim() === target?.name}>저장</Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
-  );
-}
+const ROLE_DESC: Record<Role, string> = {
+  admin: "모든 예약·고객 정보, 직원·설정 관리 (관리자끼리 권한 동일)",
+  internal: "본인 예약 상세 + 관리자가 허용한 추가 권한",
+  external: "본인 예약만 상세 열람·수정·취소",
+};
 
 function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [role, setRole] = useState<"internal" | "external">("internal");
+  const [role, setRole] = useState<Role>("internal");
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (open) { setName(""); setEmail(""); setRole("internal"); } }, [open]);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (role === "admin" && !confirm(`${name}님을 최고 관리자(ADMIN)로 초대할까요? 모든 예약·고객 정보와 직원 관리 권한을 갖게 됩니다.`)) return;
     setBusy(true);
     try {
       await inviteStaff({ data: { email, fullName: name, role, redirectTo: `${staffAppOrigin()}/set-password` } });
       toast.success(`${name}님에게 초대 메일을 보냈습니다. 메일의 링크에서 비밀번호를 정하면 바로 로그인할 수 있습니다.`);
-      qc.invalidateQueries({ queryKey: profilesQuery.queryKey });
-      qc.invalidateQueries({ queryKey: ["roles"] });
-      qc.invalidateQueries({ queryKey: ["scopes"] });
-      qc.invalidateQueries({ queryKey: ["staff_accounts"] });
-      qc.invalidateQueries({ queryKey: staffEmailsQuery.queryKey });
+      refreshStaff(qc);
       onClose();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "초대 메일을 보내지 못했습니다.");
@@ -104,7 +68,7 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="inv-name">이름</Label>
+            <Label htmlFor="inv-name">이름 (표시명)</Label>
             <Input id="inv-name" required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} className="h-11 text-base" />
           </div>
           <div className="space-y-2">
@@ -113,19 +77,17 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
           </div>
           <div className="space-y-2">
             <div className="text-sm font-medium">역할</div>
-            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="역할">
-              {(["internal", "external"] as const).map((r) => (
+            <div className="grid gap-2" role="radiogroup" aria-label="역할">
+              {(["internal", "external", "admin"] as const).map((r) => (
                 <button key={r} type="button" role="radio" aria-checked={role === r} onClick={() => setRole(r)} className={cn("rounded-lg border p-3 text-left text-sm", role === r && "border-primary bg-accent")}>
-                  <b className={cn(role === r && "text-primary")}>{ROLE_LABEL[r]}</b>
-                  <span className="mt-1 block text-xs text-muted-foreground">
-                    {r === "internal" ? "본인 예약 상세 + 관리자가 허용한 추가 권한" : "본인 예약만 상세 열람·수정·취소"}
-                  </span>
+                  <b className={cn(role === r && "text-primary")}>{ROLE_CODE[r]} · {ROLE_LABEL[r]}</b>
+                  <span className="mt-1 block text-xs text-muted-foreground">{ROLE_DESC[r]}</span>
                 </button>
               ))}
             </div>
           </div>
           <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-            메일의 링크는 {PUBLIC_APP_URL.replace("https://", "")} 로 연결됩니다. 사이트를 게시한 뒤에 초대해 주세요. 시작 권한은 '기본 직원' 템플릿이며, 초대 후 이 화면에서 바꿀 수 있습니다.
+            메일의 링크는 {PUBLIC_APP_URL.replace("https://", "")} 로 연결되고 24시간 동안 유효합니다. STAFF·EXTERNAL은 '기본 직원' 권한으로 시작하며 초대 후 바꿀 수 있습니다.
           </p>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>취소</Button>
@@ -142,366 +104,235 @@ export const Route = createFileRoute("/_authenticated/admin/staff")({
   component: StaffPage,
 });
 
+type RoleFilter = "all" | Role | "test";
+
 function StaffPage() {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
-  const { data: profiles } = useQuery(profilesQuery);
   const isAdmin = me?.role === "admin";
+  const { data: staff } = useQuery({ ...staffProfilesQuery, enabled: isAdmin });
   const { data: emails } = useQuery({ ...staffEmailsQuery, enabled: isAdmin });
-  const { data: roles } = useQuery({
-    queryKey: ["roles"], enabled: isAdmin,
-    queryFn: async () => (await supabase.from("user_roles").select("*")).data ?? [],
-  });
-  const { data: grants } = useQuery({
-    queryKey: ["grants"], enabled: isAdmin,
-    queryFn: async () => (await supabase.from("reservation_view_grants").select("*")).data ?? [],
-  });
-  const { data: scopes } = useQuery({
-    queryKey: ["scopes"], enabled: isAdmin,
-    queryFn: async () => (await supabase.from("staff_view_scopes").select("*")).data ?? [],
-  });
-  const { data: log } = useQuery({
-    queryKey: ["permission_log"], enabled: isAdmin,
-    queryFn: async () => {
-      const { data, error } = await supabase.from("staff_permission_log").select("*").order("created_at", { ascending: false }).limit(200);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: accounts } = useQuery({
-    queryKey: ["staff_accounts"], enabled: isAdmin,
-    queryFn: () => staffAccounts(),
-  });
+  const { data: roles } = useQuery({ ...rolesQuery, enabled: isAdmin });
+  const { data: scopes } = useQuery({ ...scopesQuery, enabled: isAdmin });
+  const { data: log } = useQuery({ ...permissionLogQuery, enabled: isAdmin });
+  const { data: accounts } = useQuery({ ...accountsQuery, enabled: isAdmin });
 
   const [tab, setTab] = useState("list");
-  const [selId, setSelId] = useState<string>("");
-  const [draft, setDraft] = useState<Perms | null>(null);
+  const [q, setQ] = useState("");
+  const [filter, setFilter] = useState<RoleFilter>("all");
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
-  const [pendingActive, setPendingActive] = useState<{ id: string; name: string; active: boolean } | null>(null);
-  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editTab, setEditTab] = useState<EditTab>("info");
 
   const roleOf = (id: string) => (roles?.find((r) => r.user_id === id)?.role ?? "external") as Role;
-  const savedOf = (id: string) => effectivePerms(roleOf(id), scopes?.find((s) => s.user_id === id) as Partial<Perms> | undefined);
-  const staffList = (profiles ?? []).filter((p) => roleOf(p.id) !== "admin");
-  const sel = staffList.find((p) => p.id === selId) ?? staffList[0];
-  const selRole = sel ? roleOf(sel.id) : "external";
+  const savedOf = (id: string): Perms => effectivePerms(roleOf(id), scopes?.find((s) => s.user_id === id) as Partial<Perms> | undefined);
+  const accountOf = (id: string) => accounts?.find((a) => a.id === id);
+  const nameOf = (id: string | null) => (id ? staff?.find((p) => p.id === id)?.full_name ?? "삭제된 계정" : "시스템");
 
-  useEffect(() => { setDraft(null); }, [sel?.id]);
+  const rows = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    return (staff ?? []).filter((p) => {
+      if (filter === "test" ? !p.is_test : filter !== "all" && roleOf(p.id) !== filter) return false;
+      if (!needle) return true;
+      return p.full_name.toLowerCase().includes(needle) || (emails?.get(p.id) ?? "").toLowerCase().includes(needle) || (p.department ?? "").toLowerCase().includes(needle);
+    });
+  }, [staff, emails, roles, q, filter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (me && !isAdmin) return <Panel>관리자만 접근할 수 있습니다.</Panel>;
-  if (!me || !roles || !scopes || !profiles) return <Panel>불러오는 중…</Panel>;
+  if (!me || !roles || !scopes || !staff) return <Panel>불러오는 중…</Panel>;
 
-  const cur: Perms = draft ?? (sel ? savedOf(sel.id) : effectivePerms("external", null));
-  const dirty = !!draft && !!sel && JSON.stringify(effectivePerms(selRole, draft)) !== JSON.stringify(savedOf(sel.id));
-  const nameOf = (id: string | null) => (id ? profiles.find((p) => p.id === id)?.full_name ?? "알 수 없음" : "시스템");
+  const pickable = (p: StaffRow) => p.id !== me.id && p.is_active;
+  const pickedRows = staff.filter((p) => picked.has(p.id) && pickable(p));
+  const allPicked = rows.filter(pickable).length > 0 && rows.filter(pickable).every((p) => picked.has(p.id));
+  const editTarget = staff.find((p) => p.id === editId) ?? null;
+  const open = (id: string, t: EditTab) => { setEditId(id); setEditTab(t); };
+  const counts = {
+    all: staff.length,
+    admin: staff.filter((p) => roleOf(p.id) === "admin").length,
+    internal: staff.filter((p) => roleOf(p.id) === "internal").length,
+    external: staff.filter((p) => roleOf(p.id) === "external").length,
+    test: staff.filter((p) => p.is_test).length,
+  };
 
-  async function changeRole(id: string, role: Role) {
-    if (id === me?.id) { toast.error("본인의 관리자 권한은 변경할 수 없습니다."); return; }
-    const { error } = await supabase.from("user_roles").update({ role }).eq("user_id", id);
-    if (error) { toast.error(dbErrorMessage(error)); return; }
-    toast.success("역할이 변경되었습니다.");
-    qc.invalidateQueries({ queryKey: ["roles"] });
-    qc.invalidateQueries({ queryKey: ["permission_log"] });
-  }
-  async function save() {
-    if (!sel) return;
-    const p = effectivePerms(selRole, cur);
+  async function bulkDeactivate() {
     setBusy(true);
-    const { error } = await supabase.from("staff_view_scopes").upsert(
-      { user_id: sel.id, scope: p.scope, menus: p.menus, fields: p.fields, updated_at: new Date().toISOString() },
-      { onConflict: "user_id" },
-    );
+    const failed: string[] = [];
+    for (const p of pickedRows) {
+      try {
+        await setStaffActive({ data: { userId: p.id, active: false } });
+      } catch (e) {
+        failed.push(`${p.full_name}: ${e instanceof Error ? e.message : "실패"}`);
+      }
+    }
     setBusy(false);
-    if (error) { toast.error(dbErrorMessage(error)); return; }
-    toast.success(`${sel.full_name}님의 권한을 저장했습니다. 다음 조회부터 바로 적용됩니다.`);
-    setDraft(null);
-    qc.invalidateQueries({ queryKey: ["scopes"] });
-    qc.invalidateQueries({ queryKey: ["permission_log"] });
-  }
-  async function toggleGrant(viewer: string, owner: string, on: boolean) {
-    const { error } = on
-      ? await supabase.from("reservation_view_grants").insert({ viewer_id: viewer, owner_id: owner })
-      : await supabase.from("reservation_view_grants").delete().eq("viewer_id", viewer).eq("owner_id", owner);
-    if (error) { toast.error(dbErrorMessage(error)); return; }
-    qc.invalidateQueries({ queryKey: ["grants"] });
-    qc.invalidateQueries({ queryKey: ["permission_log"] });
-  }
-  const edit = (patch: Partial<Perms>) => setDraft({ ...cur, ...patch });
-  const toggle = <T extends string>(list: T[], key: T, on: boolean) => (on ? [...new Set([...list, key])] : list.filter((k) => k !== key));
-
-  const picker = sel && (
-    <Panel className="mb-4 space-y-3">
-      <div className="flex flex-wrap items-center gap-3">
-        <label className="text-sm font-medium text-primary" htmlFor="staff-pick">직원 선택</label>
-        <select id="staff-pick" value={sel.id} onChange={(e) => setSelId(e.target.value)} className="h-9 min-w-48 rounded-md border border-input bg-background px-3 text-sm">
-          {staffList.map((p) => <option key={p.id} value={p.id}>{p.full_name} · {ROLE_CODE[roleOf(p.id)]}</option>)}
-        </select>
-        <div className="ml-auto flex items-center gap-2">
-          {dirty && <span className="text-xs font-medium text-destructive">저장하지 않은 변경</span>}
-          <Button variant="outline" size="sm" disabled={!dirty} onClick={() => setDraft(null)}>되돌리기</Button>
-          <Button size="sm" disabled={!dirty || busy} onClick={save}>저장</Button>
-        </div>
-      </div>
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">기본 권한 템플릿</span>
-        {TEMPLATES.map((t) => (
-          <button key={t.key} type="button" title={t.desc} onClick={() => setDraft({ ...t.perms })} className="rounded-full border px-3 py-1 text-xs hover:border-primary hover:text-primary">
-            {t.label}
-          </button>
-        ))}
-      </div>
-    </Panel>
-  );
-
-  async function resend(id: string, fullName: string) {
-    setBusy(true);
-    try {
-      const r = await resendSetupLink({ data: { userId: id, redirectTo: `${staffAppOrigin()}/set-password` } });
-      toast.success(r.kind === "invite"
-        ? `${fullName}님에게 초대 메일을 다시 보냈습니다.`
-        : `${fullName}님에게 비밀번호 설정 메일을 보냈습니다. 메일의 링크에서 비밀번호를 정하면 됩니다.`);
-      qc.invalidateQueries({ queryKey: ["staff_accounts"] });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "메일을 보내지 못했습니다.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function confirmActive() {
-    if (!pendingActive) return;
-    setBusy(true);
-    try {
-      await setStaffActive({ data: { userId: pendingActive.id, active: pendingActive.active } });
-      toast.success(pendingActive.active ? `${pendingActive.name}님 계정을 활성화했습니다.` : `${pendingActive.name}님 계정을 비활성화했습니다. 이제 로그인할 수 없습니다.`);
-      setPendingActive(null);
-      qc.invalidateQueries({ queryKey: ["staff_accounts"] });
-      qc.invalidateQueries({ queryKey: profilesQuery.queryKey });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "계정 상태를 바꾸지 못했습니다.");
-    } finally {
-      setBusy(false);
-    }
+    setBulkOpen(false);
+    setPicked(new Set());
+    refreshStaff(qc);
+    if (failed.length) toast.error(`일부 계정을 비활성화하지 못했습니다.\n${failed.join("\n")}`);
+    else toast.success(`${pickedRows.length}개 계정을 비활성화했습니다.`);
   }
 
   return (
     <div>
       <PageHeader
         title="직원 권한 설정"
-        desc="직원별로 메뉴, 예약 열람 범위, 다른 직원 예약에서 볼 수 있는 정보를 정합니다. 모든 제한은 서버에서도 적용됩니다."
+        desc="직원 정보·역할·메뉴·예약 열람 범위와 계정 상태를 관리합니다. 모든 제한은 서버에서도 적용됩니다."
         action={<Button onClick={() => setInviteOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" />직원 초대</Button>}
       />
       <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
-      <RenameDialog target={renaming} onClose={() => setRenaming(null)} />
-      <AlertDialog open={!!pendingActive} onOpenChange={(o) => !o && setPendingActive(null)}>
+      {editTarget && (
+        <StaffEditDialog
+          target={editTarget}
+          tab={editTab}
+          onTab={setEditTab}
+          onClose={() => setEditId(null)}
+          meId={me.id}
+          email={emails?.get(editTarget.id)}
+          role={roleOf(editTarget.id)}
+          saved={savedOf(editTarget.id)}
+          state={accountOf(editTarget.id)?.state}
+          lastSignInAt={accountOf(editTarget.id)?.lastSignInAt}
+          invitedAt={accountOf(editTarget.id)?.invitedAt}
+          staff={staff}
+          log={log ?? []}
+          nameOf={nameOf}
+        />
+      )}
+      <AlertDialog open={bulkOpen} onOpenChange={setBulkOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{pendingActive?.name}님 계정을 {pendingActive?.active ? "활성화" : "비활성화"}할까요?</AlertDialogTitle>
+            <AlertDialogTitle>선택한 {pickedRows.length}개 계정을 비활성화할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingActive?.active
-                ? "다시 로그인할 수 있게 되고, 기존 권한 설정이 그대로 적용됩니다."
-                : "더 이상 로그인할 수 없습니다. 이미 열려 있는 화면도 최대 1시간 안에 접속이 끊깁니다. 이 직원이 등록한 예약과 기록은 그대로 남습니다."}
+              {pickedRows.map((p) => p.full_name).join(", ")} — 로그인과 데이터 조회가 즉시 막힙니다. 계정과 예약·고객·이력은 삭제되지 않으며 언제든 다시 활성화할 수 있습니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>취소</AlertDialogCancel>
-            <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); void confirmActive(); }}>
-              {pendingActive?.active ? "활성화" : "비활성화"}
+            <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); void bulkDeactivate(); }}>
+              {busy ? "처리 중…" : "비활성화"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4 h-auto flex-wrap justify-start">
           <TabsTrigger value="list">직원 목록</TabsTrigger>
-          <TabsTrigger value="menus">메뉴 접근 권한</TabsTrigger>
-          <TabsTrigger value="scope">예약 열람 범위</TabsTrigger>
-          <TabsTrigger value="fields">예약 정보 표시 권한</TabsTrigger>
-          <TabsTrigger value="log">권한 변경 기록</TabsTrigger>
+          <TabsTrigger value="log">전체 변경 기록</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list">
+        <TabsContent value="list" className="space-y-3">
+          <Panel className="flex flex-wrap items-center gap-2 p-3">
+            <div className="relative min-w-52 flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름·이메일·부서 검색" className="h-10 pl-9" aria-label="직원 검색" />
+            </div>
+            <div className="flex flex-wrap gap-1" role="group" aria-label="역할 필터">
+              {([["all", "전체"], ["admin", "관리자"], ["internal", "내부 직원"], ["external", "외부 직원"], ["test", "테스트 계정"]] as const).map(([k, label]) => (
+                <button key={k} type="button" onClick={() => setFilter(k)} aria-pressed={filter === k}
+                  className={cn("rounded-full border px-3 py-1.5 text-xs", filter === k ? "border-primary bg-primary text-primary-foreground" : "hover:border-primary")}>
+                  {label} {counts[k]}
+                </button>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" className="ml-auto" disabled={!pickedRows.length} onClick={() => setBulkOpen(true)}>
+              선택 비활성화{pickedRows.length ? ` (${pickedRows.length})` : ""}
+            </Button>
+          </Panel>
+
           <Panel className="overflow-x-auto p-0">
-            <table className="w-full min-w-[760px] text-sm">
+            <table className="w-full min-w-[880px] text-sm">
               <thead className="border-b bg-muted/50 text-left text-xs text-muted-foreground">
                 <tr>
-                  <th className="px-4 py-2">직원</th><th className="px-2">역할</th><th className="px-2">계정</th>
-                  <th className="px-2">열람 범위</th><th className="px-2">메뉴</th><th className="px-2">다른 직원 예약 정보</th><th className="px-2" />
+                  <th className="w-10 px-3 py-2">
+                    <Checkbox aria-label="모두 선택" checked={allPicked}
+                      onCheckedChange={(v) => setPicked(v ? new Set(rows.filter(pickable).map((p) => p.id)) : new Set())} />
+                  </th>
+                  <th className="px-2">직원명</th><th className="px-2">이메일</th><th className="px-2">역할</th><th className="px-2">계정 상태</th>
+                  <th className="px-2">예약 열람 범위</th><th className="px-2">메뉴 접근</th><th className="px-3 text-right">관리</th>
                 </tr>
               </thead>
               <tbody>
-                {profiles.map((p) => {
+                {rows.map((p) => {
                   const role = roleOf(p.id);
                   const perms = savedOf(p.id);
+                  const st = accountOf(p.id)?.state;
+                  const off = !p.is_active || st === "disabled";
+                  const self = p.id === me.id;
+                  const inviteOpen = st === "invited" || st === "expired" || st === "pending";
                   return (
-                    <tr key={p.id} className="border-b last:border-0">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <span className="font-semibold">{p.full_name}</span>
-                          <button type="button" onClick={() => setRenaming({ id: p.id, name: p.full_name })} className="text-xs font-medium text-primary underline-offset-2 hover:underline" aria-label={`${p.full_name} 이름 변경`}>
-                            이름 변경
-                          </button>
+                    <tr key={p.id} className={cn("border-b last:border-0", off && "bg-muted/40 text-muted-foreground")}>
+                      <td className="px-3 py-3">
+                        <Checkbox aria-label={`${p.full_name} 선택`} disabled={!pickable(p)} checked={picked.has(p.id)}
+                          onCheckedChange={(v) => setPicked((s) => { const n = new Set(s); if (v) n.add(p.id); else n.delete(p.id); return n; })} />
+                      </td>
+                      <td className="px-2 py-3">
+                        <button type="button" onClick={() => open(p.id, "info")} className="text-left font-semibold text-foreground hover:text-primary">
+                          {p.full_name}{self && <span className="ml-1 text-xs font-normal text-muted-foreground">(나)</span>}
+                        </button>
+                        <div className="flex flex-wrap gap-1 text-xs">
+                          {p.department && <span className="text-muted-foreground">{p.department}</span>}
+                          {p.is_test && <span className="rounded-full border border-dashed px-1.5 text-[11px] text-muted-foreground">테스트</span>}
                         </div>
-                        <div className="text-xs text-muted-foreground">{emails?.get(p.id)}</div>
                       </td>
+                      <td className="px-2 text-xs">{emails?.get(p.id)}</td>
+                      <td className="px-2 text-xs"><b className={cn(role === "admin" && "text-primary")}>{ROLE_CODE[role]}</b></td>
                       <td className="px-2">
-                        <select value={role} disabled={p.id === me.id} onChange={(e) => changeRole(p.id, e.target.value as Role)} className="h-8 rounded-md border border-input bg-background px-2 text-xs" aria-label={`${p.full_name} 역할`}>
-                          {(Object.keys(ROLE_LABEL) as Role[]).map((r) => <option key={r} value={r}>{ROLE_CODE[r]} · {ROLE_LABEL[r]}</option>)}
-                        </select>
-                      </td>
-                      <td className="px-2">
-                        {(() => {
-                          const st = accounts?.find((a) => a.id === p.id)?.state;
-                          const off = !p.is_active || st === "disabled";
-                          return (
-                            <div className="flex flex-wrap items-center gap-1.5">
-                              <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", off ? "bg-muted text-muted-foreground" : st === "invited" ? "border border-primary/40 text-primary" : "bg-accent text-accent-foreground")}>
-                                {off ? "비활성" : st === "invited" ? "초대됨 · 비밀번호 미설정" : "활성"}
-                              </span>
-                              {st === "invited" && !off && (
-                                <button type="button" disabled={busy} onClick={() => resend(p.id, p.full_name)} className="text-xs font-medium text-primary underline-offset-2 hover:underline">
-                                  설정 메일 다시 보내기
-                                </button>
-                              )}
-                              {p.id !== me.id && (
-                                <button type="button" onClick={() => setPendingActive({ id: p.id, name: p.full_name, active: off })} className="text-xs font-medium text-primary underline-offset-2 hover:underline">
-                                  {off ? "활성화" : "비활성화"}
-                                </button>
-                              )}
-                            </div>
-                          );
-                        })()}
+                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium",
+                          off ? "bg-muted text-muted-foreground" : st === "expired" ? "border border-destructive/50 text-destructive" : inviteOpen ? "border border-primary/40 text-primary" : "bg-accent text-accent-foreground")}>
+                          {off ? "비활성" : st ? ACCOUNT_LABEL[st] : "…"}
+                        </span>
                       </td>
                       <td className="px-2 text-xs">{role === "admin" ? "전체 (관리자)" : SCOPE_LABEL[perms.scope]}</td>
                       <td className="px-2 text-xs">{role === "admin" ? "전체" : `${perms.menus.length}개`}</td>
-                      <td className="max-w-56 px-2 text-xs text-muted-foreground">
-                        {role === "admin" ? "전체" : perms.fields.filter((f) => !FIELDS.find((x) => x.key === f)?.fixed).map((f) => FIELDS.find((x) => x.key === f)?.label).join(", ") || "기본 항목만"}
-                      </td>
-                      <td className="px-2 text-right">
-                        {role !== "admin" && (
-                          <Button size="sm" variant="ghost" onClick={() => { setSelId(p.id); setTab("menus"); }}>설정</Button>
-                        )}
+                      <td className="px-3 text-right">
+                        <div className="inline-flex items-center gap-1">
+                          <Button size="sm" variant="outline" onClick={() => open(p.id, "info")}>관리</Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button size="icon" variant="ghost" className="h-8 w-8" aria-label={`${p.full_name} 관리 메뉴`}><MoreHorizontal className="h-4 w-4" /></Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem onSelect={() => open(p.id, "info")}>직원 정보·이름 수정</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => open(p.id, "perms")}>역할·메뉴·열람 권한 변경</DropdownMenuItem>
+                              <DropdownMenuItem onSelect={() => open(p.id, "account")} disabled={self}>{off ? "계정 활성화" : "계정 비활성화"}</DropdownMenuItem>
+                              {inviteOpen && <DropdownMenuItem onSelect={() => open(p.id, "account")}>초대 재발송·취소</DropdownMenuItem>}
+                              <DropdownMenuItem onSelect={() => open(p.id, "log")}>변경 이력</DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem onSelect={() => open(p.id, "account")} disabled={self} className="text-destructive">계정 삭제</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
                       </td>
                     </tr>
                   );
                 })}
+                {rows.length === 0 && (
+                  <tr><td colSpan={8} className="px-4 py-8 text-center text-xs text-muted-foreground">조건에 맞는 직원이 없습니다.</td></tr>
+                )}
               </tbody>
             </table>
           </Panel>
-          <p className="mt-3 text-xs text-muted-foreground">초대한 직원은 고른 역할과 '기본 직원' 템플릿으로 시작합니다. 관리자는 항상 모든 메뉴와 예약을 볼 수 있습니다. 이름을 바꾸면 캘린더·예약 카드의 등록자·담당자 이름도 함께 바뀝니다.</p>
-        </TabsContent>
-
-        <TabsContent value="menus">
-          {picker}
-          {sel && (
-            <Panel>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {MENUS.map((m) => (
-                  <label key={m.key} className={cn("flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm", m.adminOnly && "bg-muted text-muted-foreground")}>
-                    <Checkbox
-                      checked={!m.adminOnly && cur.menus.includes(m.key)}
-                      disabled={m.adminOnly}
-                      onCheckedChange={(v) => edit({ menus: toggle<MenuKey>(cur.menus, m.key, !!v) })}
-                    />
-                    {m.label}
-                    <span className="ml-auto text-xs">{m.adminOnly ? "관리자 전용" : cur.menus.includes(m.key) ? "허용" : "차단"}</span>
-                  </label>
-                ))}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">체크한 메뉴만 사이드바에 보이고, 주소를 직접 입력해도 차단됩니다. 관리자 전용 메뉴는 체크로 열 수 없습니다.</p>
-            </Panel>
-          )}
-        </TabsContent>
-
-        <TabsContent value="scope">
-          {picker}
-          {sel && (
-            <Panel className="space-y-4">
-              {selRole === "external" ? (
-                <p className="rounded-md bg-muted px-3 py-2 text-sm">외부 직원은 <b>본인</b>이 등록한 예약의 상세정보만 볼 수 있도록 고정됩니다.</p>
-              ) : (
-                <>
-                  <div className="grid gap-2 sm:grid-cols-3">
-                    {(["all", "own", "selected"] as Scope[]).map((sc) => (
-                      <button key={sc} type="button" onClick={() => edit({ scope: sc })} className={cn("rounded-lg border p-3 text-left text-sm", cur.scope === sc && "border-primary bg-accent")}>
-                        <div className="font-semibold text-primary">{SCOPE_LABEL[sc]}</div>
-                        <div className="mt-1 text-xs text-muted-foreground">
-                          {sc === "all" ? "모든 예약의 상세 시술 내역과 고객 구분을 봅니다." : sc === "own" ? "본인이 등록한 예약의 상세정보만 봅니다." : "아래에서 고른 직원 예약의 상세 내역을 봅니다."}
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                  {cur.scope === "selected" && (
-                    <div className="flex flex-wrap gap-x-5 gap-y-2 rounded-md bg-muted p-3">
-                      {profiles.filter((o) => o.id !== sel.id).map((o) => {
-                        const on = !!grants?.some((g) => g.viewer_id === sel.id && g.owner_id === o.id);
-                        return (
-                          <label key={o.id} className="flex items-center gap-2 text-sm">
-                            <Checkbox checked={on} onCheckedChange={(v) => toggleGrant(sel.id, o.id, !!v)} /> {o.full_name}
-                          </label>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
-              )}
-              <p className="text-xs text-muted-foreground">본인이 등록한 예약은 범위와 관계없이 상세 열람·수정·취소할 수 있습니다. 고객명·연락처 같은 고객 정보는 '예약 정보 표시 권한'에서 따로 정합니다.</p>
-            </Panel>
-          )}
-        </TabsContent>
-
-        <TabsContent value="fields">
-          {picker}
-          {sel && (
-            <Panel>
-              <div className="grid gap-2 sm:grid-cols-2">
-                {FIELDS.map((f) => {
-                  const locked = f.fixed || (f.pii && selRole === "external");
-                  const on = f.fixed || (cur.fields.includes(f.key) && !(f.pii && selRole === "external"));
-                  return (
-                    <label key={f.key} className={cn("flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm", locked && "bg-muted")}>
-                      <Checkbox checked={on} disabled={locked} onCheckedChange={(v) => edit({ fields: toggle<FieldKey>(cur.fields, f.key, !!v) })} />
-                      {f.label}
-                      <span className="ml-auto text-xs text-muted-foreground">{f.fixed ? "항상 표시" : f.pii && selRole === "external" ? "외부 직원 불가" : on ? "허용" : "차단"}</span>
-                    </label>
-                  );
-                })}
-              </div>
-              <p className="mt-3 text-xs text-muted-foreground">
-                다른 직원이 등록한 예약에 적용됩니다. 체크하지 않은 정보는 서버에서 빼고 보내므로 화면 밖에서 요청해도 보이지 않습니다. 본인 예약은 모든 정보가 보입니다.
-              </p>
-            </Panel>
-          )}
+          <p className="text-xs text-muted-foreground">
+            비활성화하면 로그인과 데이터 조회가 즉시 막히고, 예약·고객·이력은 그대로 남습니다. 영구 삭제는 연결된 기록이 하나도 없는 계정만 가능합니다. 본인 계정과 마지막 관리자는 비활성화·삭제할 수 없습니다.
+          </p>
         </TabsContent>
 
         <TabsContent value="log">
           <Panel className="p-0">
             <ul className="divide-y text-sm">
               {log?.map((l) => {
-                const o = l.old_data as Record<string, unknown> | null;
-                const n = l.new_data as Record<string, unknown> | null;
-                const desc =
-                  l.kind === "role"
-                    ? `역할 ${o?.["role"] ? ROLE_CODE[o["role"] as Role] : "없음"} → ${n?.["role"] ? ROLE_CODE[n["role"] as Role] : "없음"}`
-                    : l.kind === "grant"
-                      ? `${nameOf(String((n ?? o)?.["owner_id"] ?? ""))} 예약 상세 열람 ${n ? "허용" : "해제"}`
-                      : null;
+                const d = describeLog(l, nameOf);
                 return (
                   <li key={l.id} className="px-4 py-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span><b>{nameOf(l.user_id)}</b> <span className="text-muted-foreground">· 변경자 {nameOf(l.changed_by)}</span></span>
+                      <span><b>{nameOf(l.user_id)}</b> · {d.title} <span className="text-muted-foreground">· 변경자 {nameOf(l.changed_by)}</span></span>
                       <span className="text-xs text-muted-foreground">{format(new Date(l.created_at), "yyyy.MM.dd HH:mm:ss")}</span>
                     </div>
-                    {desc ? (
-                      <div className="mt-1 text-xs">{desc}</div>
-                    ) : (
-                      <div className="mt-1 space-y-0.5 text-xs">
-                        <div className="text-muted-foreground">이전: {describePerms(o as Partial<Perms> | null)}</div>
-                        <div>변경: {describePerms(n as Partial<Perms> | null)}</div>
-                      </div>
-                    )}
+                    {d.detail && <div className="mt-1 whitespace-pre-line text-xs text-muted-foreground">{d.detail}</div>}
                   </li>
                 );
               })}
