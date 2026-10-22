@@ -41,7 +41,7 @@ function LoginPage() {
     if (mode === "login") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       setBusy(false);
-      if (error) return toast.error("이메일 또는 비밀번호를 확인해 주세요.");
+      if (error) { toast.error("이메일 또는 비밀번호를 확인해 주세요."); return; }
       navigate({ to: "/dashboard" });
     } else {
       const { error } = await supabase.auth.signUp({
@@ -50,7 +50,7 @@ function LoginPage() {
         options: { emailRedirectTo: window.location.origin, data: { full_name: name } },
       });
       setBusy(false);
-      if (error) return toast.error(error.message);
+      if (error) { toast.error(error.message); return; }
       toast.success("가입 확인 메일을 보냈습니다. 메일의 링크를 눌러 인증해 주세요.");
       setMode("login");
     }

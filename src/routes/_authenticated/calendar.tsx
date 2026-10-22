@@ -180,7 +180,7 @@ function CalendarPage() {
             {(schView.owner_id === me?.id || me?.role === "admin") && (
               <Button variant="destructive" size="sm" className="w-fit" onClick={async () => {
                 const { error } = await supabase.from("schedules").delete().eq("id", schView.id);
-                if (error) return toast.error(dbErrorMessage(error));
+                if (error) { toast.error(dbErrorMessage(error)); return; }
                 setSchView(null);
                 toast.success("일정이 삭제되었습니다.");
               }}>일정 삭제</Button>
@@ -205,16 +205,16 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
   const [shared, setShared] = useState<string[]>([]);
 
   async function save() {
-    if (!title.trim()) return toast.error("제목을 입력해 주세요.");
+    if (!title.trim()) { toast.error("제목을 입력해 주세요."); return; }
     const { data, error } = await supabase
       .from("schedules")
       .insert({ title: title.trim(), memo: memo || null, start_at: new Date(`${date}T${st}`).toISOString(), end_at: new Date(`${date}T${en}`).toISOString(), visibility: vis })
       .select("id")
       .single();
-    if (error) return toast.error(dbErrorMessage(error));
+    if (error) { toast.error(dbErrorMessage(error)); return; }
     if (vis === "selected" && shared.length) {
       const { error: e2 } = await supabase.from("schedule_shares").insert(shared.map((u) => ({ schedule_id: data.id, user_id: u })));
-      if (e2) return toast.error(dbErrorMessage(e2));
+      if (e2) { toast.error(dbErrorMessage(e2)); return; }
     }
     toast.success("일정이 등록되었습니다.");
     qc.invalidateQueries({ queryKey: ["calendar"] });

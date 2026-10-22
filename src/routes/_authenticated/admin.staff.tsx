@@ -29,9 +29,9 @@ function StaffPage() {
   const roleOf = (id: string) => (roles?.find((r) => r.user_id === id)?.role ?? "external") as Role;
 
   async function changeRole(id: string, role: Role) {
-    if (id === me?.id) return toast.error("본인의 관리자 권한은 변경할 수 없습니다.");
+    if (id === me?.id) { toast.error("본인의 관리자 권한은 변경할 수 없습니다."); return; }
     const { error } = await supabase.from("user_roles").update({ role }).eq("user_id", id);
-    if (error) return toast.error(dbErrorMessage(error));
+    if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success("역할이 변경되었습니다.");
     qc.invalidateQueries({ queryKey: ["roles"] });
   }
@@ -39,7 +39,7 @@ function StaffPage() {
     const { error } = on
       ? await supabase.from("reservation_view_grants").insert({ viewer_id: viewer, owner_id: owner })
       : await supabase.from("reservation_view_grants").delete().eq("viewer_id", viewer).eq("owner_id", owner);
-    if (error) return toast.error(dbErrorMessage(error));
+    if (error) { toast.error(dbErrorMessage(error)); return; }
     qc.invalidateQueries({ queryKey: ["grants"] });
   }
 

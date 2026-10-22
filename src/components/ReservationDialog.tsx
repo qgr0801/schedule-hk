@@ -39,14 +39,14 @@ export function ReservationDialog({ res, onClose }: { res: Reservation | null; o
       .from("reservations")
       .update({ status: "cancelled", cancel_reason: reason || null })
       .eq("id", res!.id);
-    if (error) return toast.error(dbErrorMessage(error));
+    if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success("예약이 취소되었습니다. 이력은 보관됩니다.");
     qc.invalidateQueries();
     onClose();
   }
   async function setStatus(status: "completed" | "no_show") {
     const { error } = await supabase.from("reservations").update({ status }).eq("id", res!.id);
-    if (error) return toast.error(dbErrorMessage(error));
+    if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success("상태가 변경되었습니다.");
     qc.invalidateQueries();
     onClose();

@@ -38,7 +38,7 @@ function ReservationForm() {
       return;
     }
     supabase.from("reservations").select("*").eq("id", id).maybeSingle().then(({ data }) => {
-      if (!data) return toast.error("예약을 찾을 수 없거나 열람 권한이 없습니다.");
+      if (!data) { toast.error("예약을 찾을 수 없거나 열람 권한이 없습니다."); return; }
       const s = toLocalInput(data.start_at);
       setF({
         customer_name: data.customer_name, customer_phone: data.customer_phone ?? "", service: data.service,
@@ -51,7 +51,7 @@ function ReservationForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     const parsed = schema.safeParse(f);
-    if (!parsed.success) return toast.error(parsed.error.issues[0].message);
+    if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요"); return; }
     const start = new Date(`${f.date}T${f.start}`);
     const end = new Date(start.getTime() + f.minutes * 60000);
     const payload = { ...parsed.data, customer_phone: parsed.data.customer_phone || null, room: parsed.data.room || null, memo: parsed.data.memo || null, start_at: start.toISOString(), end_at: end.toISOString() };
@@ -60,7 +60,7 @@ function ReservationForm() {
       ? await supabase.from("reservations").update(payload).eq("id", id)
       : await supabase.from("reservations").insert(payload);
     setBusy(false);
-    if (error) return toast.error(dbErrorMessage(error));
+    if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success(id ? "예약이 수정되었습니다." : "예약이 등록되었습니다.");
     qc.invalidateQueries();
     navigate({ to: "/my-reservations" });
