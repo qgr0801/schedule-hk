@@ -28,7 +28,7 @@ export function CategoryBadge({ cat, small }: { cat: Pick<Category, "name" | "co
 export function StatusPill({ status, colors, small }: { status: ResStatus; colors: StatusColor; small?: boolean }) {
   return (
     <span
-      className={cn("inline-block rounded-full border font-semibold", small ? "px-1.5 text-[10px]" : "px-2 py-0.5 text-xs", status === "cancelled" && "line-through")}
+      className={cn("inline-block whitespace-nowrap rounded-full border font-semibold", small ? "px-1.5 text-[10px]" : "px-2 py-0.5 text-xs", status === "cancelled" && "line-through")}
       style={{ color: colors.text_color, background: colors.bg_color, borderColor: colors.border_color }}
     >
       {STATUS_LABEL[status]}
@@ -87,7 +87,7 @@ export function CardView({
         </span>
       ) : (
         <>
-          <span className="flex items-center justify-between gap-1">
+          <span className="flex flex-wrap items-center justify-between gap-1">
             {has("time") ? <b className="shrink-0">{format(new Date(r.start_at), "HH:mm")}–{format(new Date(r.end_at), "HH:mm")}</b> : <span />}
             {showStatus && <StatusPill status={r.status} colors={status} small />}
           </span>
