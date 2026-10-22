@@ -675,6 +675,13 @@ export type Database = {
           status: Database["public"]["Enums"]["reservation_status"]
         }[]
       }
+      staff_emails: {
+        Args: never
+        Returns: {
+          email: string
+          id: string
+        }[]
+      }
       staff_has_field: {
         Args: { _field: string; _user: string }
         Returns: boolean
