@@ -55,23 +55,32 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
 
 function BookingRules() {
   const qc = useQueryClient();
-  const { data } = useQuery({
-    queryKey: ["booking_settings"],
-    queryFn: async () => {
-      const { data, error } = await supabase.from("booking_settings").select("*").maybeSingle();
-      if (error) throw error;
-      return data;
-    },
-  });
+  const { data } = useQuery(bookingSettingsQuery);
   const reusable = data?.cancelled_slot_reusable ?? true;
+  const slot = data?.slot_minutes ?? 30;
   async function set(v: boolean) {
     const { error } = await supabase.from("booking_settings").update({ cancelled_slot_reusable: v }).eq("id", true);
     if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success("예약 규칙이 저장되었습니다.");
-    qc.invalidateQueries({ queryKey: ["booking_settings"] });
+    qc.invalidateQueries({ queryKey: bookingSettingsQuery.queryKey });
+  }
+  async function setSlot(v: number) {
+    const { error } = await supabase.from("booking_settings").update({ slot_minutes: v }).eq("id", true);
+    if (error) { toast.error(dbErrorMessage(error)); return; }
+    toast.success(`캘린더 이동·길이 조절 간격을 ${v}분으로 저장했습니다.`);
+    qc.invalidateQueries({ queryKey: bookingSettingsQuery.queryKey });
   }
   return (
     <div className="space-y-3">
+      <div className="text-sm font-medium">캘린더 드래그 이동·길이 조절 간격</div>
+      <div className="flex flex-wrap gap-2" role="group" aria-label="드래그 간격">
+        {SLOT_OPTIONS.map((v) => (
+          <button key={v} onClick={() => setSlot(v)} className={cn("h-9 rounded-md border px-4 text-sm", slot === v ? "border-primary bg-primary text-primary-foreground" : "bg-background")}>
+            {v}분
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">예약 카드를 끌어 옮기거나 길이를 바꿀 때 이 간격으로 맞춰지고, 최소 예약 시간도 이 간격입니다.</p>
       <div className="text-sm font-medium">취소된 예약의 시간대</div>
       <div className="grid gap-2 sm:grid-cols-2">
         {[true, false].map((v) => (
