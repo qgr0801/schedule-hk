@@ -15,6 +15,27 @@
       "when": 1792648604284,
       "tag": "0001_day_sections",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792651667037,
+      "tag": "0002_status_enum_pending_changed",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1792651717302,
+      "tag": "0003_colors_categories_display",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1792652056132,
+      "tag": "0004_staff_view_scope_limited_sharing",
+      "breakpoints": true
     }
   ]
 }

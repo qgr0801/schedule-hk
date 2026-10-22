@@ -4,12 +4,16 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel } from "@/components/PageHeader";
 import { Checkbox } from "@/components/ui/checkbox";
+import { cn } from "@/lib/utils";
 import { dbErrorMessage, meQuery, profilesQuery, ROLE_LABEL, type Role } from "@/lib/app";
 
 export const Route = createFileRoute("/_authenticated/admin/staff")({
   head: () => ({ meta: [{ title: "직원 권한 설정 | Schedule HK" }] }),
   component: StaffPage,
 });
+
+type Scope = "all" | "own" | "selected";
+const SCOPE_LABEL: Record<Scope, string> = { all: "전체", own: "본인", selected: "선택 직원" };
 
 function StaffPage() {
   const qc = useQueryClient();
@@ -25,6 +29,11 @@ function StaffPage() {
     enabled: me?.role === "admin",
     queryFn: async () => (await supabase.from("reservation_view_grants").select("*")).data ?? [],
   });
+  const { data: scopes } = useQuery({
+    queryKey: ["scopes"],
+    enabled: me?.role === "admin",
+    queryFn: async () => (await supabase.from("staff_view_scopes").select("*")).data ?? [],
+  });
   if (me && me.role !== "admin") return <Panel>관리자만 접근할 수 있습니다.</Panel>;
   const roleOf = (id: string) => (roles?.find((r) => r.user_id === id)?.role ?? "external") as Role;
 
@@ -34,6 +43,13 @@ function StaffPage() {
     if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success("역할이 변경되었습니다.");
     qc.invalidateQueries({ queryKey: ["roles"] });
+  }
+  const scopeOf = (id: string) => (scopes?.find((s) => s.user_id === id)?.scope ?? "selected") as Scope;
+  async function changeScope(id: string, scope: Scope) {
+    const { error } = await supabase.from("staff_view_scopes").upsert({ user_id: id, scope }, { onConflict: "user_id" });
+    if (error) { toast.error(dbErrorMessage(error)); return; }
+    toast.success("열람 범위가 변경되었습니다.");
+    qc.invalidateQueries({ queryKey: ["scopes"] });
   }
   async function toggleGrant(viewer: string, owner: string, on: boolean) {
     const { error } = on
@@ -67,7 +83,21 @@ function StaffPage() {
               </div>
               {role === "internal" && (
                 <div className="mt-4 border-t pt-4">
-                  <div className="mb-2 text-sm font-medium text-primary">열람 허용 직원</div>
+                  <div className="mb-2 flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-primary">예약 열람 범위</span>
+                    <div className="flex rounded-lg bg-muted p-1" role="group" aria-label={`${p.full_name} 열람 범위`}>
+                      {(["all", "own", "selected"] as Scope[]).map((sc) => (
+                        <button key={sc} type="button" onClick={() => changeScope(p.id, sc)} className={cn("rounded-md px-3 py-1 text-xs", scopeOf(p.id) === sc ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+                          {SCOPE_LABEL[sc]}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="mb-2 text-xs text-muted-foreground">
+                    {scopeOf(p.id) === "all" ? "모든 직원의 예약을 볼 수 있습니다." : scopeOf(p.id) === "own" ? "본인 예약만 볼 수 있습니다." : "아래에서 선택한 직원의 예약만 볼 수 있습니다."}
+                    {scopeOf(p.id) !== "own" && " 다른 직원 예약은 예약 현황(시간·상태)과 시술 항목만 보입니다."}
+                  </p>
+                  {scopeOf(p.id) === "selected" && (
                   <div className="flex flex-wrap gap-x-5 gap-y-2">
                     {profiles.filter((o) => o.id !== p.id).map((o) => {
                       const on = !!grants?.some((g) => g.viewer_id === p.id && g.owner_id === o.id);
@@ -78,6 +108,7 @@ function StaffPage() {
                       );
                     })}
                   </div>
+                  )}
                 </div>
               )}
               {role === "external" && <p className="mt-3 text-xs text-muted-foreground">외부 직원은 다른 직원의 예약을 열람할 수 없습니다.</p>}

@@ -15,10 +15,12 @@ export const ROLE_LABEL: Record<Role, string> = {
   external: "외부 직원",
 };
 export const STATUS_LABEL: Record<ResStatus, string> = {
-  confirmed: "예약확정",
-  completed: "시술완료",
-  cancelled: "취소",
+  pending: "예약 대기",
+  confirmed: "예약 확정",
+  completed: "시술 완료",
   no_show: "노쇼",
+  cancelled: "예약 취소",
+  changed: "예약 변경",
 };
 export const VIS_LABEL: Record<Visibility, string> = {
   public: "전체 공개",
