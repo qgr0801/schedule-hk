@@ -12,21 +12,27 @@
 - [x] Calendar drag & drop (long-press not yet tested on a real phone)
 
 ## 시범 운영 준비 (no publish, no real data import without approval)
-- [ ] Login check for admin/internal/external test accounts
-- [ ] Menu + reservation permission check (qa4 script)
-- [ ] Drag move save + overlap prevention check
-- [ ] Signed-out access blocked (tables, RPCs)
-- [ ] Security scan + fixes (anon grants, staff emails hidden)
-- [ ] Ahasoft Excel import: check (not built yet → report)
-- [ ] Backup/restore procedure explanation
-- [ ] Share/publish guidance (no publish)
+- [x] Login check for admin/internal/external test accounts
+- [x] Menu + reservation permission check (qa4 script)
+- [x] Drag move save + overlap prevention check
+- [x] Signed-out access blocked (tables, RPCs)
+- [x] Security scan + fixes (anon grants, staff emails hidden)
+- [ ] Ahasoft Excel import: not built — waiting for a sample export file + approval (no real data)
+- [x] Backup/restore procedure explanation
+- [x] Share/publish guidance (no publish)
 
 ## 모바일·태블릿 최적화 (uploaded spec)
-- [ ] Mobile bottom menu, large touch targets, rotation
-- [ ] Mobile calendar: day section dropdown + swipe date, week cards, month counts → day
-- [ ] Floating "예약 추가" button on mobile; vertical reservation form
-- [ ] "예약 이동" button (date/time/section) as drag fallback
-- [ ] Reservation card tap: 확정/완료/노쇼/취소/수정/이동 buttons
-- [ ] Mobile customers: search, register, visit history, 7 categories
-- [ ] PWA: home-screen manifest + icon; offline notice (no PII cache)
-- [ ] Device test report (unverified devices marked)
+- [x] Mobile bottom menu, large touch targets, rotation
+- [x] Mobile calendar: day section dropdown + swipe date, week cards, month counts → day
+- [x] Floating "예약 추가" button on mobile; vertical reservation form
+- [x] "예약 이동" button (date/time/section) as drag fallback
+- [x] Reservation card tap: 확정/완료/노쇼/취소/수정/이동 buttons
+- [x] Mobile customers: search, register, visit history, 7 categories
+- [x] PWA: home-screen manifest + icon; offline notice (no PII cache)
+- [x] Device test report (unverified devices marked)
+
+## 치명적 개인정보 경고 (Critical)
+- [x] Cause found: profiles read rule open to all signed-in staff (staff e-mails) — e-mail column already blocked
+- [ ] Tighten profiles read to self/admin + name-only staff directory — waiting for user approval
+- [ ] Turn off open self-signup before publishing — waiting for user decision
+- [ ] Re-run scan and regression tests after approved changes
