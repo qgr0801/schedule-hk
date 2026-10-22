@@ -3,7 +3,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { PageHeader, Panel } from "@/components/PageHeader";
+import { format } from "date-fns";
+import { PageHeader, Panel, StatusBadge } from "@/components/PageHeader";
 import { CategoryBadge } from "@/components/ReservationCard";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -46,9 +47,9 @@ function CustomersPage() {
         desc="권한에 따라 볼 수 있는 고객만 표시됩니다. 가상 고객 정보만 사용하세요."
         action={<Button onClick={() => setEdit("new")}>+ 고객 등록</Button>}
       />
-      <div className="mb-4 flex flex-wrap gap-2">
-        <Input value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름, 고객번호, 전화번호 검색" className="max-w-xs" />
-        <select value={cat} onChange={(e) => setCat(e.target.value)} className="h-9 rounded-md border border-input bg-background px-3 text-sm" aria-label="고객 구분 필터">
+      <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름, 고객번호, 전화번호 검색" className="h-11 text-base sm:h-9 sm:max-w-xs sm:text-sm" />
+        <select value={cat} onChange={(e) => setCat(e.target.value)} className="h-11 rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm" aria-label="고객 구분 필터">
           <option value="">전체 고객 구분</option>
           {L.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </select>
@@ -151,11 +152,45 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
           <div className="space-y-1"><Label>메모</Label><Textarea value={memo} maxLength={500} onChange={(e) => setMemo(e.target.value)} /></div>
         </fieldset>
         {canEdit ? (
-          <Button className="w-full" disabled={busy} onClick={save}>저장</Button>
+          <Button className="h-11 w-full" disabled={busy} onClick={save}>저장</Button>
         ) : (
           <p className="text-xs text-muted-foreground">다른 직원이 등록한 고객은 등록자나 관리자만 수정할 수 있습니다.</p>
         )}
+        {customer && <VisitHistory customerId={customer.id} />}
       </DialogContent>
     </Dialog>
+  );
+}
+
+/** Re-visit list: only reservations this user may read in full (server rules decide). */
+function VisitHistory({ customerId }: { customerId: string }) {
+  const { data, isLoading } = useQuery({
+    queryKey: ["customer_visits", customerId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("reservations")
+        .select("id, start_at, public_service, service, status")
+        .eq("customer_id", customerId)
+        .order("start_at", { ascending: false })
+        .limit(100);
+      if (error) throw error;
+      return data;
+    },
+  });
+  const done = data?.filter((v) => v.status === "completed").length ?? 0;
+  return (
+    <div className="border-t pt-4">
+      <h4 className="mb-2 text-sm font-semibold text-primary">재방문 내역 {data && `(예약 ${data.length}건 · 시술 완료 ${done}회)`}</h4>
+      <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
+        {data?.map((v) => (
+          <li key={v.id} className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
+            <span className="min-w-0 truncate">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.service}</span>
+            <StatusBadge status={v.status} />
+          </li>
+        ))}
+        {isLoading && <li className="text-xs text-muted-foreground">불러오는 중…</li>}
+        {data?.length === 0 && <li className="text-xs text-muted-foreground">볼 수 있는 예약 내역이 없습니다.</li>}
+      </ul>
+    </div>
   );
 }
