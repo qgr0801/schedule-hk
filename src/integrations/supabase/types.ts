@@ -469,6 +469,32 @@ export type Database = {
           },
         ]
       }
+      staff_view_scopes: {
+        Row: {
+          scope: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          scope?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          scope?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_view_scopes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_roles: {
         Row: {
           id: string
@@ -500,6 +526,10 @@ export type Database = {
         Args: { _customer: string; _viewer: string }
         Returns: boolean
       }
+      can_view_full: {
+        Args: { _owner: string; _viewer: string }
+        Returns: boolean
+      }
       can_view_owner: {
         Args: { _owner: string; _viewer: string }
         Returns: boolean
@@ -518,6 +548,19 @@ export type Database = {
       is_schedule_shared: {
         Args: { _schedule: string; _user: string }
         Returns: boolean
+      }
+      shared_reservations: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          created_by: string
+          end_at: string
+          id: string
+          section: number
+          service: string
+          staff_id: string
+          start_at: string
+          status: Database["public"]["Enums"]["reservation_status"]
+        }[]
       }
       suggest_staff_color: { Args: { _n: number }; Returns: string }
     }
