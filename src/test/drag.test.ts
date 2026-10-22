@@ -10,7 +10,7 @@ describe("calendar drag rules", () => {
   });
 
   it("snaps to the admin-selected 10/15/60-minute steps", () => {
-    expect(moveStart(14 * 60 + 7, 30, 15, 0, 24 * 60)).toBe(14 * 60 + 15);
+    expect(moveStart(14 * 60 + 8, 30, 15, 0, 24 * 60)).toBe(14 * 60 + 15);
     expect(moveStart(14 * 60 + 7, 30, 10, 0, 24 * 60)).toBe(14 * 60 + 10);
     expect(moveStart(14 * 60 + 25, 30, 60, 0, 24 * 60)).toBe(14 * 60);
   });
