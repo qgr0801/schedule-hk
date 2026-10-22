@@ -284,7 +284,13 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "internal" | "external"
-      reservation_status: "confirmed" | "completed" | "cancelled" | "no_show"
+      reservation_status:
+        | "pending"
+        | "confirmed"
+        | "completed"
+        | "cancelled"
+        | "no_show"
+        | "changed"
       schedule_visibility: "public" | "selected" | "private"
     }
     CompositeTypes: {
@@ -414,7 +420,14 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "internal", "external"],
-      reservation_status: ["confirmed", "completed", "cancelled", "no_show"],
+      reservation_status: [
+        "pending",
+        "confirmed",
+        "completed",
+        "cancelled",
+        "no_show",
+        "changed",
+      ],
       schedule_visibility: ["public", "selected", "private"],
     },
   },
