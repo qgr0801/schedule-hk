@@ -61,7 +61,10 @@ function CustomersPage() {
             <Panel key={c.id} className="p-4">
               <button className="w-full text-left" onClick={() => setEdit(c)}>
                 <div className="flex items-center justify-between gap-2">
-                  <span><span className="mr-1.5 text-xs text-muted-foreground">No.{c.customer_no}</span><b>{c.name}</b></span>
+                  <span>
+                    <span className="mr-1.5 text-xs text-muted-foreground">No.{c.customer_no}</span><b>{c.name}</b>
+                    {"is_test" in c && c.is_test && <span className="ml-1.5 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">테스트</span>}
+                  </span>
                   <span className="text-xs text-muted-foreground">{maskPhone(c.phone)}</span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1">

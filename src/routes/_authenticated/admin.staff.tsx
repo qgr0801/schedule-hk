@@ -1,19 +1,141 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { format } from "date-fns";
+import { UserPlus } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel } from "@/components/PageHeader";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { dbErrorMessage, meQuery, profilesQuery, ROLE_LABEL, staffEmailsQuery, type Role } from "@/lib/app";
+import { PUBLIC_APP_URL, staffAppOrigin } from "@/lib/app-url";
 import {
   describePerms, effectivePerms, FIELDS, MENUS, ROLE_CODE, SCOPE_LABEL, TEMPLATES,
   type FieldKey, type MenuKey, type Perms, type Scope,
 } from "@/lib/permissions";
+import { inviteStaff, renameStaff, setStaffActive, staffAccounts } from "@/lib/staff.functions";
+
+function RenameDialog({ target, onClose }: { target: { id: string; name: string } | null; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (target) setName(target.name); }, [target]);
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!target) return;
+    setBusy(true);
+    try {
+      await renameStaff({ data: { userId: target.id, fullName: name } });
+      toast.success(`이름을 '${name.trim()}'(으)로 바꿨습니다.`);
+      qc.invalidateQueries({ queryKey: profilesQuery.queryKey });
+      qc.invalidateQueries({ queryKey: ["me"] });
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "이름을 바꾸지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return (
+    <Dialog open={!!target} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>직원 이름 변경</DialogTitle>
+          <DialogDescription>캘린더와 예약 카드에 보이는 이름이 함께 바뀝니다. 예약 기록은 그대로 남습니다.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="rename">이름</Label>
+            <Input id="rename" required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} className="h-11 text-base" />
+          </div>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>취소</Button>
+            <Button type="submit" disabled={busy || !name.trim() || name.trim() === target?.name}>저장</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const qc = useQueryClient();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [role, setRole] = useState<"internal" | "external">("internal");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => { if (open) { setName(""); setEmail(""); setRole("internal"); } }, [open]);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await inviteStaff({ data: { email, fullName: name, role, redirectTo: `${staffAppOrigin()}/set-password` } });
+      toast.success(`${name}님에게 초대 메일을 보냈습니다. 메일의 링크에서 비밀번호를 정하면 바로 로그인할 수 있습니다.`);
+      qc.invalidateQueries({ queryKey: profilesQuery.queryKey });
+      qc.invalidateQueries({ queryKey: ["roles"] });
+      qc.invalidateQueries({ queryKey: ["scopes"] });
+      qc.invalidateQueries({ queryKey: ["staff_accounts"] });
+      qc.invalidateQueries({ queryKey: staffEmailsQuery.queryKey });
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "초대 메일을 보내지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>직원 초대</DialogTitle>
+          <DialogDescription>초대 메일을 받은 직원이 링크에서 직접 비밀번호를 정합니다. 관리자는 비밀번호를 알 수 없습니다.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="inv-name">이름</Label>
+            <Input id="inv-name" required maxLength={40} value={name} onChange={(e) => setName(e.target.value)} className="h-11 text-base" />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="inv-email">이메일</Label>
+            <Input id="inv-email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} className="h-11 text-base" />
+          </div>
+          <div className="space-y-2">
+            <div className="text-sm font-medium">역할</div>
+            <div className="grid grid-cols-2 gap-2" role="radiogroup" aria-label="역할">
+              {(["internal", "external"] as const).map((r) => (
+                <button key={r} type="button" role="radio" aria-checked={role === r} onClick={() => setRole(r)} className={cn("rounded-lg border p-3 text-left text-sm", role === r && "border-primary bg-accent")}>
+                  <b className={cn(role === r && "text-primary")}>{ROLE_LABEL[r]}</b>
+                  <span className="mt-1 block text-xs text-muted-foreground">
+                    {r === "internal" ? "본인 예약 상세 + 관리자가 허용한 추가 권한" : "본인 예약만 상세 열람·수정·취소"}
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+          <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
+            메일의 링크는 {PUBLIC_APP_URL.replace("https://", "")} 로 연결됩니다. 사이트를 게시한 뒤에 초대해 주세요. 시작 권한은 '기본 직원' 템플릿이며, 초대 후 이 화면에서 바꿀 수 있습니다.
+          </p>
+          <DialogFooter>
+            <Button type="button" variant="outline" onClick={onClose}>취소</Button>
+            <Button type="submit" disabled={busy}>{busy ? "보내는 중…" : "초대 메일 보내기"}</Button>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 export const Route = createFileRoute("/_authenticated/admin/staff")({
   head: () => ({ meta: [{ title: "직원 권한 설정 | Schedule HK" }] }),
@@ -47,10 +169,18 @@ function StaffPage() {
     },
   });
 
+  const { data: accounts } = useQuery({
+    queryKey: ["staff_accounts"], enabled: isAdmin,
+    queryFn: () => staffAccounts(),
+  });
+
   const [tab, setTab] = useState("list");
   const [selId, setSelId] = useState<string>("");
   const [draft, setDraft] = useState<Perms | null>(null);
   const [busy, setBusy] = useState(false);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [pendingActive, setPendingActive] = useState<{ id: string; name: string; active: boolean } | null>(null);
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
 
   const roleOf = (id: string) => (roles?.find((r) => r.user_id === id)?.role ?? "external") as Role;
   const savedOf = (id: string) => effectivePerms(roleOf(id), scopes?.find((s) => s.user_id === id) as Partial<Perms> | undefined);
@@ -125,9 +255,64 @@ function StaffPage() {
     </Panel>
   );
 
+  async function resend(id: string, fullName: string, role: Role) {
+    const email = emails?.get(id);
+    if (!email || role === "admin") return;
+    setBusy(true);
+    try {
+      await inviteStaff({ data: { email, fullName, role, redirectTo: `${staffAppOrigin()}/set-password` } });
+      toast.success(`${fullName}님에게 초대 메일을 다시 보냈습니다. 이전 메일의 링크는 더 이상 쓰지 않습니다.`);
+      qc.invalidateQueries({ queryKey: ["staff_accounts"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "초대 메일을 보내지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function confirmActive() {
+    if (!pendingActive) return;
+    setBusy(true);
+    try {
+      await setStaffActive({ data: { userId: pendingActive.id, active: pendingActive.active } });
+      toast.success(pendingActive.active ? `${pendingActive.name}님 계정을 활성화했습니다.` : `${pendingActive.name}님 계정을 비활성화했습니다. 이제 로그인할 수 없습니다.`);
+      setPendingActive(null);
+      qc.invalidateQueries({ queryKey: ["staff_accounts"] });
+      qc.invalidateQueries({ queryKey: profilesQuery.queryKey });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "계정 상태를 바꾸지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div>
-      <PageHeader title="직원 권한 설정" desc="직원별로 메뉴, 예약 열람 범위, 다른 직원 예약에서 볼 수 있는 정보를 정합니다. 모든 제한은 서버에서도 적용됩니다." />
+      <PageHeader
+        title="직원 권한 설정"
+        desc="직원별로 메뉴, 예약 열람 범위, 다른 직원 예약에서 볼 수 있는 정보를 정합니다. 모든 제한은 서버에서도 적용됩니다."
+        action={<Button onClick={() => setInviteOpen(true)}><UserPlus className="mr-1.5 h-4 w-4" />직원 초대</Button>}
+      />
+      <InviteDialog open={inviteOpen} onClose={() => setInviteOpen(false)} />
+      <RenameDialog target={renaming} onClose={() => setRenaming(null)} />
+      <AlertDialog open={!!pendingActive} onOpenChange={(o) => !o && setPendingActive(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{pendingActive?.name}님 계정을 {pendingActive?.active ? "활성화" : "비활성화"}할까요?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingActive?.active
+                ? "다시 로그인할 수 있게 되고, 기존 권한 설정이 그대로 적용됩니다."
+                : "더 이상 로그인할 수 없습니다. 이미 열려 있는 화면도 최대 1시간 안에 접속이 끊깁니다. 이 직원이 등록한 예약과 기록은 그대로 남습니다."}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>취소</AlertDialogCancel>
+            <AlertDialogAction disabled={busy} onClick={(e) => { e.preventDefault(); void confirmActive(); }}>
+              {pendingActive?.active ? "활성화" : "비활성화"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <Tabs value={tab} onValueChange={setTab}>
         <TabsList className="mb-4 h-auto flex-wrap justify-start">
           <TabsTrigger value="list">직원 목록</TabsTrigger>
@@ -153,7 +338,12 @@ function StaffPage() {
                   return (
                     <tr key={p.id} className="border-b last:border-0">
                       <td className="px-4 py-3">
-                        <div className="font-semibold">{p.full_name}</div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold">{p.full_name}</span>
+                          <button type="button" onClick={() => setRenaming({ id: p.id, name: p.full_name })} className="text-xs font-medium text-primary underline-offset-2 hover:underline" aria-label={`${p.full_name} 이름 변경`}>
+                            이름 변경
+                          </button>
+                        </div>
                         <div className="text-xs text-muted-foreground">{emails?.get(p.id)}</div>
                       </td>
                       <td className="px-2">
@@ -162,9 +352,27 @@ function StaffPage() {
                         </select>
                       </td>
                       <td className="px-2">
-                        <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", p.is_active ? "bg-accent text-accent-foreground" : "bg-muted text-muted-foreground")}>
-                          {p.is_active ? "활성" : "비활성"}
-                        </span>
+                        {(() => {
+                          const st = accounts?.find((a) => a.id === p.id)?.state;
+                          const off = !p.is_active || st === "disabled";
+                          return (
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", off ? "bg-muted text-muted-foreground" : st === "invited" ? "border border-primary/40 text-primary" : "bg-accent text-accent-foreground")}>
+                                {off ? "비활성" : st === "invited" ? "초대됨 · 비밀번호 미설정" : "활성"}
+                              </span>
+                              {st === "invited" && !off && emails?.get(p.id) && role !== "admin" && (
+                                <button type="button" disabled={busy} onClick={() => resend(p.id, p.full_name, role)} className="text-xs font-medium text-primary underline-offset-2 hover:underline">
+                                  초대 다시 보내기
+                                </button>
+                              )}
+                              {p.id !== me.id && (
+                                <button type="button" onClick={() => setPendingActive({ id: p.id, name: p.full_name, active: off })} className="text-xs font-medium text-primary underline-offset-2 hover:underline">
+                                  {off ? "활성화" : "비활성화"}
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </td>
                       <td className="px-2 text-xs">{role === "admin" ? "전체 (관리자)" : SCOPE_LABEL[perms.scope]}</td>
                       <td className="px-2 text-xs">{role === "admin" ? "전체" : `${perms.menus.length}개`}</td>
@@ -182,7 +390,7 @@ function StaffPage() {
               </tbody>
             </table>
           </Panel>
-          <p className="mt-3 text-xs text-muted-foreground">새로 가입한 직원은 '외부 직원'과 '기본 직원' 템플릿으로 시작합니다. 관리자는 항상 모든 메뉴와 예약을 볼 수 있습니다.</p>
+          <p className="mt-3 text-xs text-muted-foreground">초대한 직원은 고른 역할과 '기본 직원' 템플릿으로 시작합니다. 관리자는 항상 모든 메뉴와 예약을 볼 수 있습니다. 이름을 바꾸면 캘린더·예약 카드의 등록자·담당자 이름도 함께 바뀝니다.</p>
         </TabsContent>
 
         <TabsContent value="menus">

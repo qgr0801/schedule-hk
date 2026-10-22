@@ -1,9 +1,9 @@
 import { createFileRoute, redirect, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, LayoutDashboard, ListChecks, LogOut, PlusCircle, Plus, Users, ClipboardList, CalendarCheck2, Contact, Palette, Lock } from "lucide-react";
+import { CalendarDays, LayoutDashboard, ListChecks, LogOut, PlusCircle, Plus, Users, ClipboardList, CalendarCheck2, Contact, Palette, Lock, MessageSquareWarning, FlaskConical, KeyRound } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { OfflineBanner } from "@/components/OfflineBanner";
-import { meQuery, ROLE_LABEL } from "@/lib/app";
+import { bookingSettingsQuery, meQuery, ROLE_LABEL } from "@/lib/app";
 import { canMenu, menuForPath, type MenuKey } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
@@ -25,10 +25,12 @@ const NAV = [
   { key: "admin_reservations", to: "/admin/reservations", label: "전체 예약", icon: ClipboardList },
   { key: "admin_staff", to: "/admin/staff", label: "직원 권한", icon: Users },
   { key: "admin_settings", to: "/admin/settings", label: "색상·표시 설정", icon: Palette },
+  { key: "admin_feedback", to: "/admin/feedback", label: "시범 운영 피드백", icon: MessageSquareWarning },
 ] as const satisfies readonly { key: MenuKey; to: string; label: string; icon: unknown }[];
 
 function AppShell() {
   const { data: me } = useQuery(meQuery);
+  const { data: booking } = useQuery({ ...bookingSettingsQuery, enabled: !!me });
   const qc = useQueryClient();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
@@ -67,7 +69,10 @@ function AppShell() {
         <div className="border-t border-sidebar-border pt-4">
           <div className="px-2 text-sm font-semibold text-sidebar-primary">{me?.name}</div>
           <div className="px-2 text-xs text-sidebar-foreground/70">{me && ROLE_LABEL[me.role]}</div>
-          <button onClick={signOut} className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-sidebar-accent">
+          <Link to="/set-password" className="mt-3 flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-sidebar-accent">
+            <KeyRound className="h-4 w-4" /> 비밀번호 변경
+          </Link>
+          <button onClick={signOut} className="flex w-full items-center gap-2 rounded-lg px-2 py-2 text-sm hover:bg-sidebar-accent">
             <LogOut className="h-4 w-4" /> 로그아웃
           </button>
         </div>
@@ -89,6 +94,12 @@ function AppShell() {
 
       <main className="min-w-0 flex-1 p-4 pb-44 md:p-8">
         <OfflineBanner />
+        {booking?.trial_mode && (
+          <div role="status" className="mb-4 flex items-start gap-2 rounded-lg border border-primary/30 bg-accent px-3 py-2 text-xs text-accent-foreground md:text-sm">
+            <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+            <span><b className="text-primary">시범 운영 중</b> · 지금 입력하는 고객과 예약은 '테스트'로 표시됩니다. 실제 고객 정보는 입력하지 마세요.</span>
+          </div>
+        )}
         {!me ? null : blocked ? (
           <div className="mx-auto mt-16 max-w-md rounded-xl border bg-card p-8 text-center shadow-card">
             <Lock className="mx-auto mb-3 h-8 w-8 text-primary" />

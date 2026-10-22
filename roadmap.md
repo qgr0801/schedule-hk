@@ -43,3 +43,14 @@
 - [x] Probe PII exposure (customer name/no/phone/memo, staff PII) per role with fake data
 - [x] Replace "everyone" read rules with a real staff-only rule where possible; keep booking features
 - [x] Rescan and report whether Critical is gone
+
+## 7일 시범 운영 준비 (2026-10-23~29, uploaded spec)
+- [x] Trial mode + test-data flag; 10 fake customers + 15 fake reservations (10/23~29)
+- [x] Staff invite by e-mail + set-own-password page + forgot password
+- [x] Account activate/deactivate (sign-in ban)
+- [x] Staff name change by admin (user question)
+- [x] Trial feedback screen (admin)
+- [x] Test-data badges + trial banner + trial-mode switch
+- [x] Pre-release checks: dependency scan, quick/deep scan, signed-out block, per-role tests, mobile, backup guide
+- [ ] Test-data reset: not built — only on admin request
+- [ ] Invite e-mail links only work after publishing (user approval needed); deep scan re-run after today's changes

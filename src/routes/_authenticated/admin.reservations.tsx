@@ -66,7 +66,10 @@ function AllReservations() {
             {rows.map((r) => (
               <tr key={r.id} onClick={() => setSel(r)} className="cursor-pointer hover:bg-muted">
                 <td className="px-4 py-3 font-medium text-primary">{format(new Date(r.start_at), "yyyy.MM.dd HH:mm")}</td>
-                <td className="px-4 py-3">{r.customer_name}</td>
+                <td className="px-4 py-3">
+                  {r.customer_name}
+                  {r.is_test && <span className="ml-1.5 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">테스트</span>}
+                </td>
                 <td className="px-4 py-3">{r.service}</td>
                 <td className="px-4 py-3">{name(r.created_by)}</td>
                 <td className="px-4 py-3"><StatusBadge status={r.status} /></td>

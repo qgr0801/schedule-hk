@@ -83,7 +83,7 @@ function CalendarPage() {
         start_at: x.start_at, end_at: x.end_at, public_service: x.public_service,
         service: x.access === "block" ? x.public_service : (x.service ?? x.public_service),
         customer_name: x.customer_name ?? "다른 직원 예약", customer_phone: x.customer_phone, memo: x.memo,
-        customer_id: null, cancel_reason: null, cancelled_at: null, created_at: x.start_at, updated_at: x.start_at,
+        customer_id: null, cancel_reason: null, cancelled_at: null, created_at: x.start_at, updated_at: x.start_at, is_test: false,
         access: x.access as ResWithCustomer["access"],
         visible: x.visible ?? [],
         customer_no: x.customer_no,
