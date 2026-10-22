@@ -5,7 +5,7 @@ import {
   isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2, Plus } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -18,7 +18,13 @@ import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
-  dbErrorMessage, MAX_SECTIONS, meQuery, profilesQuery, sectionsQuery, VIS_LABEL,
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription,
+  AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { TimeGrid, type GridCol, type MoveTarget } from "@/components/TimeGrid";
+import { findConflict, type SlotRes } from "@/lib/drag";
+import {
+  bookingSettingsQuery, dbErrorMessage, MAX_SECTIONS, meQuery, profilesQuery, sectionsQuery, VIS_LABEL,
   type Schedule, type Visibility,
 } from "@/lib/app";
 import { cn } from "@/lib/utils";
@@ -48,6 +54,11 @@ function CalendarPage() {
   const { data: allSections } = useQuery(sectionsQuery);
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
+  const { data: booking } = useQuery(bookingSettingsQuery);
+  const navigate = useNavigate();
+  const [move, setMove] = useState<MoveTarget | null>(null);
+  const [saving, setSaving] = useState(false);
+  const slotStep = booking?.slot_minutes ?? 30;
 
   const range =
     view === "month"
@@ -100,15 +111,65 @@ function CalendarPage() {
   const title =
     view === "month" ? format(cursor, "yyyy년 M월") : view === "week" ? `${format(range.from, "M.d")} – ${format(range.to, "M.d")}` : format(cursor, "M월 d일 (EEE)", { locale: ko });
 
-  const Chip = ({ i }: { i: Item }) =>
-    i.kind === "res" ? (
-      <ReservationCard r={i.r} view="week" name={name} onClick={() => setSel(i.r)} />
-    ) : (
-      <button onClick={() => setSchView(i.s)} className="block w-full truncate rounded-md border border-primary/30 bg-accent px-2 py-2 text-left text-xs text-accent-foreground">
-        <b>{format(new Date(i.s.start_at), "HH:mm")}</b> {i.s.title}
-        <span className="block opacity-70">일정 · {name(i.s.owner_id)} · {VIS_LABEL[i.s.visibility]}</span>
-      </button>
-    );
+  // ---------- drag & drop ----------
+  const sectionName = (n: number | null) => (n ? allSections?.find((x) => x.position === n)?.name ?? `${n}번` : "미지정");
+  const staffKey = (r: ResWithCustomer) => (!r.access || r.visible?.includes("staff") ? (r.staff_id ?? r.created_by) : `hidden:${r.id}`);
+  const slots: SlotRes[] = (data?.res ?? []).map((r) => ({
+    id: r.id, start: new Date(r.start_at), end: new Date(r.end_at), staff: staffKey(r), section: r.section, cancelled: r.status === "cancelled",
+  }));
+  const canDrag = (r: ResWithCustomer) => !!me && !r.access && r.status !== "cancelled" && (me.role === "admin" || r.created_by === me.id);
+  const conflict = (r: ResWithCustomer, s: Date, e: Date, section: number | null) => {
+    const c = findConflict({ id: r.id, staff: staffKey(r), section }, s, e, slots, booking?.cancelled_slot_reusable ?? true);
+    return c === "staff" ? "같은 담당자 예약과 겹칩니다" : c === "section" ? "같은 섹션에 예약이 있습니다" : null;
+  };
+  async function onDrop(t: MoveTarget) {
+    // Server re-check across every staff member's reservations before asking to confirm.
+    const { data: ov, error } = await supabase.rpc("find_overlaps", {
+      _start: t.start.toISOString(), _end: t.end.toISOString(), _staff: t.r.staff_id ?? t.r.created_by,
+      _section: t.section as unknown as number, _exclude: t.r.id,
+    });
+    if (error) { toast.error(dbErrorMessage(error)); return; }
+    if (ov?.length) {
+      toast.error(ov[0]!.conflict === "staff" ? "같은 담당자의 예약과 겹쳐 이동할 수 없습니다." : "같은 섹션에 이미 예약이 있어 이동할 수 없습니다.");
+      return;
+    }
+    setMove(t);
+  }
+  async function saveMove(t: MoveTarget, undo?: boolean) {
+    setSaving(true);
+    const before = { start_at: t.r.start_at, end_at: t.r.end_at, section: t.r.section };
+    const { data: upd, error } = await supabase
+      .from("reservations")
+      .update({ start_at: t.start.toISOString(), end_at: t.end.toISOString(), section: t.section })
+      .eq("id", t.r.id)
+      .select("*, customer:customers(category_id, customer_category_tags(category_id))");
+    setSaving(false);
+    setMove(null);
+    qc.invalidateQueries({ queryKey: ["calendar"] });
+    if (error) { toast.error(`${dbErrorMessage(error)} 예약은 원래 위치로 돌아갔습니다.`); return; }
+    if (!upd?.length) { toast.error("이 예약을 옮길 권한이 없습니다. 원래 위치로 돌아갔습니다."); return; }
+    qc.invalidateQueries({ queryKey: ["history", t.r.id] });
+    if (undo) { toast.success("이동을 되돌렸습니다."); return; }
+    const moved = upd[0] as ResWithCustomer;
+    toast.success("예약을 변경했습니다.", {
+      duration: 8000,
+      action: {
+        label: "되돌리기",
+        onClick: () => saveMove({ r: moved, start: new Date(before.start_at), end: new Date(before.end_at), section: before.section, colLabel: "" }, true),
+      },
+    });
+  }
+  const span = (s: Date, e: Date) => `${format(s, "M월 d일 (EEE) HH:mm", { locale: ko })}~${format(e, "HH:mm")}`;
+  const allItems = items;
+  const firstH = Math.min(9, ...allItems.filter((i) => isDayInRange(i)).map((i) => start(i).getHours()));
+  const lastH = Math.max(20, ...allItems.filter((i) => isDayInRange(i)).map((i) => { const e = new Date(i.kind === "res" ? i.r.end_at : i.s.end_at); return Math.min(23, e.getHours() - (e.getMinutes() === 0 ? 1 : 0)); }));
+  function isDayInRange(i: Item) { return view === "day" ? isSameDay(start(i), cursor) : true; }
+  function newAt(d: Date, section: number | null, minutes: number) {
+    navigate({
+      to: "/reservations/new",
+      search: { date: format(d, "yyyy-MM-dd"), start: `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`, section: section || undefined },
+    });
+  }
   const mode = L.display(view).color_mode;
   async function setMode(m: ColorMode) {
     const { error } = await supabase.from("calendar_display_settings").update({ color_mode: m }).eq("view", view);
@@ -200,18 +261,25 @@ function CalendarPage() {
       )}
 
       {view === "week" && (
-        <div className="grid gap-3 md:grid-cols-7">
-          {days.map((d) => (
-            <Panel key={d.toISOString()} className={cn("p-3", isSameDay(d, new Date()) && "ring-2 ring-primary")}>
-              <button onClick={() => { setCursor(d); setView("day"); }} className="mb-2 text-sm font-semibold text-primary">
-                {format(d, "d일 (EEE)", { locale: ko })}
-              </button>
-              <div className="space-y-1.5">
-                {dayItems(d).map((i, k) => <Chip key={k} i={i} />)}
-                {dayItems(d).length === 0 && <p className="text-xs text-muted-foreground">일정 없음</p>}
-              </div>
-            </Panel>
-          ))}
+        <div className="space-y-2">
+          <p className="text-xs text-muted-foreground">본인 예약은 끌어서 다른 날짜·시간으로 옮기고, 아래 가장자리를 끌어 길이를 바꿀 수 있습니다{me?.role === "admin" ? " (관리자는 모든 예약)" : ""}. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
+          <Panel className="max-h-[75vh] overflow-auto p-0">
+            <TimeGrid
+              cols={days.map((d): GridCol => ({
+                key: d.toISOString(),
+                label: <button onClick={() => { setCursor(d); setView("day"); }}>{format(d, "d일 (EEE)", { locale: ko })}</button>,
+                date: d,
+                sectionFor: (r) => r.section,
+                droppable: true,
+                items: dayItems(d),
+                highlight: isSameDay(d, new Date()),
+              }))}
+              firstH={firstH} lastH={lastH} step={slotStep} view="week" colMinWidth={130} name={name}
+              canDrag={canDrag} conflict={conflict} onRes={setSel} onSch={setSchView} onDrop={onDrop}
+              onEmpty={(c, m) => newAt(c.date, null, m)}
+              colLabelText={(c) => format(c.date, "M월 d일")}
+            />
+          </Panel>
         </div>
       )}
 
@@ -225,10 +293,36 @@ function CalendarPage() {
           onSch={setSchView}
           onSettings={() => setSecOpen(true)}
           sectionFilter={sectionF ? Number(sectionF) : null}
+          grid={{ firstH, lastH, step: slotStep, canDrag, conflict, onDrop, onEmpty: (sec, m) => newAt(cursor, sec, m) }}
         />
       )}
 
       <ReservationDialog res={sel} onClose={() => setSel(null)} />
+      <AlertDialog open={!!move} onOpenChange={(o) => { if (!o && !saving) setMove(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>예약을 변경하시겠습니까?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              {move ? (
+                <div className="space-y-2 text-sm">
+                  <div className="rounded-md bg-muted px-3 py-2">
+                    <span className="text-muted-foreground">기존: </span>
+                    {span(new Date(move.r.start_at), new Date(move.r.end_at))} / {move.r.public_service} · {sectionName(move.r.section)}
+                  </div>
+                  <div className="rounded-md bg-accent px-3 py-2 font-semibold text-accent-foreground">
+                    <span className="font-normal">변경: </span>
+                    {span(move.start, move.end)} / {move.r.public_service} · {sectionName(move.section)}
+                  </div>
+                </div>
+              ) : <div />}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={saving}>취소</AlertDialogCancel>
+            <AlertDialogAction disabled={saving} onClick={(e) => { e.preventDefault(); if (move) saveMove(move); }}>변경 저장</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       {schOpen && <ScheduleDialog defaultDate={cursor} onClose={() => setSchOpen(false)} />}
       {secOpen && <SectionSettingsDialog onClose={() => setSecOpen(false)} />}
       {schView && (
@@ -326,8 +420,18 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
 }
 
 
+type GridOpts = {
+  firstH: number;
+  lastH: number;
+  step: number;
+  canDrag: (r: ResWithCustomer) => boolean;
+  conflict: (r: ResWithCustomer, s: Date, e: Date, section: number | null) => string | null;
+  onDrop: (t: MoveTarget) => void;
+  onEmpty: (section: number | null, minutes: number) => void;
+};
+
 function DayBoard({
-  items, date, isAdmin, name, onRes, onSch, onSettings, sectionFilter,
+  items, date, isAdmin, name, onRes, onSch, onSettings, sectionFilter, grid,
 }: {
   sectionFilter: number | null;
   items: Item[];
@@ -337,8 +441,8 @@ function DayBoard({
   onRes: (r: ResWithCustomer) => void;
   onSch: (s: Schedule) => void;
   onSettings: () => void;
+  grid: GridOpts;
 }) {
-  const navigate = useNavigate();
   const { data: allSections } = useQuery(sectionsQuery);
   const sections = (allSections ?? []).filter((s) => s.active && (!sectionFilter || s.position === sectionFilter));
   const activeNos = new Set(sections.map((s) => s.position));
@@ -348,74 +452,32 @@ function DayBoard({
     ...sections.map((s) => ({ key: s.position, label: s.name })),
     ...(hasOther ? [{ key: 0, label: "미지정 · 일정" }] : []),
   ];
-  const startOf = (i: Item) => new Date(i.kind === "res" ? i.r.start_at : i.s.start_at);
-  const endOf = (i: Item) => new Date(i.kind === "res" ? i.r.end_at : i.s.end_at);
-  const hrs = items.map((i) => startOf(i).getHours());
-  const firstH = Math.min(9, ...hrs);
-  const lastH = Math.max(21, ...hrs);
-  const HOURS = Array.from({ length: lastH - firstH + 1 }, (_, k) => k + firstH);
-  const gridStyle = { gridTemplateColumns: `56px repeat(${Math.max(cols.length, 1)}, minmax(150px, 1fr))` };
-
-  function newAt(section: number, h: number) {
-    navigate({
-      to: "/reservations/new",
-      search: { date: format(date, "yyyy-MM-dd"), start: `${String(h).padStart(2, "0")}:00`, section: section || undefined },
-    });
-  }
 
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">빈 칸을 누르면 해당 섹션·시간으로 예약을 등록합니다.</p>
+        <p className="text-xs text-muted-foreground">빈 곳을 누르면 그 섹션·시간으로 예약을 등록합니다. 본인 예약은 위아래로 끌면 시간, 옆 섹션으로 끌면 섹션이 바뀝니다. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
         {isAdmin && (
-          <Button size="sm" variant="outline" onClick={onSettings}>
+          <Button size="sm" variant="outline" className="shrink-0" onClick={onSettings}>
             <Settings2 className="h-4 w-4" /> 섹션 설정 ({sections.length}개)
           </Button>
         )}
       </div>
-      <Panel className="overflow-x-auto p-0">
-        <div className="min-w-fit">
-          <div className="sticky top-0 z-10 grid border-b bg-card" style={gridStyle}>
-            <div className="border-r py-2 text-center text-xs text-muted-foreground">시간</div>
-            {cols.map((c) => (
-              <div key={c.key} className="truncate border-r px-2 py-2 text-center text-sm font-semibold text-primary last:border-r-0">
-                {c.label}
-              </div>
-            ))}
-          </div>
-          {HOURS.map((h) => (
-            <div key={h} className="grid min-h-16 border-b last:border-b-0" style={gridStyle}>
-              <div className="border-r py-2 text-center text-xs text-muted-foreground">{String(h).padStart(2, "0")}:00</div>
-              {cols.map((c) => {
-                const its = items.filter((i) => colOf(i) === c.key && startOf(i).getHours() === h);
-                return (
-                  <div key={c.key} className="group relative space-y-1 border-r p-1 last:border-r-0">
-                    {its.map((i, k) =>
-                      i.kind === "res" ? (
-                        <ReservationCard key={k} r={i.r} view="day" name={name} onClick={() => onRes(i.r)} />
-                      ) : (
-                        <button key={k} onClick={() => onSch(i.s)} className="block w-full rounded-md border border-primary/30 bg-accent px-2 py-1.5 text-left text-xs text-accent-foreground">
-                          <span className="block opacity-70">{format(startOf(i), "HH:mm")}–{format(endOf(i), "HH:mm")} · 일정</span>
-                          <span className="block truncate font-semibold">{i.s.title}</span>
-                          <span className="block truncate opacity-70">{name(i.s.owner_id)}</span>
-                        </button>
-                      ),
-                    )}
-                    {c.key !== 0 && its.length === 0 && (
-                      <button
-                        aria-label={`${c.label} ${h}시 예약 등록`}
-                        onClick={() => newAt(c.key, h)}
-                        className="absolute inset-0 flex items-center justify-center text-muted-foreground opacity-0 transition-opacity hover:bg-accent/50 focus-visible:opacity-100 group-hover:opacity-100"
-                      >
-                        <Plus className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          ))}
-        </div>
+      <Panel className="max-h-[75vh] overflow-auto p-0">
+        <TimeGrid
+          cols={cols.map((c): GridCol => ({
+            key: String(c.key),
+            label: c.label,
+            date,
+            sectionFor: () => c.key || null,
+            droppable: c.key !== 0,
+            items: items.filter((i) => colOf(i) === c.key),
+          }))}
+          firstH={grid.firstH} lastH={grid.lastH} step={grid.step} view="day" colMinWidth={150} name={name}
+          canDrag={grid.canDrag} conflict={grid.conflict} onRes={onRes} onSch={onSch} onDrop={grid.onDrop}
+          onEmpty={(c, m) => grid.onEmpty(Number(c.key) || null, m)}
+          colLabelText={(c) => String(c.label)}
+        />
       </Panel>
     </div>
   );
