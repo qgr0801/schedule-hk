@@ -238,14 +238,15 @@ function SettingsPage() {
                 {CARD_FIELDS.map((f) => (
                   <label key={f.key} className="flex items-center gap-2 rounded-md border p-2 text-sm">
                     <Checkbox
-                      checked={disp[pView].fields.includes(f.key)}
+                      disabled={f.key === "creator"}
+                      checked={f.key === "creator" || disp[pView].fields.includes(f.key)}
                       onCheckedChange={(on) => {
                         const cur = disp[pView].fields;
                         const next = on ? CARD_FIELDS.map((x) => x.key).filter((k) => k === f.key || cur.includes(k)) : cur.filter((k) => k !== f.key);
                         setDisp({ ...disp, [pView]: { ...disp[pView], fields: next } });
                       }}
                     />
-                    {f.label}
+                    {f.label}{f.key === "creator" && <span className="text-xs text-muted-foreground">(항상 표시)</span>}
                   </label>
                 ))}
               </div>
@@ -278,7 +279,7 @@ function SettingsPage() {
             </select>
             <CardView
               r={{ start_at: "2026-01-05T10:00:00", end_at: "2026-01-05T11:00:00", customer_name: "김○○", customer_phone: "010-1234-5678", service: "피부 상담", memo: "첫 방문, 민감성 피부", status: pStatus }}
-              fields={disp[pView].fields}
+              fields={disp[pView].fields.includes("creator") ? disp[pView].fields : [...disp[pView].fields, "creator"]}
               mode={disp[pView].color_mode}
               status={st[pStatus]}
               staffColor={(previewStaff && sf[previewStaff.id]) || "#7C3AED"}
