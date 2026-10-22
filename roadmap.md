@@ -56,3 +56,11 @@
 - [x] Invite blank-screen diagnosis: site not published (link lands on 'Project not found'); account/role/menus OK
 - [x] Invited-state fix + 설정 메일 다시 보내기 + /set-password → /calendar + no blank main area
 - [ ] Publish (needs user approval) then resend setup mail to 아이스타; deep scan re-run
+
+## 직원 목록 편집·삭제 및 관리자 1·2 (uploaded spec)
+- [ ] Staff list: search + role filter, columns (이름|이메일|역할|상태|열람 범위|메뉴|관리), 관리 modal with 4 tabs
+- [ ] Deactivate (sign-in ban + session revoke + data block) with audit log; bulk deactivate for selected
+- [ ] Safe delete: only accounts with no linked reservations/customers/logs, confirm dialog, never self/last admin
+- [ ] Invite: ADMIN role option (admin only), invite status (대기/수락/만료), resend, cancel
+- [ ] 관리자 1 / 관리자 2 (admin 2 via invite — needs e-mail)
+- [ ] Server blocks self-promotion to ADMIN; regression tests
