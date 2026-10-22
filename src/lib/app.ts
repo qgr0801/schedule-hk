@@ -73,6 +73,19 @@ export const profilesQuery = queryOptions({
   },
 });
 
+export type DaySection = Database["public"]["Tables"]["day_sections"]["Row"];
+export const MAX_SECTIONS = 10;
+
+/** All 10 section slots (active or not), ordered by position. */
+export const sectionsQuery = queryOptions({
+  queryKey: ["day_sections"],
+  queryFn: async () => {
+    const { data, error } = await supabase.from("day_sections").select("*").order("position");
+    if (error) throw error;
+    return data;
+  },
+});
+
 export function dbErrorMessage(e: unknown): string {
   const err = e as { code?: string; message?: string };
   if (err?.code === "23P01") return "같은 시간대에 이미 예약이 있습니다. 다른 시간을 선택해 주세요.";

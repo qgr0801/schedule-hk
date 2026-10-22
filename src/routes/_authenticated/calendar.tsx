@@ -33,6 +33,7 @@ function CalendarPage() {
   const [sel, setSel] = useState<Reservation | null>(null);
   const [schOpen, setSchOpen] = useState(false);
   const [schView, setSchView] = useState<Schedule | null>(null);
+  const [secOpen, setSecOpen] = useState(false);
   const [staff, setStaff] = useState("");
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
@@ -155,21 +156,20 @@ function CalendarPage() {
       )}
 
       {view === "day" && (
-        <Panel className="p-0">
-          {Array.from({ length: 13 }, (_, k) => k + 9).map((h) => {
-            const its = dayItems(cursor).filter((i) => start(i).getHours() === h);
-            return (
-              <div key={h} className="flex min-h-14 border-b">
-                <div className="w-16 shrink-0 border-r py-2 text-center text-xs text-muted-foreground">{String(h).padStart(2, "0")}:00</div>
-                <div className="flex-1 space-y-1 p-1.5">{its.map((i, k) => <Chip key={k} i={i} />)}</div>
-              </div>
-            );
-          })}
-        </Panel>
+        <DayBoard
+          items={dayItems(cursor)}
+          date={cursor}
+          isAdmin={me?.role === "admin"}
+          name={name}
+          onRes={setSel}
+          onSch={setSchView}
+          onSettings={() => setSecOpen(true)}
+        />
       )}
 
       <ReservationDialog res={sel} onClose={() => setSel(null)} />
       {schOpen && <ScheduleDialog defaultDate={cursor} onClose={() => setSchOpen(false)} />}
+      {secOpen && <SectionSettingsDialog onClose={() => setSecOpen(false)} />}
       {schView && (
         <Dialog open onOpenChange={(o) => !o && setSchView(null)}>
           <DialogContent>
