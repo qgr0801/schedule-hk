@@ -73,14 +73,21 @@ export function CardView({
       style={{ background: c.background, color: c.color, borderColor: c.borderColor }}
     >
       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: c.stripe }} aria-hidden />
-      <span className="flex items-center justify-between gap-1">
-        {has("time") && <b className="shrink-0">{format(new Date(r.start_at), "HH:mm")}{!compact && `–${format(new Date(r.end_at), "HH:mm")}`}</b>}
-        {compact && !has("customer") ? null : compact && <span className="truncate">{r.customer_name}</span>}
-        {showStatus && !compact && <StatusPill status={r.status} colors={status} small />}
-      </span>
-      {!compact && <span className="mt-0.5 block space-y-0.5">{lines}</span>}
-      {compact && showStatus && (r.status === "cancelled" || r.status === "no_show" || has("status")) && (
-        <span className="block"><StatusPill status={r.status} colors={status} small /></span>
+      {compact ? (
+        <span className="flex items-center gap-1 truncate">
+          {has("time") && <b className="shrink-0">{format(new Date(r.start_at), "HH:mm")}</b>}
+          {has("customer") && <span className="truncate">{r.customer_name}</span>}
+          {has("service") && !has("customer") && <span className="truncate">{r.service}</span>}
+          {showStatus && <span className="ml-auto shrink-0"><StatusPill status={r.status} colors={status} small /></span>}
+        </span>
+      ) : (
+        <>
+          <span className="flex items-center justify-between gap-1">
+            {has("time") ? <b className="shrink-0">{format(new Date(r.start_at), "HH:mm")}–{format(new Date(r.end_at), "HH:mm")}</b> : <span />}
+            {showStatus && <StatusPill status={r.status} colors={status} small />}
+          </span>
+          <span className="mt-0.5 block space-y-0.5">{lines}</span>
+        </>
       )}
     </Tag>
   );
