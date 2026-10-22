@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
-  head: () => ({ meta: [{ title: "예약 캘린더 | Beauty Schedule Manager" }] }),
+  head: () => ({ meta: [{ title: "예약 캘린더 | Schedule HK" }] }),
   component: CalendarPage,
 });
 

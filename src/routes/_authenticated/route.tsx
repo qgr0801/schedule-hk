@@ -43,7 +43,7 @@ function AppShell() {
     <div className="min-h-screen bg-muted md:flex">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar p-4 text-sidebar-foreground md:flex">
         <div className="mb-8 flex items-center gap-2 px-2 font-bold text-sidebar-primary">
-          <CalendarCheck2 className="h-5 w-5" /> Beauty Schedule
+          <CalendarCheck2 className="h-5 w-5" /> Schedule HK
         </div>
         <nav className="flex-1 space-y-1">
           {items.map((n) => (
@@ -70,7 +70,7 @@ function AppShell() {
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
         <div className="flex items-center gap-2 font-bold text-primary">
-          <CalendarCheck2 className="h-5 w-5" /> Beauty Schedule
+          <CalendarCheck2 className="h-5 w-5" /> Schedule HK
         </div>
         <div className="flex items-center gap-3">
           <span className="text-xs text-muted-foreground">

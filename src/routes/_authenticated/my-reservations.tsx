@@ -10,7 +10,7 @@ import { meQuery, type Reservation } from "@/lib/app";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/my-reservations")({
-  head: () => ({ meta: [{ title: "내 예약 | Beauty Schedule Manager" }] }),
+  head: () => ({ meta: [{ title: "내 예약 | Schedule HK" }] }),
   component: MyReservations,
 });
 

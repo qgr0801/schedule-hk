@@ -7,7 +7,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { dbErrorMessage, meQuery, profilesQuery, ROLE_LABEL, type Role } from "@/lib/app";
 
 export const Route = createFileRoute("/_authenticated/admin/staff")({
-  head: () => ({ meta: [{ title: "직원 권한 설정 | Beauty Schedule Manager" }] }),
+  head: () => ({ meta: [{ title: "직원 권한 설정 | Schedule HK" }] }),
   component: StaffPage,
 });
 
