@@ -34,7 +34,7 @@ function AppShell() {
   const qc = useQueryClient();
   const navigate = useNavigate();
   const path = useRouterState({ select: (s) => s.location.pathname });
-  const items = me ? NAV.filter((n) => canMenu(me.role, me.perms, n.key)) : [];
+  const items = me?.active ? NAV.filter((n) => canMenu(me.role, me.perms, n.key)) : [];
   const guard = menuForPath(path);
   const blocked = !!me && !!guard && !canMenu(me.role, me.perms, guard);
   const showFab = !!me && canMenu(me.role, me.perms, "reservation_new") && !path.startsWith("/reservations/new");
