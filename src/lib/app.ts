@@ -45,7 +45,7 @@ export const SERVICES = [
 ];
 
 /** Calendar-facing item names shown to other staff instead of the detailed service. */
-export const PUBLIC_SERVICES = ["시술", "상담", "피부 관리", "레이저", "주사 시술", "리프팅", "제모", "기타 예약"];
+export const PUBLIC_SERVICES = ["시술", "피부상담", "성형상담", "피부관리", "바디관리"];
 
 export type Me = { id: string; email: string; name: string; role: Role };
 

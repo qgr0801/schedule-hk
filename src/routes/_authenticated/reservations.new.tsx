@@ -53,6 +53,8 @@ function ReservationForm() {
   const [publicService, setPublicService] = useState(PUBLIC_SERVICES[0]!);
   const [f, setF] = useState({ customer_name: "", customer_phone: "", service: SERVICES[0], section: qSection ? String(qSection) : "", memo: "", date: qDate ?? "", start: qStart ?? "10:00", minutes: 60 });
   const [busy, setBusy] = useState(false);
+  const [creatorId, setCreatorId] = useState<string | null>(null);
+  const [newCustomerNo, setNewCustomerNo] = useState<number | null>(null);
 
   useEffect(() => {
     if (!id) {
@@ -63,6 +65,7 @@ function ReservationForm() {
       if (!data) { toast.error("예약을 찾을 수 없거나 열람 권한이 없습니다."); return; }
       setCustomerId(data.customer_id);
       setStaffId(data.staff_id ?? data.created_by);
+      setCreatorId(data.created_by);
       setPublicService(data.public_service);
       const s = toLocalInput(data.start_at);
       setF({
@@ -121,9 +124,11 @@ function ReservationForm() {
     const tagIds = tags.filter((t) => t !== categoryId);
     let cid = customerId;
     if (!cid) {
-      const { data, error } = await supabase.from("customers").insert({ name, phone, category_id: categoryId || null }).select("id").single();
+      const { data, error } = await supabase.from("customers").insert({ name, phone, category_id: categoryId || null }).select("id, customer_no").single();
       if (error) { toast.error(dbErrorMessage(error)); return null; }
       cid = data.id;
+      setNewCustomerNo(data.customer_no);
+      toast.info(`새 고객번호 No.${data.customer_no}가 부여되었습니다.`);
     } else if (canEditCustomer) {
       const { error } = await supabase.from("customers").update({ category_id: categoryId || null }).eq("id", cid);
       if (error) { toast.error(dbErrorMessage(error)); return null; }
@@ -195,6 +200,18 @@ function ReservationForm() {
             ) : (
               <p className="text-xs text-muted-foreground">검색 결과에서 고르지 않으면 아래 정보로 새 고객이 등록됩니다.</p>
             )}
+          </div>
+          <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted p-3 text-sm sm:col-span-2">
+            <div>
+              <div className="text-xs text-muted-foreground">작성자 (자동)</div>
+              <div className="font-semibold">{(creatorId ? profiles?.find((p) => p.id === creatorId)?.full_name : me?.name) ?? "-"}</div>
+            </div>
+            <div>
+              <div className="text-xs text-muted-foreground">고객번호 (자동)</div>
+              <div className="font-semibold">
+                {selected ? `No.${selected.customer_no}` : newCustomerNo ? `No.${newCustomerNo}` : "저장 시 자동 부여"}
+              </div>
+            </div>
           </div>
           <div className="space-y-2"><Label>고객명 *</Label><Input value={f.customer_name} onChange={set("customer_name")} placeholder="예: 김가상" /></div>
           <div className="space-y-2"><Label>연락처</Label><Input value={f.customer_phone} onChange={set("customer_phone")} placeholder="010-0000-0000" /></div>
