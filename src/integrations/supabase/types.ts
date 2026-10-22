@@ -189,6 +189,7 @@ export type Database = {
           full_name: string
           id: string
           is_active: boolean
+          is_test: boolean
         }
         Insert: {
           created_at?: string
@@ -197,6 +198,7 @@ export type Database = {
           full_name?: string
           id: string
           is_active?: boolean
+          is_test?: boolean
         }
         Update: {
           created_at?: string
@@ -205,6 +207,7 @@ export type Database = {
           full_name?: string
           id?: string
           is_active?: boolean
+          is_test?: boolean
         }
         Relationships: []
       }
