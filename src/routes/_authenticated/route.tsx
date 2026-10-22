@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { CalendarDays, LayoutDashboard, ListChecks, LogOut, PlusCircle, Users, ClipboardList, CalendarCheck2 } from "lucide-react";
+import { CalendarDays, LayoutDashboard, ListChecks, LogOut, PlusCircle, Users, ClipboardList, CalendarCheck2, Contact, Palette } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { meQuery, ROLE_LABEL } from "@/lib/app";
 import { cn } from "@/lib/utils";
@@ -19,10 +19,12 @@ const NAV = [
   { to: "/calendar", label: "캘린더", icon: CalendarDays },
   { to: "/reservations/new", label: "예약 등록", icon: PlusCircle },
   { to: "/my-reservations", label: "내 예약", icon: ListChecks },
+  { to: "/customers", label: "고객 관리", icon: Contact },
 ] as const;
 const ADMIN_NAV = [
   { to: "/admin/reservations", label: "전체 예약", icon: ClipboardList },
   { to: "/admin/staff", label: "직원 권한", icon: Users },
+  { to: "/admin/settings", label: "색상·표시 설정", icon: Palette },
 ] as const;
 
 function AppShell() {
