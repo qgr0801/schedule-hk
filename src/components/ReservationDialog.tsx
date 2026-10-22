@@ -18,7 +18,7 @@ import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, ST
 import { STATUS_ORDER, useCardLookups } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
-export function ReservationDialog({ res, onClose }: { res: (Reservation & Partial<Pick<ResWithCustomer, "customer">>) | null; onClose: () => void }) {
+export function ReservationDialog({ res, onClose }: { res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "limited">>) | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
@@ -29,7 +29,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
   const [busy, setBusy] = useState(false);
   const history = useQuery({
     queryKey: ["history", res?.id],
-    enabled: !!res,
+    enabled: !!res && !res.limited,
     queryFn: async () => {
       const { data, error } = await supabase.from("reservation_history").select("*").eq("reservation_id", res!.id).order("created_at", { ascending: false });
       if (error) throw error;
@@ -38,7 +38,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
   });
   const statusHistory = useQuery({
     queryKey: ["status_history", res?.id],
-    enabled: !!res,
+    enabled: !!res && !res.limited,
     queryFn: async () => {
       const { data, error } = await supabase.from("reservation_status_history").select("*").eq("reservation_id", res!.id).order("created_at", { ascending: false });
       if (error) throw error;
@@ -54,6 +54,26 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
     .filter((id, i, a): id is string => !!id && a.indexOf(id) === i)
     .map((id) => L.category(id))
     .filter((c) => !!c);
+
+  if (res.limited) {
+    return (
+      <Dialog open onOpenChange={(o) => !o && onClose()}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">다른 직원 예약 <StatusBadge status={res.status} /></DialogTitle>
+          </DialogHeader>
+          <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
+            <dt className="text-muted-foreground">시술</dt><dd>{res.service}</dd>
+            <dt className="text-muted-foreground">일시</dt>
+            <dd>{format(new Date(res.start_at), "M월 d일 (EEE) HH:mm", { locale: ko })} – {format(new Date(res.end_at), "HH:mm")}</dd>
+            <dt className="text-muted-foreground">담당</dt><dd>{name(res.staff_id ?? res.created_by)}</dd>
+            <dt className="text-muted-foreground">섹션</dt><dd>{sectionName || "미지정"}</dd>
+          </dl>
+          <p className="text-xs text-muted-foreground">다른 직원의 예약은 예약 현황과 시술 항목만 볼 수 있습니다.</p>
+        </DialogContent>
+      </Dialog>
+    );
+  }
 
   async function apply(status: ResStatus) {
     setBusy(true);

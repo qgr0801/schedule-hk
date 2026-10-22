@@ -6,7 +6,12 @@ import { cn } from "@/lib/utils";
 
 export type ResWithCustomer = Reservation & {
   customer?: { category_id: string | null; customer_category_tags: { category_id: string }[] } | null;
+  /** Another staff member's reservation shared with limited fields (status + service only). */
+  limited?: boolean;
 };
+
+/** Fields allowed on a limited (shared) reservation, whatever the display settings say. */
+export const LIMITED_FIELDS: CardField[] = ["time", "service", "staff", "status"];
 
 export function CategoryBadge({ cat, small }: { cat: Pick<Category, "name" | "color">; small?: boolean }) {
   return (
@@ -114,7 +119,7 @@ export function ReservationCard({
   return (
     <CardView
       r={r}
-      fields={d.fields}
+      fields={r.limited ? d.fields.filter((f) => LIMITED_FIELDS.includes(f)).concat(d.fields.includes("service") ? [] : ["service"]) : d.fields}
       mode={modeOverride ?? d.color_mode}
       status={L.statusColor(r.status)}
       staffColor={L.staffColor(staffId)}

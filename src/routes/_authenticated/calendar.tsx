@@ -59,13 +59,19 @@ function CalendarPage() {
   const { data } = useQuery({
     queryKey: ["calendar", range.from.toISOString(), range.to.toISOString()],
     queryFn: async () => {
-      const [r, s] = await Promise.all([
+      const [r, s, sh] = await Promise.all([
         supabase.from("reservations").select("*, customer:customers(category_id, customer_category_tags(category_id))").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
         supabase.from("schedules").select("*").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
+        supabase.rpc("shared_reservations", { _from: range.from.toISOString(), _to: range.to.toISOString() }),
       ]);
+      if (sh.error) throw sh.error;
+      const shared: ResWithCustomer[] = (sh.data ?? []).map((x) => ({
+        ...x, limited: true, customer_name: "다른 직원 예약", customer_phone: null, memo: null, room: null, customer_id: null,
+        cancel_reason: null, cancelled_at: null, created_at: x.start_at, updated_at: x.start_at, customer: null,
+      }));
       if (r.error) throw r.error;
       if (s.error) throw s.error;
-      return { res: r.data as ResWithCustomer[], sch: s.data };
+      return { res: [...(r.data as ResWithCustomer[]), ...shared], sch: s.data };
     },
   });
 
