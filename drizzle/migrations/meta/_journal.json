@@ -43,6 +43,13 @@
       "when": 1792652741947,
       "tag": "0005_calendar_blocks_public_service_overlap",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792653867987,
+      "tag": "0006_customers_read_own_new_rows",
+      "breakpoints": true
     }
   ]
 }
