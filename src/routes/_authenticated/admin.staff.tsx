@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
-import { dbErrorMessage, meQuery, profilesQuery, ROLE_LABEL, type Role } from "@/lib/app";
+import { dbErrorMessage, meQuery, profilesQuery, ROLE_LABEL, staffEmailsQuery, type Role } from "@/lib/app";
 import {
   describePerms, effectivePerms, FIELDS, MENUS, ROLE_CODE, SCOPE_LABEL, TEMPLATES,
   type FieldKey, type MenuKey, type Perms, type Scope,
@@ -25,6 +25,7 @@ function StaffPage() {
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
   const isAdmin = me?.role === "admin";
+  const { data: emails } = useQuery({ ...staffEmailsQuery, enabled: isAdmin });
   const { data: roles } = useQuery({
     queryKey: ["roles"], enabled: isAdmin,
     queryFn: async () => (await supabase.from("user_roles").select("*")).data ?? [],
@@ -153,7 +154,7 @@ function StaffPage() {
                     <tr key={p.id} className="border-b last:border-0">
                       <td className="px-4 py-3">
                         <div className="font-semibold">{p.full_name}</div>
-                        <div className="text-xs text-muted-foreground">{p.email}</div>
+                        <div className="text-xs text-muted-foreground">{emails?.get(p.id)}</div>
                       </td>
                       <td className="px-2">
                         <select value={role} disabled={p.id === me.id} onChange={(e) => changeRole(p.id, e.target.value as Role)} className="h-8 rounded-md border border-input bg-background px-2 text-xs" aria-label={`${p.full_name} 역할`}>
