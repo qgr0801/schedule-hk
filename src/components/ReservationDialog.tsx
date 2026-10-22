@@ -27,6 +27,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [moving, setMoving] = useState(false);
   const history = useQuery({
     queryKey: ["history", res?.id],
     enabled: !!res && !res.access,
@@ -166,7 +167,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
                     type="button"
                     disabled={busy || current}
                     onClick={() => (s === "cancelled" ? setConfirming(true) : apply(s))}
-                    className={cn("h-10 rounded-md border-2 text-sm font-semibold transition-opacity disabled:cursor-default", current ? "ring-2 ring-offset-1" : "hover:opacity-80")}
+                    className={cn("h-11 rounded-md border-2 text-sm font-semibold transition-opacity disabled:cursor-default", current ? "ring-2 ring-offset-1" : "hover:opacity-80")}
                     style={{ color: c.text_color, background: c.bg_color, borderColor: c.border_color, ["--tw-ring-color" as string]: c.border_color }}
                   >
                     {STATUS_LABEL[s]}{current && " ✓"}
@@ -175,10 +176,18 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
               })}
             </div>
             {canEdit && (
-              <Button asChild size="sm" variant="outline">
-                <Link to="/reservations/new" search={{ id: res.id }}>예약 내용 수정</Link>
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button asChild variant="outline" className="h-11">
+                  <Link to="/reservations/new" search={{ id: res.id }}>예약 수정</Link>
+                </Button>
+                {res.status !== "cancelled" && (
+                  <Button variant="outline" className="h-11" onClick={() => setMoving((m) => !m)} aria-expanded={moving}>
+                    예약 이동
+                  </Button>
+                )}
+              </div>
             )}
+            {moving && canEdit && res.status !== "cancelled" && <MoveForm res={res} onDone={onClose} />}
           </div>
         )}
 
@@ -229,5 +238,79 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
         </AlertDialogContent>
       </AlertDialog>
     </Dialog>
+  );
+}
+
+/** "예약 이동" — move without dragging: pick date, start time and section; duration is kept. */
+function MoveForm({ res, onDone }: { res: Reservation; onDone: () => void }) {
+  const qc = useQueryClient();
+  const { data: sections } = useQuery(sectionsQuery);
+  const s0 = new Date(res.start_at);
+  const dur = +new Date(res.end_at) - +s0;
+  const [date, setDate] = useState(format(s0, "yyyy-MM-dd"));
+  const [time, setTime] = useState(format(s0, "HH:mm"));
+  const [section, setSection] = useState(res.section ? String(res.section) : "");
+  const [busy, setBusy] = useState(false);
+  const start = new Date(`${date}T${time}`);
+  const end = new Date(+start + dur);
+  const valid = !Number.isNaN(+start);
+  const secName = (n: number | null) => (n ? sections?.find((x) => x.position === n)?.name ?? `${n}번` : "미지정");
+  const span = (s: Date, e: Date) => `${format(s, "M월 d일 (EEE) HH:mm", { locale: ko })}~${format(e, "HH:mm")}`;
+  const sec = section ? Number(section) : null;
+  const unchanged = valid && +start === +s0 && sec === res.section;
+
+  async function save() {
+    if (!valid) { toast.error("날짜와 시간을 확인해 주세요."); return; }
+    setBusy(true);
+    const { data: ov, error: e1 } = await supabase.rpc("find_overlaps", {
+      _start: start.toISOString(), _end: end.toISOString(), _staff: res.staff_id ?? res.created_by,
+      _section: sec as unknown as number, _exclude: res.id,
+    });
+    if (e1) { setBusy(false); toast.error(dbErrorMessage(e1)); return; }
+    if (ov?.length) {
+      setBusy(false);
+      toast.error(ov[0]!.conflict === "staff" ? "같은 담당자의 예약과 겹쳐 이동할 수 없습니다." : "같은 섹션에 이미 예약이 있어 이동할 수 없습니다.");
+      return;
+    }
+    const { data, error } = await supabase
+      .from("reservations")
+      .update({ start_at: start.toISOString(), end_at: end.toISOString(), section: sec })
+      .eq("id", res.id)
+      .select("id");
+    setBusy(false);
+    if (error) { toast.error(dbErrorMessage(error)); return; }
+    if (!data?.length) { toast.error("이 예약을 옮길 권한이 없습니다."); return; }
+    toast.success("예약을 이동했습니다. 변경 이력에 기록됩니다.");
+    qc.invalidateQueries();
+    onDone();
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border bg-muted/50 p-3">
+      <div className="grid grid-cols-2 gap-2">
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">날짜</span>
+          <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-11 w-full rounded-md border border-input bg-background px-2 text-base" />
+        </label>
+        <label className="space-y-1 text-sm">
+          <span className="text-muted-foreground">시작 시간</span>
+          <input type="time" step={300} value={time} onChange={(e) => setTime(e.target.value)} className="h-11 w-full rounded-md border border-input bg-background px-2 text-base" />
+        </label>
+      </div>
+      <label className="block space-y-1 text-sm">
+        <span className="text-muted-foreground">섹션</span>
+        <select value={section} onChange={(e) => setSection(e.target.value)} className="h-11 w-full rounded-md border border-input bg-background px-2 text-base">
+          <option value="">미지정</option>
+          {(sections ?? []).filter((x) => x.active || x.position === res.section).map((x) => <option key={x.position} value={String(x.position)}>{x.name}</option>)}
+        </select>
+      </label>
+      {valid && (
+        <div className="space-y-1 text-sm">
+          <div className="rounded-md bg-background px-3 py-2"><span className="text-muted-foreground">기존: </span>{span(s0, new Date(res.end_at))} · {secName(res.section)}</div>
+          <div className="rounded-md bg-accent px-3 py-2 font-semibold text-accent-foreground"><span className="font-normal">변경: </span>{span(start, end)} · {secName(sec)}</div>
+        </div>
+      )}
+      <Button className="h-11 w-full" disabled={busy || !valid || unchanged} onClick={save}>이동 저장</Button>
+    </div>
   );
 }

@@ -5,7 +5,7 @@ import {
   isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +28,7 @@ import {
   type Schedule, type Visibility,
 } from "@/lib/app";
 import { cn } from "@/lib/utils";
+import { useSwipe } from "@/hooks/use-swipe";
 import { displayQuery, useCardLookups, type ColorMode } from "@/lib/display";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -107,6 +108,7 @@ function CalendarPage() {
   const dayItems = (d: Date) => items.filter((i) => isSameDay(start(i), d)).sort((a, b) => +start(a) - +start(b));
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "";
   const step = (n: number) => setCursor(view === "month" ? addMonths(cursor, n) : view === "week" ? addWeeks(cursor, n) : addDays(cursor, n));
+  const swipe = useSwipe(() => step(-1), () => step(1));
   const days = eachDayOfInterval({ start: range.from, end: range.to });
   const title =
     view === "month" ? format(cursor, "yyyy년 M월") : view === "week" ? `${format(range.from, "M.d")} – ${format(range.to, "M.d")}` : format(cursor, "M월 d일 (EEE)", { locale: ko });
@@ -185,20 +187,31 @@ function CalendarPage() {
         desc="카드 배경은 예약 상태, 왼쪽 띠는 담당자, 작은 배지는 고객 구분입니다."
         action={<Button variant="outline" onClick={() => setSchOpen(true)}>+ 일정 추가</Button>}
       />
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <div className="flex rounded-lg bg-background p-1 shadow-card">
+      <div className="mb-4 flex flex-wrap items-center gap-2" {...swipe}>
+        <div className="flex w-full rounded-lg bg-background p-1 shadow-card sm:w-auto">
           {(["month", "week", "day"] as View[]).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={cn("rounded-md px-4 py-1.5 text-sm", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+            <button key={v} onClick={() => setView(v)} className={cn("h-10 flex-1 rounded-md px-4 text-sm sm:h-auto sm:flex-none sm:py-1.5", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
               {{ month: "월간", week: "주간", day: "일간" }[v]}
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-1">
-          <Button size="icon" variant="ghost" onClick={() => step(-1)} aria-label="이전"><ChevronLeft /></Button>
-          <span className="min-w-32 text-center font-semibold text-primary">{title}</span>
-          <Button size="icon" variant="ghost" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
-          <Button size="sm" variant="outline" onClick={() => setCursor(new Date())}>오늘</Button>
+        <div className="flex w-full items-center gap-1 sm:w-auto">
+          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" onClick={() => step(-1)} aria-label="이전"><ChevronLeft /></Button>
+          <span className="min-w-0 flex-1 truncate text-center font-semibold text-primary sm:min-w-32 sm:flex-none">{title}</span>
+          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
+          <Button size="sm" variant="outline" className="h-10 shrink-0 sm:h-9" onClick={() => setCursor(new Date())}>오늘</Button>
+          <label className="relative flex h-10 w-11 shrink-0 items-center justify-center rounded-md border border-input bg-background sm:h-9 sm:w-auto sm:border-0 sm:bg-transparent">
+            <CalendarDays className="h-5 w-5 text-primary sm:hidden" />
+            <input
+              type="date"
+              aria-label="날짜 선택"
+              value={format(cursor, "yyyy-MM-dd")}
+              onChange={(e) => { if (e.target.value) setCursor(new Date(`${e.target.value}T00:00`)); }}
+              className="absolute inset-0 h-full w-full opacity-0 sm:static sm:h-9 sm:rounded-md sm:border sm:border-input sm:bg-background sm:px-2 sm:text-sm sm:opacity-100"
+            />
+          </label>
         </div>
+        <p className="w-full text-xs text-muted-foreground md:hidden">이 줄을 손가락으로 좌우로 밀면 이전·다음 {view === "month" ? "달" : view === "week" ? "주" : "날"}로 이동합니다.</p>
       </div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {me?.role !== "external" && (
@@ -230,6 +243,7 @@ function CalendarPage() {
       </div>
 
       {view === "month" && (
+        <div {...swipe}>
         <Panel className="p-0">
           <div className="grid grid-cols-7 border-b text-center text-xs text-muted-foreground">
             {["월", "화", "수", "목", "금", "토", "일"].map((d) => <div key={d} className="py-2">{d}</div>)}
@@ -258,6 +272,7 @@ function CalendarPage() {
             })}
           </div>
         </Panel>
+        </div>
       )}
 
       {view === "week" && (

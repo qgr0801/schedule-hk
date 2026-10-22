@@ -57,6 +57,13 @@
       "when": 1792657322249,
       "tag": "0007_staff_menu_field_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1792665220614,
+      "tag": "0008_trial_security_hardening",
+      "breakpoints": true
     }
   ]
 }
