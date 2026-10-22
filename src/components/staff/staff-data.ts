@@ -6,9 +6,10 @@ import { staffAccounts } from "@/lib/staff.functions";
 import type { Database } from "@/integrations/supabase/types";
 
 /** Admin-only full staff rows (profiles RLS: self or admin; e-mail comes from staff_emails()). */
+export type StaffRow = { id: string; full_name: string; department: string | null; is_active: boolean; is_test: boolean; created_at: string };
 export const staffProfilesQuery = queryOptions({
   queryKey: ["staff_profiles"],
-  queryFn: async () => {
+  queryFn: async (): Promise<StaffRow[]> => {
     const { data, error } = await supabase
       .from("profiles")
       .select("id, full_name, department, is_active, is_test, created_at")
@@ -17,7 +18,6 @@ export const staffProfilesQuery = queryOptions({
     return data;
   },
 });
-export type StaffRow = Awaited<ReturnType<typeof staffProfilesQuery.queryFn>>[number];
 
 export const rolesQuery = queryOptions({
   queryKey: ["roles"],

@@ -79,7 +79,7 @@ export const meQuery = queryOptions({
 });
 
 /** Name-only staff directory (staff_directory RPC); full profile rows are self/admin only. */
-export type StaffProfile = Omit<Profile, "email">;
+export type StaffProfile = Omit<Profile, "email" | "is_test">;
 
 export const profilesQuery = queryOptions({
   queryKey: ["profiles"],
