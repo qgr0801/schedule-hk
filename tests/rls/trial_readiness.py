@@ -82,16 +82,17 @@ for t, cols in SETTINGS.items():
     check(f"공용 설정 {t}: 개인정보 열 없음", s == 200 and set(j[0]) <= cols, f"{sorted(j[0]) if j else None}")
     s, _ = req("GET", None, f"{t}?select=*")
     check(f"공용 설정 {t}: 비로그인 차단", s in (401, 403), f"{s}")
-    s, j = req("PATCH", C, f"{t}?select=*", {"updated_at": "2020-01-01T00:00:00Z"})
+    key = sorted(cols)[0]
+    s, j = req("PATCH", C, f"{t}?{key}=not.is.null", {"color": "#000000"} if "color" in cols else {"name": "x"} if "name" in cols else {"color_mode": "status"} if "color_mode" in cols else {"slot_minutes": 15} if "slot_minutes" in cols else {"text_color": "#000000"})
     check(f"공용 설정 {t}: 외부 직원 수정 불가", (s == 200 and j == []) or s in (401, 403), f"{s}")
 
 # ---------- 3c. customer PII per role ----------
-s, j = req("GET", C, "customers?select=id,name,phone,memo,customer_no")
-check("고객정보: 외부 직원은 본인 등록 고객만", s == 200 and {r["id"] for r in j} == {st["C"]["cust"]}, f"{len(j or [])}")
+s, j = req("GET", C, "customers?select=id,created_by")
+check("고객정보: 외부 직원은 본인 등록 고객만", s == 200 and st["C"]["cust"] in {r["id"] for r in j} and all(r["created_by"] == me["C"] for r in j), f"{len(j or [])}")
 s, j = req("GET", C, f"customers?customer_no=eq.{st['A']['no']}&select=id")
 check("고객번호 검색: 외부 직원이 다른 직원 고객번호로 조회 불가", s == 200 and j == [], f"{j}")
-s, j = req("GET", C, "reservations?select=id")
-check("예약 상세: 외부 직원은 본인 예약만", s == 200 and {r["id"] for r in j} == {st["C"]["res"]}, f"{len(j or [])}")
+s, j = req("GET", C, "reservations?select=id,created_by")
+check("예약 상세: 외부 직원은 본인 예약만", s == 200 and st["C"]["res"] in {r["id"] for r in j} and all(r["created_by"] == me["C"] for r in j), f"{len(j or [])}")
 s, j = req("POST", C, "rpc/calendar_reservations", {"_from": "2027-01-15T00:00:00+09:00", "_to": "2027-01-16T00:00:00+09:00"})
 others = [r for r in (j or []) if r["id"] != st["C"]["res"]]
 check("캘린더 블록: 외부 직원에게 다른 직원 예약의 고객명·번호·연락처·메모 없음",
