@@ -78,7 +78,10 @@ export const staffAccounts = createServerFn({ method: "GET" })
     const now = Date.now();
     return data.users.map((u) => {
       const banned = !!u.banned_until && new Date(u.banned_until).getTime() > now;
-      const state: AccountState = banned ? "disabled" : u.invited_at && !u.last_sign_in_at ? "invited" : "active";
+      // Invited staff count as "invited" until they save a password on /set-password (which sets password_set).
+      // Opening the link alone signs them in without a password, so last_sign_in_at is not enough.
+      const passwordSet = u.user_metadata?.["password_set"] === true;
+      const state: AccountState = banned ? "disabled" : u.invited_at && !passwordSet ? "invited" : "active";
       return { id: u.id, state, invitedAt: u.invited_at ?? null, lastSignInAt: u.last_sign_in_at ?? null };
     });
   });
@@ -93,4 +96,27 @@ export const renameStaff = createServerFn({ method: "POST" })
     const { error } = await supabaseAdmin.from("profiles").update({ full_name: data.fullName }).eq("id", data.userId);
     if (error) throw new Error("이름을 바꾸지 못했습니다.");
     return { ok: true };
+  });
+
+/**
+ * Re-sends a set-password e-mail to an invited staff member who has not saved a password yet.
+ * Unaccepted invite -> invite e-mail again; link already opened (account confirmed) -> password-setup (recovery) e-mail.
+ */
+export const resendSetupLink = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid(), redirectTo: inviteInput.shape.redirectTo }).parse(input))
+  .handler(async ({ data, context }) => {
+    await assertAdmin(context.supabase, context.userId);
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: got, error } = await supabaseAdmin.auth.admin.getUserById(data.userId);
+    const u = got?.user;
+    if (error || !u?.email) throw new Error("직원 계정을 찾지 못했습니다.");
+    const res = u.email_confirmed_at
+      ? await supabaseAdmin.auth.resetPasswordForEmail(u.email, { redirectTo: data.redirectTo })
+      : await supabaseAdmin.auth.admin.inviteUserByEmail(u.email, { redirectTo: data.redirectTo, data: u.user_metadata });
+    if (res.error) {
+      if (/rate limit/i.test(res.error.message)) throw new Error("메일 발송 한도를 넘었습니다. 잠시 후 다시 시도해 주세요.");
+      throw new Error("메일을 보내지 못했습니다.");
+    }
+    return { kind: u.email_confirmed_at ? ("setup" as const) : ("invite" as const) };
   });

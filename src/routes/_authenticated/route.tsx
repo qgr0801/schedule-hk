@@ -29,7 +29,7 @@ const NAV = [
 ] as const satisfies readonly { key: MenuKey; to: string; label: string; icon: unknown }[];
 
 function AppShell() {
-  const { data: me } = useQuery(meQuery);
+  const { data: me, isError: meError, refetch: refetchMe } = useQuery(meQuery);
   const { data: booking } = useQuery({ ...bookingSettingsQuery, enabled: !!me });
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -100,7 +100,19 @@ function AppShell() {
             <span><b className="text-primary">시범 운영 중</b> · 지금 입력하는 고객과 예약은 '테스트'로 표시됩니다. 실제 고객 정보는 입력하지 마세요.</span>
           </div>
         )}
-        {!me ? null : blocked ? (
+        {!me ? (
+          <div className="mx-auto mt-16 max-w-md rounded-xl border bg-card p-8 text-center shadow-card">
+            {meError ? (
+              <>
+                <h1 className="mb-1 text-lg font-bold text-primary">계정 정보를 불러오지 못했습니다</h1>
+                <p className="mb-4 text-sm text-muted-foreground">인터넷 연결을 확인한 뒤 다시 시도해 주세요. 계속되면 관리자에게 알려 주세요.</p>
+                <button onClick={() => refetchMe()} className="text-sm font-semibold text-primary underline">다시 시도</button>
+              </>
+            ) : (
+              <p className="text-sm text-muted-foreground">계정 정보를 불러오는 중…</p>
+            )}
+          </div>
+        ) : blocked ? (
           <div className="mx-auto mt-16 max-w-md rounded-xl border bg-card p-8 text-center shadow-card">
             <Lock className="mx-auto mb-3 h-8 w-8 text-primary" />
             <h1 className="mb-1 text-lg font-bold text-primary">접근 권한이 없는 메뉴입니다</h1>

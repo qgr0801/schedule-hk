@@ -79,9 +79,11 @@ export function effectivePerms(role: Role, saved: Partial<Perms> | null | undefi
   }
   const base = { ...DEFAULT_PERMS, ...(saved ?? {}) };
   const fixed = FIELDS.filter((f) => f.fixed).map((f) => f.key);
+  const menus = (base.menus ?? []).filter((k) => !MENUS.find((m) => m.key === k)?.adminOnly);
   return {
     scope: role === "external" ? "own" : base.scope,
-    menus: base.menus.filter((k) => !MENUS.find((m) => m.key === k)?.adminOnly),
+    // A staff member with no menus left would see an empty app; fall back to the default four.
+    menus: menus.length ? menus : DEFAULT_PERMS.menus,
     fields: [...new Set([...fixed, ...base.fields])].filter((k) => role === "internal" || !FIELDS.find((f) => f.key === k)?.pii),
   };
 }

@@ -53,4 +53,6 @@
 - [x] Test-data badges + trial banner + trial-mode switch
 - [x] Pre-release checks: dependency scan, quick/deep scan, signed-out block, per-role tests, mobile, backup guide
 - [ ] Test-data reset: not built — only on admin request
-- [ ] Invite e-mail links only work after publishing (user approval needed); deep scan re-run after today's changes
+- [x] Invite blank-screen diagnosis: site not published (link lands on 'Project not found'); account/role/menus OK
+- [x] Invited-state fix + 설정 메일 다시 보내기 + /set-password → /calendar + no blank main area
+- [ ] Publish (needs user approval) then resend setup mail to 아이스타; deep scan re-run
