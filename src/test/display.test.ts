@@ -42,10 +42,11 @@ describe("display rules", () => {
     expect(block).not.toContain("category");
     expect(block).toContain("service");
     expect(BLOCK_FIELDS).toContain("status");
+    expect(block).toContain("creator");
   });
 
   it("detail access still hides personal info", () => {
     const detail = allowedFields("detail", ["time", "customer", "phone", "memo", "service", "category"]);
-    expect(detail).toEqual(["time", "service", "category"]);
+    expect(detail).toEqual(["time", "service", "category", "creator"]);
   });
 });
