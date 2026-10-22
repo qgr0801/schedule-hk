@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { DEFAULT_STATUS_COLORS, statusColorsQuery } from "@/lib/display";
 import type { ResStatus } from "@/lib/app";
 import { STATUS_LABEL } from "@/lib/app";
 import { cn } from "@/lib/utils";
@@ -20,11 +22,14 @@ export function Panel({ children, className }: { children: ReactNode; className?
 }
 
 export function StatusBadge({ status }: { status: ResStatus }) {
-  const cls: Record<ResStatus, string> = {
-    confirmed: "bg-accent text-accent-foreground",
-    completed: "bg-success/15 text-success",
-    cancelled: "bg-destructive/10 text-destructive line-through",
-    no_show: "bg-warning/20 text-foreground",
-  };
-  return <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", cls[status])}>{STATUS_LABEL[status]}</span>;
+  const { data } = useQuery(statusColorsQuery);
+  const c = data?.[status] ?? DEFAULT_STATUS_COLORS[status];
+  return (
+    <span
+      className={cn("rounded-full border px-2 py-0.5 text-xs font-medium", status === "cancelled" && "line-through")}
+      style={{ color: c.text_color, background: c.bg_color, borderColor: c.border_color }}
+    >
+      {STATUS_LABEL[status]}
+    </span>
+  );
 }
