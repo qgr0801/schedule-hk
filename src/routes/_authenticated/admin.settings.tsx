@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { dbErrorMessage, meQuery, profilesQuery, STATUS_LABEL, type ResStatus } from "@/lib/app";
+import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, SLOT_OPTIONS, STATUS_LABEL, type ResStatus } from "@/lib/app";
 import {
   CARD_FIELDS, categoriesQuery, DEFAULT_CATEGORIES, DEFAULT_FIELDS, DEFAULT_STATUS_COLORS, displayQuery, isHex,
   staffColorsQuery, STATUS_ORDER, statusColorsQuery, suggestStaffColor, VIEW_LABEL,

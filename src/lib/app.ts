@@ -98,6 +98,16 @@ export const sectionsQuery = queryOptions({
   },
 });
 
+export const SLOT_OPTIONS = [10, 15, 30, 60] as const;
+export const bookingSettingsQuery = queryOptions({
+  queryKey: ["booking_settings"],
+  queryFn: async () => {
+    const { data, error } = await supabase.from("booking_settings").select("*").maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+});
+
 export function dbErrorMessage(e: unknown): string {
   const err = e as { code?: string; message?: string };
   if (err?.code === "23P01")
