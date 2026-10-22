@@ -73,6 +73,8 @@ function CalendarPage() {
         customer_name: x.customer_name ?? "다른 직원 예약", customer_phone: x.customer_phone, memo: x.memo,
         customer_id: null, cancel_reason: null, cancelled_at: null, created_at: x.start_at, updated_at: x.start_at,
         access: x.access as ResWithCustomer["access"],
+        visible: x.visible ?? [],
+        customer_no: x.customer_no,
         customer: x.category_id ? { category_id: x.category_id, customer_category_tags: [] } : null,
       }));
       if (r.error) throw r.error;

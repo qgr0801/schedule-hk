@@ -18,7 +18,7 @@ import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, ST
 import { STATUS_ORDER, useCardLookups } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
-export function ReservationDialog({ res, onClose }: { res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access">>) | null; onClose: () => void }) {
+export function ReservationDialog({ res, onClose }: { res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access" | "visible" | "customer_no">>) | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
@@ -45,6 +45,16 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
       return data;
     },
   });
+  const canVisits = !!res && (!res.access || !!res.visible?.includes("history"));
+  const visits = useQuery({
+    queryKey: ["visits", res?.id],
+    enabled: canVisits,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("customer_visit_history", { _reservation: res!.id });
+      if (error) throw error;
+      return data;
+    },
+  });
   if (!res) return null;
   const name = (id: string | null) => (id ? profiles?.find((p) => p.id === id)?.full_name ?? "알 수 없음" : "시스템");
   const sectionName = sections?.find((s) => s.position === res.section)?.name ?? res.room;
@@ -55,35 +65,48 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
     .map((id) => L.category(id))
     .filter((c) => !!c);
 
+  const visitList = canVisits && (
+    <div className="border-t pt-4">
+      <h4 className="mb-2 text-sm font-semibold text-primary">고객 방문 이력 {visits.data && `(${visits.data.filter((v) => v.status === "completed").length}회 방문)`}</h4>
+      <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
+        {visits.data?.map((v, k) => (
+          <li key={k} className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-1.5">
+            <span>{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.public_service}</span>
+            <StatusBadge status={v.status} />
+          </li>
+        ))}
+        {visits.data?.length === 0 && <li className="text-xs text-muted-foreground">고객 정보가 연결되지 않은 예약입니다.</li>}
+      </ul>
+    </div>
+  );
+
   if (res.access) {
+    const v = (k: string) => !!res.visible?.includes(k);
     return (
       <Dialog open onOpenChange={(o) => !o && onClose()}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-2">
-              {res.access === "pii" ? res.customer_name : "다른 직원 예약"} <StatusBadge status={res.status} />
-              {res.access !== "block" && cats.map((c) => <CategoryBadge key={c!.id} cat={c!} />)}
+              {v("customer") ? res.customer_name : "다른 직원 예약"} <StatusBadge status={res.status} />
+              {res.access === "detail" && cats.map((c) => <CategoryBadge key={c!.id} cat={c!} />)}
             </DialogTitle>
           </DialogHeader>
           <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
             <dt className="text-muted-foreground">예약 항목</dt><dd>{res.public_service}</dd>
-            {res.access !== "block" && (<><dt className="text-muted-foreground">상세 시술</dt><dd>{res.service}</dd></>)}
-            {res.access === "pii" && (<>
-              <dt className="text-muted-foreground">연락처</dt><dd>{res.customer_phone || "-"}</dd>
-              <dt className="text-muted-foreground">메모</dt><dd className="whitespace-pre-wrap">{res.memo || "-"}</dd>
-            </>)}
-            {res.access !== "block" && (<><dt className="text-muted-foreground">등록</dt><dd>{name(res.created_by)}</dd></>)}
+            {res.access === "detail" && (<><dt className="text-muted-foreground">상세 시술</dt><dd>{res.service}</dd></>)}
+            {v("customer") && (<><dt className="text-muted-foreground">고객명</dt><dd>{res.customer_name}</dd></>)}
+            {v("customerNo") && (<><dt className="text-muted-foreground">고객번호</dt><dd>{res.customer_no ? `No.${res.customer_no}` : "-"}</dd></>)}
+            {v("phone") && (<><dt className="text-muted-foreground">연락처</dt><dd>{res.customer_phone || "-"}</dd></>)}
+            {v("memo") && (<><dt className="text-muted-foreground">메모</dt><dd className="whitespace-pre-wrap">{res.memo || "-"}</dd></>)}
+            <dt className="text-muted-foreground">등록</dt><dd>{name(res.created_by)}</dd>
             <dt className="text-muted-foreground">일시</dt>
             <dd>{format(new Date(res.start_at), "M월 d일 (EEE) HH:mm", { locale: ko })} – {format(new Date(res.end_at), "HH:mm")}</dd>
-            <dt className="text-muted-foreground">담당</dt><dd>{name(res.staff_id ?? res.created_by)}</dd>
+            {v("staff") && (<><dt className="text-muted-foreground">담당</dt><dd>{name(res.staff_id ?? res.created_by)}</dd></>)}
             <dt className="text-muted-foreground">섹션</dt><dd>{sectionName || "미지정"}</dd>
           </dl>
+          {visitList}
           <p className="text-xs text-muted-foreground">
-            {res.access === "block"
-              ? "다른 직원의 예약은 시간, 섹션, 공개용 예약 항목, 상태만 표시됩니다."
-              : res.access === "detail"
-                ? "고객 개인정보는 별도 열람 권한이 있어야 볼 수 있습니다."
-                : "열람만 가능하며 수정·취소는 등록자와 관리자만 할 수 있습니다."}
+            다른 직원의 예약은 관리자가 허용한 정보만 보입니다. 수정·취소는 등록자와 관리자만 할 수 있습니다.
           </p>
         </DialogContent>
       </Dialog>
