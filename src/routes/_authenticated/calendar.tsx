@@ -267,7 +267,6 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
   );
 }
 
-const HOURS = Array.from({ length: 13 }, (_, k) => k + 9);
 
 function DayBoard({
   items, date, isAdmin, name, onRes, onSch, onSettings,
@@ -292,6 +291,10 @@ function DayBoard({
   ];
   const startOf = (i: Item) => new Date(i.kind === "res" ? i.r.start_at : i.s.start_at);
   const endOf = (i: Item) => new Date(i.kind === "res" ? i.r.end_at : i.s.end_at);
+  const hrs = items.map((i) => startOf(i).getHours());
+  const firstH = Math.min(9, ...hrs);
+  const lastH = Math.max(21, ...hrs);
+  const HOURS = Array.from({ length: lastH - firstH + 1 }, (_, k) => k + firstH);
   const gridStyle = { gridTemplateColumns: `56px repeat(${Math.max(cols.length, 1)}, minmax(150px, 1fr))` };
 
   function newAt(section: number, h: number) {
