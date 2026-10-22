@@ -57,7 +57,7 @@ export function StatusPill({ status, colors, small }: { status: ResStatus; color
 
 /** Pure presentational card, also used for the settings preview. */
 export function CardView({
-  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick,
+  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick, className,
 }: {
   r: Pick<ResWithCustomer, "start_at" | "end_at" | "customer_name" | "customer_phone" | "service" | "memo" | "status">;
   fields: CardField[];
@@ -69,6 +69,7 @@ export function CardView({
   staffName: string;
   compact?: boolean | undefined;
   onClick?: (() => void) | undefined;
+  className?: string | undefined;
 }) {
   const c = cardColors(mode, status, staffColor);
   const has = (f: CardField) => fields.includes(f);
@@ -93,7 +94,7 @@ export function CardView({
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={cn("relative block w-full overflow-hidden rounded-md border text-left text-xs", compact ? "py-0.5 pl-2.5 pr-1" : "py-1.5 pl-3 pr-2", r.status === "cancelled" && "opacity-75")}
+      className={cn("relative block w-full overflow-hidden rounded-md border text-left text-xs", compact ? "py-0.5 pl-2.5 pr-1" : "py-1.5 pl-3 pr-2", r.status === "cancelled" && "opacity-75", className)}
       style={{ background: c.background, color: c.color, borderColor: c.borderColor }}
     >
       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: c.stripe }} aria-hidden />
@@ -120,7 +121,7 @@ export function CardView({
 
 /** Calendar card wired to saved settings. */
 export function ReservationCard({
-  r, view, name, compact, onClick, modeOverride,
+  r, view, name, compact, onClick, modeOverride, className,
 }: {
   r: ResWithCustomer;
   view: CalView;
@@ -128,6 +129,7 @@ export function ReservationCard({
   compact?: boolean | undefined;
   onClick?: (() => void) | undefined;
   modeOverride?: ColorMode | undefined;
+  className?: string | undefined;
 }) {
   const L = useCardLookups();
   const d = L.display(view);
@@ -149,6 +151,7 @@ export function ReservationCard({
       staffName={name(staffId)}
       compact={compact}
       onClick={onClick}
+      className={className}
     />
   );
 }
