@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays, addMonths, addWeeks, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format,
   isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Lock, Users, Globe } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { dbErrorMessage, meQuery, profilesQuery, VIS_LABEL, type Reservation, type Schedule, type Visibility } from "@/lib/app";
+import {
+  dbErrorMessage, MAX_SECTIONS, meQuery, profilesQuery, sectionsQuery, VIS_LABEL,
+  type Reservation, type Schedule, type Visibility,
+} from "@/lib/app";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
