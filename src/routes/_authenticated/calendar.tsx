@@ -230,7 +230,7 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
           <div className="space-y-1"><Label>제목</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 원내 교육" /></div>
           <div className="grid grid-cols-3 gap-2">
             <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="col-span-3 sm:col-span-1" />
-            <Input type="time" value={st} onChange={(e) => setSt(e.target.value)} className="col-span-3/2" />
+            <Input type="time" value={st} onChange={(e) => setSt(e.target.value)} />
             <Input type="time" value={en} onChange={(e) => setEn(e.target.value)} />
           </div>
           <div className="space-y-1"><Label>메모</Label><Input value={memo} onChange={(e) => setMemo(e.target.value)} /></div>
