@@ -6,12 +6,22 @@ import { cn } from "@/lib/utils";
 
 export type ResWithCustomer = Reservation & {
   customer?: { category_id: string | null; customer_category_tags: { category_id: string }[] } | null;
-  /** Another staff member's reservation shared with limited fields (status + service only). */
-  limited?: boolean;
+  /**
+   * Another staff member's reservation from the calendar read model:
+   * block = time/section/public service/status only, detail = + detailed service & category, pii = + customer info.
+   */
+  access?: "block" | "detail" | "pii" | undefined;
 };
 
-/** Fields allowed on a limited (shared) reservation, whatever the display settings say. */
-export const LIMITED_FIELDS: CardField[] = ["time", "service", "staff", "status"];
+/** Fields each access level may show, whatever the display settings say. */
+export const BLOCK_FIELDS: CardField[] = ["time", "service", "staff", "status"];
+export const DETAIL_FIELDS: CardField[] = ["time", "service", "category", "creator", "staff", "status"];
+export function allowedFields(access: ResWithCustomer["access"], fields: CardField[]): CardField[] {
+  if (!access || access === "pii") return fields;
+  const allow = access === "block" ? BLOCK_FIELDS : DETAIL_FIELDS;
+  const out = fields.filter((f) => allow.includes(f));
+  return out.includes("service") ? out : [...out, "service"];
+}
 
 export function CategoryBadge({ cat, small }: { cat: Pick<Category, "name" | "color">; small?: boolean }) {
   return (
@@ -119,7 +129,7 @@ export function ReservationCard({
   return (
     <CardView
       r={r}
-      fields={r.limited ? d.fields.filter((f) => LIMITED_FIELDS.includes(f)).concat(d.fields.includes("service") ? [] : ["service"]) : d.fields}
+      fields={allowedFields(r.access, d.fields)}
       mode={modeOverride ?? d.color_mode}
       status={L.statusColor(r.status)}
       staffColor={L.staffColor(staffId)}

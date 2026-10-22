@@ -53,6 +53,41 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
   );
 }
 
+function BookingRules() {
+  const qc = useQueryClient();
+  const { data } = useQuery({
+    queryKey: ["booking_settings"],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("booking_settings").select("*").maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const reusable = data?.cancelled_slot_reusable ?? true;
+  async function set(v: boolean) {
+    const { error } = await supabase.from("booking_settings").update({ cancelled_slot_reusable: v }).eq("id", true);
+    if (error) { toast.error(dbErrorMessage(error)); return; }
+    toast.success("예약 규칙이 저장되었습니다.");
+    qc.invalidateQueries({ queryKey: ["booking_settings"] });
+  }
+  return (
+    <div className="space-y-3">
+      <div className="text-sm font-medium">취소된 예약의 시간대</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {[true, false].map((v) => (
+          <button key={String(v)} onClick={() => set(v)} className={cn("rounded-lg border p-3 text-left text-sm", reusable === v && "border-primary bg-accent")}>
+            <b className={cn(reusable === v && "text-primary")}>{v ? "다시 예약 가능" : "다시 예약 불가"}</b>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {v ? "예약이 취소되면 같은 담당자·섹션의 그 시간에 새 예약을 받을 수 있습니다." : "취소된 예약도 시간을 차지해, 같은 담당자·섹션의 그 시간에는 새 예약을 받지 않습니다."}
+            </span>
+          </button>
+        ))}
+      </div>
+      <p className="text-xs text-muted-foreground">중복 검사는 모든 직원의 예약을 기준으로 같은 담당자 또는 같은 섹션(시술실)의 시간 겹침을 서버에서 확인합니다.</p>
+    </div>
+  );
+}
+
 function SettingsPage() {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
@@ -139,6 +174,7 @@ function SettingsPage() {
               <TabsTrigger value="staff">담당자별 색상</TabsTrigger>
               <TabsTrigger value="cats">고객 구분 7개</TabsTrigger>
               <TabsTrigger value="fields">예약 카드 표시 항목</TabsTrigger>
+              <TabsTrigger value="rules">예약 규칙</TabsTrigger>
             </TabsList>
 
             <TabsContent value="status">
@@ -227,6 +263,9 @@ function SettingsPage() {
                 표시 항목을 켜도 열람 권한이 없는 직원에게는 고객명·연락처·상담 내용이 보이지 않습니다. 노쇼·예약 취소는 항상 상태가 표시됩니다.
               </p>
               {footer(saveDisp, () => setDisp({ day: { fields: DEFAULT_FIELDS.day, color_mode: "status" }, week: { fields: DEFAULT_FIELDS.week, color_mode: "status" }, month: { fields: DEFAULT_FIELDS.month, color_mode: "status" } }))}
+            </TabsContent>
+            <TabsContent value="rules">
+              <BookingRules />
             </TabsContent>
           </Tabs>
         </Panel>

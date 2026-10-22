@@ -11,7 +11,9 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CategoryBadge } from "@/components/ReservationCard";
-import { dbErrorMessage, meQuery, profilesQuery, sectionsQuery, SERVICES, toLocalInput } from "@/lib/app";
+import { dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput } from "@/lib/app";
+import { format } from "date-fns";
+import { AlertTriangle } from "lucide-react";
 import { categoriesQuery, customersQuery, maskPhone, useCardLookups } from "@/lib/display";
 
 export const Route = createFileRoute("/_authenticated/reservations/new")({
@@ -48,6 +50,7 @@ function ReservationForm() {
   const [tags, setTags] = useState<string[]>([]);
   const [staffId, setStaffId] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [publicService, setPublicService] = useState(PUBLIC_SERVICES[0]!);
   const [f, setF] = useState({ customer_name: "", customer_phone: "", service: SERVICES[0], section: qSection ? String(qSection) : "", memo: "", date: qDate ?? "", start: qStart ?? "10:00", minutes: 60 });
   const [busy, setBusy] = useState(false);
 
@@ -60,6 +63,7 @@ function ReservationForm() {
       if (!data) { toast.error("예약을 찾을 수 없거나 열람 권한이 없습니다."); return; }
       setCustomerId(data.customer_id);
       setStaffId(data.staff_id ?? data.created_by);
+      setPublicService(data.public_service);
       const s = toLocalInput(data.start_at);
       setF({
         customer_name: data.customer_name, customer_phone: data.customer_phone ?? "", service: data.service,
@@ -83,8 +87,27 @@ function ReservationForm() {
   const selected = customers?.find((x) => x.id === customerId);
   const canEditCustomer = !selected || me?.role === "admin" || selected.created_by === me?.id;
   const matches = search.trim()
-    ? (customers ?? []).filter((c) => c.name.includes(search.trim()) || (c.phone ?? "").replace(/\D/g, "").includes(search.replace(/\D/g, "") || "\u0000")).slice(0, 6)
+    ? (customers ?? []).filter((c) => c.name.includes(search.trim()) || (c.phone ?? "").replace(/\D/g, "").includes(search.replace(/\D/g, "") || "\u0000") || String(c.customer_no) === search.trim().replace(/^No\.?\s*/i, "")).slice(0, 6)
     : [];
+
+  // Live overlap warning against every staff's reservation blocks (server re-checks on save)
+  const startDate = f.date && f.start ? new Date(`${f.date}T${f.start}`) : null;
+  const overlap = useQuery({
+    queryKey: ["overlap", f.date, f.start, f.minutes, staffId, f.section, id ?? null],
+    enabled: !!startDate && !Number.isNaN(startDate.getTime()) && !!staffId,
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("find_overlaps", {
+        _start: startDate!.toISOString(),
+        _end: new Date(startDate!.getTime() + f.minutes * 60000).toISOString(),
+        _staff: staffId,
+        _section: f.section ? Number(f.section) : (null as unknown as number),
+        _exclude: (id ?? null) as unknown as string,
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
+  const sectionLabel = (n: string) => allSections?.find((s) => String(s.position) === n)?.name ?? "";
 
   function pickCustomer(cid: string) {
     const c = customers?.find((x) => x.id === cid);
@@ -127,7 +150,7 @@ function ReservationForm() {
     setBusy(true);
     const cid = await saveCustomer(parsed.data.customer_name, parsed.data.customer_phone || null);
     if (!cid) { setBusy(false); return; }
-    Object.assign(payload, { customer_id: cid, staff_id: staffId || null });
+    Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicService });
     const { error } = id
       ? await supabase.from("reservations").update(payload).eq("id", id)
       : await supabase.from("reservations").insert(payload);
@@ -143,12 +166,12 @@ function ReservationForm() {
 
   return (
     <div className="max-w-2xl">
-      <PageHeader title={id ? "예약 수정" : "예약 등록"} desc="같은 담당자의 시간이 겹치면 자동으로 등록이 막힙니다. 실제 고객 정보 대신 가상 데이터를 사용하세요." />
+      <PageHeader title={id ? "예약 수정" : "예약 등록"} desc="같은 담당자나 같은 섹션(시술실)의 시간이 겹치면 경고가 표시되고 저장이 막힙니다. 가상 데이터만 사용하세요." />
       <Panel>
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>기존 고객 검색</Label>
-            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름 또는 전화번호로 검색" />
+            <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름, 고객번호, 전화번호로 검색" />
             {matches.length > 0 && (
               <ul className="divide-y rounded-md border bg-background">
                 {matches.map((c) => {
@@ -156,7 +179,7 @@ function ReservationForm() {
                   return (
                     <li key={c.id}>
                       <button type="button" onClick={() => pickCustomer(c.id)} className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent">
-                        <b>{c.name}</b> <span className="text-xs text-muted-foreground">{maskPhone(c.phone)}</span>
+                        <span className="text-xs text-muted-foreground">No.{c.customer_no}</span> <b>{c.name}</b> <span className="text-xs text-muted-foreground">{maskPhone(c.phone)}</span>
                         {cat && <span className="ml-auto"><CategoryBadge cat={cat} small /></span>}
                       </button>
                     </li>
@@ -216,6 +239,14 @@ function ReservationForm() {
               )}
             </select>
           </div>
+          <div className="space-y-2">
+            <Label>캘린더 공개용 시술명</Label>
+            <select value={publicService} onChange={(e) => setPublicService(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              {PUBLIC_SERVICES.map((s) => <option key={s}>{s}</option>)}
+              {!PUBLIC_SERVICES.includes(publicService) && <option value={publicService}>{publicService}</option>}
+            </select>
+            <p className="text-xs text-muted-foreground">다른 직원의 캘린더에는 상세 시술명 대신 이 이름이 보입니다.</p>
+          </div>
           <div className="space-y-2"><Label>날짜 *</Label><Input type="date" required value={f.date} onChange={set("date")} /></div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2"><Label>시작 *</Label><Input type="time" step={600} required value={f.start} onChange={set("start")} /></div>
@@ -226,6 +257,18 @@ function ReservationForm() {
               </select>
             </div>
           </div>
+          {!!overlap.data?.length && (
+            <div role="alert" className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm sm:col-span-2">
+              <div className="flex items-center gap-2 font-semibold text-destructive"><AlertTriangle className="h-4 w-4" /> 시간이 겹치는 예약이 있습니다</div>
+              {overlap.data.map((o, k) => (
+                <div key={k} className="text-xs">
+                  {format(new Date(o.start_at), "HH:mm")}~{format(new Date(o.end_at), "HH:mm")} · {o.public_service} · {STATUS_LABEL[o.status]} ·{" "}
+                  {o.conflict === "staff" ? "같은 담당자" : `같은 섹션 (${sectionLabel(f.section)})`}
+                </div>
+              ))}
+              <div className="text-xs text-muted-foreground">이대로 저장하면 서버에서 등록이 막힙니다.</div>
+            </div>
+          )}
           <div className="space-y-2 sm:col-span-2"><Label>메모</Label><Textarea value={f.memo} onChange={set("memo")} /></div>
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" disabled={busy} className="h-11 flex-1 sm:flex-none sm:px-8">{id ? "수정 저장" : "예약 등록"}</Button>

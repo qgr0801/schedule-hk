@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_settings: {
+        Row: {
+          cancelled_slot_reusable: boolean
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          cancelled_slot_reusable?: boolean
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          cancelled_slot_reusable?: boolean
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       calendar_display_settings: {
         Row: {
           color_mode: string
@@ -97,6 +115,7 @@ export type Database = {
           category_id: string | null
           created_at: string
           created_by: string
+          customer_no: number
           id: string
           memo: string | null
           name: string
@@ -107,6 +126,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by?: string
+          customer_no?: number
           id?: string
           memo?: string | null
           name: string
@@ -117,6 +137,7 @@ export type Database = {
           category_id?: string | null
           created_at?: string
           created_by?: string
+          customer_no?: number
           id?: string
           memo?: string | null
           name?: string
@@ -317,6 +338,7 @@ export type Database = {
           end_at: string
           id: string
           memo: string | null
+          public_service: string
           room: string | null
           section: number | null
           service: string
@@ -336,6 +358,7 @@ export type Database = {
           end_at: string
           id?: string
           memo?: string | null
+          public_service?: string
           room?: string | null
           section?: number | null
           service: string
@@ -355,6 +378,7 @@ export type Database = {
           end_at?: string
           id?: string
           memo?: string | null
+          public_service?: string
           room?: string | null
           section?: number | null
           service?: string
@@ -471,16 +495,19 @@ export type Database = {
       }
       staff_view_scopes: {
         Row: {
+          can_view_pii: boolean
           scope: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          can_view_pii?: boolean
           scope?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          can_view_pii?: boolean
           scope?: string
           updated_at?: string
           user_id?: string
@@ -518,6 +545,26 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      calendar_reservations: {
+        Args: { _from: string; _to: string }
+        Returns: {
+          access: string
+          category_id: string
+          created_by: string
+          customer_name: string
+          customer_phone: string
+          end_at: string
+          id: string
+          memo: string
+          public_service: string
+          room: string
+          section: number
+          service: string
+          staff_id: string
+          start_at: string
+          status: Database["public"]["Enums"]["reservation_status"]
+        }[]
+      }
       can_edit_customer: {
         Args: { _customer: string; _user: string }
         Returns: boolean
@@ -533,6 +580,22 @@ export type Database = {
       can_view_owner: {
         Args: { _owner: string; _viewer: string }
         Returns: boolean
+      }
+      find_overlaps: {
+        Args: {
+          _end: string
+          _exclude: string
+          _section: number
+          _staff: string
+          _start: string
+        }
+        Returns: {
+          conflict: string
+          end_at: string
+          public_service: string
+          start_at: string
+          status: Database["public"]["Enums"]["reservation_status"]
+        }[]
       }
       has_role: {
         Args: {
