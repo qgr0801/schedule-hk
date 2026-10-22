@@ -255,6 +255,21 @@ function StaffPage() {
     </Panel>
   );
 
+  async function resend(id: string, fullName: string, role: Role) {
+    const email = emails?.get(id);
+    if (!email || role === "admin") return;
+    setBusy(true);
+    try {
+      await inviteStaff({ data: { email, fullName, role, redirectTo: `${staffAppOrigin()}/set-password` } });
+      toast.success(`${fullName}님에게 초대 메일을 다시 보냈습니다. 이전 메일의 링크는 더 이상 쓰지 않습니다.`);
+      qc.invalidateQueries({ queryKey: ["staff_accounts"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "초대 메일을 보내지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function confirmActive() {
     if (!pendingActive) return;
     setBusy(true);
@@ -345,6 +360,11 @@ function StaffPage() {
                               <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", off ? "bg-muted text-muted-foreground" : st === "invited" ? "border border-primary/40 text-primary" : "bg-accent text-accent-foreground")}>
                                 {off ? "비활성" : st === "invited" ? "초대됨 · 비밀번호 미설정" : "활성"}
                               </span>
+                              {st === "invited" && !off && emails?.get(p.id) && role !== "admin" && (
+                                <button type="button" disabled={busy} onClick={() => resend(p.id, p.full_name, role)} className="text-xs font-medium text-primary underline-offset-2 hover:underline">
+                                  초대 다시 보내기
+                                </button>
+                              )}
                               {p.id !== me.id && (
                                 <button type="button" onClick={() => setPendingActive({ id: p.id, name: p.full_name, active: off })} className="text-xs font-medium text-primary underline-offset-2 hover:underline">
                                   {off ? "활성화" : "비활성화"}
