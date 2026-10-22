@@ -23,10 +23,8 @@ export const Route = createFileRoute("/")({
 
 function LoginPage() {
   const navigate = useNavigate();
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -35,25 +33,14 @@ function LoginPage() {
     });
   }, [navigate]);
 
+  // Accounts are created by an administrator only; there is no self sign-up.
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    if (mode === "login") {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      setBusy(false);
-      if (error) { toast.error("이메일 또는 비밀번호를 확인해 주세요."); return; }
-      navigate({ to: "/dashboard" });
-    } else {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: { emailRedirectTo: window.location.origin, data: { full_name: name } },
-      });
-      setBusy(false);
-      if (error) { toast.error(error.message); return; }
-      toast.success("가입 확인 메일을 보냈습니다. 메일의 링크를 눌러 인증해 주세요.");
-      setMode("login");
-    }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setBusy(false);
+    if (error) { toast.error("이메일 또는 비밀번호를 확인해 주세요."); return; }
+    navigate({ to: "/dashboard" });
   }
 
   return (
@@ -81,37 +68,19 @@ function LoginPage() {
             <CalendarCheck2 className="h-5 w-5" /> Schedule HK
           </div>
           <div>
-            <h2 className="text-2xl font-bold">{mode === "login" ? "로그인" : "직원 계정 만들기"}</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              {mode === "login"
-                ? "직원 계정으로 로그인해 주세요."
-                : "가입 후 관리자가 역할을 지정합니다. (기본: 외부 직원)"}
-            </p>
+            <h2 className="text-2xl font-bold">로그인</h2>
+            <p className="mt-1 text-sm text-muted-foreground">직원 계정으로 로그인해 주세요.</p>
           </div>
-          {mode === "signup" && (
-            <div className="space-y-2">
-              <Label htmlFor="name">이름</Label>
-              <Input id="name" required value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-          )}
           <div className="space-y-2">
             <Label htmlFor="email">이메일</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+            <Input id="email" type="email" autoComplete="username" required className="h-11 text-base" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div className="space-y-2">
             <Label htmlFor="pw">비밀번호</Label>
-            <Input id="pw" type="password" required minLength={6} value={password} onChange={(e) => setPassword(e.target.value)} />
+            <Input id="pw" type="password" autoComplete="current-password" required className="h-11 text-base" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
-          <Button type="submit" className="h-11 w-full" disabled={busy}>
-            {mode === "login" ? "로그인" : "가입하기"}
-          </Button>
-          <button
-            type="button"
-            className="w-full text-center text-sm text-muted-foreground hover:text-primary"
-            onClick={() => setMode(mode === "login" ? "signup" : "login")}
-          >
-            {mode === "login" ? "계정이 없으신가요? 가입하기" : "이미 계정이 있으신가요? 로그인"}
-          </button>
+          <Button type="submit" className="h-11 w-full" disabled={busy}>로그인</Button>
+          <p className="text-center text-sm text-muted-foreground">계정이 필요하면 관리자에게 요청해 주세요.</p>
         </form>
       </div>
     </div>
