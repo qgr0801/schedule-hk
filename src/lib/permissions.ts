@@ -10,6 +10,7 @@ export const MENUS = [
   { key: "admin_reservations", label: "전체 예약", path: "/admin/reservations", adminOnly: true },
   { key: "admin_staff", label: "직원 권한", path: "/admin/staff", adminOnly: true },
   { key: "admin_settings", label: "색상·표시 설정", path: "/admin/settings", adminOnly: true },
+  { key: "admin_feedback", label: "시범 운영 피드백", path: "/admin/feedback", adminOnly: true },
 ] as const;
 export type MenuKey = (typeof MENUS)[number]["key"];
 

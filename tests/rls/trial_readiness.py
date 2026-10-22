@@ -38,7 +38,7 @@ st = json.load(open("/tmp/state.json"))
 
 # ---------- 2. signed-out visitors ----------
 for t in ["customers", "reservations", "reservation_history", "customer_category_tags", "profiles", "user_roles",
-          "staff_view_scopes", "staff_permission_log", "schedules", "reservation_view_grants"]:
+          "staff_view_scopes", "staff_permission_log", "schedules", "reservation_view_grants", "trial_feedback"]:
     s, j = req("GET", None, f"{t}?select=*&limit=1")
     check(f"비로그인 차단: {t}", s in (401, 403) or j == [], f"{s}")
 for fn, body in [("calendar_reservations", {"_from": "2020-01-01T00:00:00Z", "_to": "2030-01-01T00:00:00Z"}),
@@ -70,7 +70,7 @@ s, j = req("POST", A, "rpc/staff_emails", {})
 check("staff_emails(): 관리자는 전체 이메일", s == 200 and len(j) >= 6, f"{len(j or [])}")
 
 # ---------- 3b. shared settings: staff only, no personal data ----------
-SETTINGS = {"booking_settings": {"id", "cancelled_slot_reusable", "updated_at", "slot_minutes"},
+SETTINGS = {"booking_settings": {"id", "cancelled_slot_reusable", "updated_at", "slot_minutes", "trial_mode"},
             "calendar_display_settings": {"view", "fields", "color_mode", "updated_at"},
             "customer_categories": {"id", "slot", "position", "name", "color", "updated_at"},
             "day_sections": {"position", "name", "active"},
@@ -127,6 +127,31 @@ check("중복 방지: 이동 전 겹침 미리 확인(find_overlaps)", s == 200 
 s, j = req("POST", C, "reservations", {"customer_name": "QA4가상중복", "service": "보톡스", "start_at": b["start_at"], "end_at": b["end_at"], "staff_id": me["B"], "status": "confirmed"})
 check("중복 방지: 다른 직원 담당 시간에 새 예약 등록 거부", s in (400, 409) and (j or {}).get("code") == "23P01", f"{s} {(j or {}).get('code') if isinstance(j, dict) else j}")
 check("중복 방지 후 원래 예약 그대로", res(A, st["A"]["res"])[0]["start_at"] != b["start_at"])
+
+# ---------- 5. 7-day trial (2026-10-23~29) ----------
+s, j = req("POST", C, "rpc/calendar_reservations", {"_from": "2026-10-23T00:00:00+09:00", "_to": "2026-10-30T00:00:00+09:00"})
+trial = [r for r in (j or []) if r["public_service"] and r["created_by"] != me["C"]]
+check("시범 기간 예약 블록: 외부 직원에게 15건 이상 보임", s == 200 and len(trial) >= 15, f"{len(trial)}")
+check("시범 기간 예약 블록: 고객명·번호·연락처·메모 없음",
+      all(r["customer_name"] is None and r["customer_no"] is None and r["customer_phone"] is None and r["memo"] is None for r in trial))
+s, j = req("GET", C, "customers?name=like.*시범*&select=id")
+check("시범 가상 고객: 외부 직원은 관리자 등록 고객 조회 불가", s == 200 and j == [], f"{j}")
+s, j = req("GET", A, "customers?name=like.*시범*&select=id,is_test")
+check("시범 가상 고객 10명, 모두 테스트 표시", s == 200 and len(j) == 10 and all(r["is_test"] for r in j), f"{len(j or [])}")
+s, j = req("PATCH", C, f"reservations?id=eq.{st['C']['res']}", {"is_test": False})
+check("테스트 표시는 직원이 바꿀 수 없음", s == 200 and j and j[0]["is_test"] is True, f"{s}")
+for who, tok in (("외부", C), ("내부", B)):
+    s, j = req("GET", tok, "trial_feedback?select=*")
+    check(f"피드백: {who} 직원 열람 불가", s in (401, 403) or j == [], f"{s}")
+    s, j = req("POST", tok, "trial_feedback", {"reporter_id": me["C"], "menu": "캘린더", "content": "x"})
+    check(f"피드백: {who} 직원 등록 불가", s in (401, 403), f"{s}")
+s, j = req("POST", A, "trial_feedback", {"reporter_id": me["C"], "menu": "캘린더", "content": "[자동 점검] 삭제 예정", "device": "mobile", "severity": "high"})
+check("피드백: 관리자 등록 가능", s == 201 and j and j[0]["status"] == "open", f"{s}")
+if s == 201:
+    s2, _ = req("DELETE", A, f"trial_feedback?id=eq.{j[0]['id']}")
+    check("피드백: 관리자 삭제 가능(점검 기록 정리)", s2 in (200, 204), f"{s2}")
+s, j = req("PATCH", C, "booking_settings?id=eq.true", {"trial_mode": False})
+check("시범 운영 모드: 외부 직원 변경 불가", (s == 200 and j == []) or s in (401, 403), f"{s}")
 
 fails = [n for r, n in results if r == "실패"]
 print(f"\n{len(results) - len(fails)}/{len(results)} 통과. FAILED: {fails}")

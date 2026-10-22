@@ -78,6 +78,13 @@
       "when": 1792667137538,
       "tag": "0010_settings_read_active_staff_only",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1792669350027,
+      "tag": "0011_trial_mode_test_flag_and_feedback",
+      "breakpoints": true
     }
   ]
 }

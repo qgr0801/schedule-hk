@@ -19,18 +19,21 @@ export type Database = {
           cancelled_slot_reusable: boolean
           id: boolean
           slot_minutes: number
+          trial_mode: boolean
           updated_at: string
         }
         Insert: {
           cancelled_slot_reusable?: boolean
           id?: boolean
           slot_minutes?: number
+          trial_mode?: boolean
           updated_at?: string
         }
         Update: {
           cancelled_slot_reusable?: boolean
           id?: boolean
           slot_minutes?: number
+          trial_mode?: boolean
           updated_at?: string
         }
         Relationships: []
@@ -120,6 +123,7 @@ export type Database = {
           created_by: string
           customer_no: number
           id: string
+          is_test: boolean
           memo: string | null
           name: string
           phone: string | null
@@ -131,6 +135,7 @@ export type Database = {
           created_by?: string
           customer_no?: number
           id?: string
+          is_test?: boolean
           memo?: string | null
           name: string
           phone?: string | null
@@ -142,6 +147,7 @@ export type Database = {
           created_by?: string
           customer_no?: number
           id?: string
+          is_test?: boolean
           memo?: string | null
           name?: string
           phone?: string | null
@@ -340,6 +346,7 @@ export type Database = {
           customer_phone: string | null
           end_at: string
           id: string
+          is_test: boolean
           memo: string | null
           public_service: string
           room: string | null
@@ -360,6 +367,7 @@ export type Database = {
           customer_phone?: string | null
           end_at: string
           id?: string
+          is_test?: boolean
           memo?: string | null
           public_service?: string
           room?: string | null
@@ -380,6 +388,7 @@ export type Database = {
           customer_phone?: string | null
           end_at?: string
           id?: string
+          is_test?: boolean
           memo?: string | null
           public_service?: string
           room?: string | null
@@ -556,6 +565,56 @@ export type Database = {
             foreignKeyName: "staff_view_scopes_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      trial_feedback: {
+        Row: {
+          content: string
+          created_at: string
+          created_by: string
+          device: string
+          id: string
+          menu: string
+          occurred_on: string
+          reporter_id: string
+          severity: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          created_by?: string
+          device?: string
+          id?: string
+          menu: string
+          occurred_on?: string
+          reporter_id: string
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          created_by?: string
+          device?: string
+          id?: string
+          menu?: string
+          occurred_on?: string
+          reporter_id?: string
+          severity?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "trial_feedback_reporter_id_fkey"
+            columns: ["reporter_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },

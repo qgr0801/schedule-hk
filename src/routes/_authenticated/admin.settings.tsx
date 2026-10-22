@@ -70,8 +70,26 @@ function BookingRules() {
     toast.success(`캘린더 이동·길이 조절 간격을 ${v}분으로 저장했습니다.`);
     qc.invalidateQueries({ queryKey: bookingSettingsQuery.queryKey });
   }
+  const trial = data?.trial_mode ?? false;
+  async function setTrial(v: boolean) {
+    const { error } = await supabase.from("booking_settings").update({ trial_mode: v }).eq("id", true);
+    if (error) { toast.error(dbErrorMessage(error)); return; }
+    toast.success(v ? "시범 운영 모드를 켰습니다." : "시범 운영 모드를 껐습니다. 이제부터 입력하는 데이터는 실제 운영 데이터로 저장됩니다.");
+    qc.invalidateQueries({ queryKey: bookingSettingsQuery.queryKey });
+  }
   return (
     <div className="space-y-3">
+      <div className="text-sm font-medium">시범 운영 모드</div>
+      <div className="grid gap-2 sm:grid-cols-2">
+        {[true, false].map((v) => (
+          <button key={String(v)} onClick={() => setTrial(v)} className={cn("rounded-lg border p-3 text-left text-sm", trial === v && "border-primary bg-accent")}>
+            <b className={cn(trial === v && "text-primary")}>{v ? "켜기 (시범 운영)" : "끄기 (실제 운영)"}</b>
+            <span className="mt-1 block text-xs text-muted-foreground">
+              {v ? "새로 입력하는 고객·예약에 '테스트' 표시가 붙고, 모든 화면 위에 시범 운영 안내가 나옵니다." : "새로 입력하는 고객·예약은 실제 운영 데이터로 저장됩니다. 이미 '테스트'인 데이터는 그대로 테스트로 남습니다."}
+            </span>
+          </button>
+        ))}
+      </div>
       <div className="text-sm font-medium">캘린더 드래그 이동·길이 조절 간격</div>
       <div className="flex flex-wrap gap-2" role="group" aria-label="드래그 간격">
         {SLOT_OPTIONS.map((v) => (

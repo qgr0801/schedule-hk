@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { staffAppOrigin } from "@/lib/app-url";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -39,8 +40,20 @@ function LoginPage() {
     setBusy(true);
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     setBusy(false);
-    if (error) { toast.error("이메일 또는 비밀번호를 확인해 주세요."); return; }
+    if (error) {
+      toast.error(/banned/i.test(error.message) ? "비활성화된 계정입니다. 관리자에게 문의해 주세요." : "이메일 또는 비밀번호를 확인해 주세요.");
+      return;
+    }
     navigate({ to: "/dashboard" });
+  }
+
+  async function forgot() {
+    if (!/^\S+@\S+\.\S+$/.test(email)) { toast.error("위 칸에 이메일을 먼저 입력해 주세요."); return; }
+    setBusy(true);
+    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${staffAppOrigin()}/set-password` });
+    setBusy(false);
+    // Same message whether or not the address exists, so the form cannot be used to probe accounts.
+    toast.success("등록된 이메일이면 비밀번호 재설정 메일이 발송됩니다. 메일함(스팸함 포함)을 확인해 주세요.");
   }
 
   return (
@@ -80,7 +93,10 @@ function LoginPage() {
             <Input id="pw" type="password" autoComplete="current-password" required className="h-11 text-base" value={password} onChange={(e) => setPassword(e.target.value)} />
           </div>
           <Button type="submit" className="h-11 w-full" disabled={busy}>로그인</Button>
-          <p className="text-center text-sm text-muted-foreground">계정이 필요하면 관리자에게 요청해 주세요.</p>
+          <button type="button" onClick={forgot} disabled={busy} className="block w-full text-center text-sm font-medium text-primary underline-offset-4 hover:underline">
+            비밀번호를 잊으셨나요? 재설정 메일 받기
+          </button>
+          <p className="text-center text-sm text-muted-foreground">계정이 필요하면 관리자에게 초대를 요청해 주세요.</p>
         </form>
       </div>
     </div>
