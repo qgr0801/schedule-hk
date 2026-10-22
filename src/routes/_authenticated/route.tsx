@@ -71,21 +71,22 @@ function AppShell() {
         </div>
       </aside>
 
-      <header className="sticky top-0 z-20 flex items-center justify-between border-b bg-background px-4 py-3 md:hidden">
-        <div className="flex items-center gap-2 font-bold text-primary">
-          <CalendarCheck2 className="h-5 w-5" /> Schedule HK
+      <header className="sticky top-0 z-20 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b bg-background px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
+        <div className="flex min-w-0 items-center gap-2 font-bold text-primary">
+          <CalendarCheck2 className="h-5 w-5 shrink-0" /> <span className="truncate">Schedule HK</span>
         </div>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-muted-foreground">
+        <div className="flex min-w-0 items-center gap-1">
+          <span className="truncate text-xs text-muted-foreground">
             {me?.name} · {me && ROLE_LABEL[me.role]}
           </span>
-          <button onClick={signOut} aria-label="로그아웃">
-            <LogOut className="h-4 w-4 text-muted-foreground" />
+          <button onClick={signOut} aria-label="로그아웃" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg">
+            <LogOut className="h-5 w-5 text-muted-foreground" />
           </button>
         </div>
       </header>
 
-      <main className="min-w-0 flex-1 p-4 pb-24 md:p-8">
+      <main className="min-w-0 flex-1 p-4 pb-44 md:p-8">
+        <OfflineBanner />
         {!me ? null : blocked ? (
           <div className="mx-auto mt-16 max-w-md rounded-xl border bg-card p-8 text-center shadow-card">
             <Lock className="mx-auto mb-3 h-8 w-8 text-primary" />
@@ -102,17 +103,27 @@ function AppShell() {
         )}
       </main>
 
-      <nav className="fixed inset-x-0 bottom-0 z-20 flex overflow-x-auto border-t bg-background md:hidden">
+      {showFab && (
+        <Link
+          to="/reservations/new"
+          className="fixed right-4 z-30 flex h-14 items-center gap-2 rounded-full bg-primary px-5 text-base font-semibold text-primary-foreground shadow-card md:hidden"
+          style={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom))" }}
+        >
+          <Plus className="h-5 w-5" /> 예약 추가
+        </Link>
+      )}
+
+      <nav className="fixed inset-x-0 bottom-0 z-20 flex overflow-x-auto border-t bg-background pb-[env(safe-area-inset-bottom)] md:hidden">
         {items.map((n) => (
           <Link
             key={n.to}
             to={n.to}
             className={cn(
-              "flex min-w-[64px] flex-1 flex-col items-center gap-1 py-2 text-[11px] text-muted-foreground",
+              "flex min-h-16 min-w-[68px] flex-1 flex-col items-center justify-center gap-1 py-2 text-xs text-muted-foreground",
               path === n.to && "font-semibold text-primary",
             )}
           >
-            <n.icon className="h-5 w-5" />
+            <n.icon className="h-6 w-6" />
             {n.label}
           </Link>
         ))}
