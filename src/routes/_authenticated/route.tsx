@@ -24,7 +24,7 @@ const NAV = [
   { key: "admin_reservations", to: "/admin/reservations", label: "전체 예약", icon: ClipboardList },
   { key: "admin_staff", to: "/admin/staff", label: "직원 권한", icon: Users },
   { key: "admin_settings", to: "/admin/settings", label: "색상·표시 설정", icon: Palette },
-] as const satisfies readonly { key: MenuKey }[];
+] as const satisfies readonly { key: MenuKey; to: string; label: string; icon: unknown }[];
 
 function AppShell() {
   const { data: me } = useQuery(meQuery);

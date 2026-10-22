@@ -275,9 +275,9 @@ function StaffPage() {
                 const n = l.new_data as Record<string, unknown> | null;
                 const desc =
                   l.kind === "role"
-                    ? `역할 ${o?.role ? ROLE_CODE[o.role as Role] : "없음"} → ${n?.role ? ROLE_CODE[n.role as Role] : "없음"}`
+                    ? `역할 ${o?.["role"] ? ROLE_CODE[o["role"] as Role] : "없음"} → ${n?.["role"] ? ROLE_CODE[n["role"] as Role] : "없음"}`
                     : l.kind === "grant"
-                      ? `${nameOf(String((n ?? o)?.owner_id ?? ""))} 예약 상세 열람 ${n ? "허용" : "해제"}`
+                      ? `${nameOf(String((n ?? o)?.["owner_id"] ?? ""))} 예약 상세 열람 ${n ? "허용" : "해제"}`
                       : null;
                 return (
                   <li key={l.id} className="px-4 py-3">
