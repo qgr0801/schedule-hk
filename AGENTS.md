@@ -14,3 +14,4 @@
 - Reservations are never deleted (no DELETE grant); cancellation is a status change and every insert/update is logged by trigger into reservation_history. Why: audit trail requirement.
 - Double booking is blocked by a gist exclusion constraint per creator on non-cancelled rows; the client maps error 23P01 to a Korean message. Why: race-safe overlap prevention.
 - First signup becomes admin, later signups default to external staff; admins change roles in the staff screen. Why: safe default with least privilege.
+- Day-view columns come from a fixed 10-slot day_sections table (position 1–10, active flag, admin-only update); reservations reference a slot by reservations.section. Why: renaming or hiding sections never breaks or deletes existing reservations.

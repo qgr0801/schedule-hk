@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
@@ -9,10 +9,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { dbErrorMessage, SERVICES, toLocalInput } from "@/lib/app";
+import { dbErrorMessage, sectionsQuery, SERVICES, toLocalInput } from "@/lib/app";
 
 export const Route = createFileRoute("/_authenticated/reservations/new")({
-  validateSearch: z.object({ id: z.string().optional() }),
+  validateSearch: z.object({
+    id: z.string().optional(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    start: z.string().regex(/^\d{2}:\d{2}$/).optional(),
+    section: z.coerce.number().int().min(1).max(10).optional(),
+  }),
   head: () => ({ meta: [{ title: "예약 등록 | Beauty Schedule Manager" }] }),
   component: ReservationForm,
 });
@@ -21,20 +26,21 @@ const schema = z.object({
   customer_name: z.string().trim().min(1, "고객명을 입력해 주세요").max(50),
   customer_phone: z.string().trim().max(20).optional(),
   service: z.string().min(1, "시술을 선택해 주세요"),
-  room: z.string().trim().max(30).optional(),
   memo: z.string().max(500).optional(),
 });
 
 function ReservationForm() {
-  const { id } = Route.useSearch();
+  const { id, date: qDate, start: qStart, section: qSection } = Route.useSearch();
+  const { data: allSections } = useQuery(sectionsQuery);
+  const sections = (allSections ?? []).filter((s) => s.active);
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [f, setF] = useState({ customer_name: "", customer_phone: "", service: SERVICES[0], room: "", memo: "", date: "", start: "10:00", minutes: 60 });
+  const [f, setF] = useState({ customer_name: "", customer_phone: "", service: SERVICES[0], section: qSection ? String(qSection) : "", memo: "", date: qDate ?? "", start: qStart ?? "10:00", minutes: 60 });
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!id) {
-      setF((p) => ({ ...p, date: toLocalInput(new Date().toISOString()).slice(0, 10) }));
+      setF((p) => ({ ...p, date: p.date || toLocalInput(new Date().toISOString()).slice(0, 10) }));
       return;
     }
     supabase.from("reservations").select("*").eq("id", id).maybeSingle().then(({ data }) => {
@@ -42,7 +48,7 @@ function ReservationForm() {
       const s = toLocalInput(data.start_at);
       setF({
         customer_name: data.customer_name, customer_phone: data.customer_phone ?? "", service: data.service,
-        room: data.room ?? "", memo: data.memo ?? "", date: s.slice(0, 10), start: s.slice(11, 16),
+        section: data.section ? String(data.section) : "", memo: data.memo ?? "", date: s.slice(0, 10), start: s.slice(11, 16),
         minutes: Math.round((+new Date(data.end_at) - +new Date(data.start_at)) / 60000),
       });
     });
@@ -54,7 +60,9 @@ function ReservationForm() {
     if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요"); return; }
     const start = new Date(`${f.date}T${f.start}`);
     const end = new Date(start.getTime() + f.minutes * 60000);
-    const payload = { ...parsed.data, customer_phone: parsed.data.customer_phone || null, room: parsed.data.room || null, memo: parsed.data.memo || null, start_at: start.toISOString(), end_at: end.toISOString() };
+    const secNo = f.section ? Number(f.section) : null;
+    const secName = allSections?.find((s) => s.position === secNo)?.name ?? null;
+    const payload = { ...parsed.data, customer_phone: parsed.data.customer_phone || null, section: secNo, room: secName, memo: parsed.data.memo || null, start_at: start.toISOString(), end_at: end.toISOString() };
     setBusy(true);
     const { error } = id
       ? await supabase.from("reservations").update(payload).eq("id", id)
@@ -82,7 +90,16 @@ function ReservationForm() {
               {SERVICES.map((s) => <option key={s}>{s}</option>)}
             </select>
           </div>
-          <div className="space-y-2"><Label>시술실</Label><Input value={f.room} onChange={set("room")} placeholder="예: 1번 룸" /></div>
+          <div className="space-y-2">
+            <Label>섹션 (공간)</Label>
+            <select value={f.section} onChange={set("section")} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="">미지정</option>
+              {sections.map((s) => <option key={s.position} value={String(s.position)}>{s.name}</option>)}
+              {f.section && !sections.some((s) => String(s.position) === f.section) && (
+                <option value={f.section}>{allSections?.find((s) => String(s.position) === f.section)?.name ?? "숨겨진 섹션"} (숨김)</option>
+              )}
+            </select>
+          </div>
           <div className="space-y-2"><Label>날짜 *</Label><Input type="date" required value={f.date} onChange={set("date")} /></div>
           <div className="grid grid-cols-2 gap-2">
             <div className="space-y-2"><Label>시작 *</Label><Input type="time" step={600} required value={f.start} onChange={set("start")} /></div>

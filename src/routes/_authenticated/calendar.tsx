@@ -1,11 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays, addMonths, addWeeks, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format,
   isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Lock, Users, Globe } from "lucide-react";
+import { ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2, Plus } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,7 +16,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { dbErrorMessage, meQuery, profilesQuery, VIS_LABEL, type Reservation, type Schedule, type Visibility } from "@/lib/app";
+import {
+  dbErrorMessage, MAX_SECTIONS, meQuery, profilesQuery, sectionsQuery, VIS_LABEL,
+  type Reservation, type Schedule, type Visibility,
+} from "@/lib/app";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -33,6 +36,7 @@ function CalendarPage() {
   const [sel, setSel] = useState<Reservation | null>(null);
   const [schOpen, setSchOpen] = useState(false);
   const [schView, setSchView] = useState<Schedule | null>(null);
+  const [secOpen, setSecOpen] = useState(false);
   const [staff, setStaff] = useState("");
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
@@ -155,21 +159,20 @@ function CalendarPage() {
       )}
 
       {view === "day" && (
-        <Panel className="p-0">
-          {Array.from({ length: 13 }, (_, k) => k + 9).map((h) => {
-            const its = dayItems(cursor).filter((i) => start(i).getHours() === h);
-            return (
-              <div key={h} className="flex min-h-14 border-b">
-                <div className="w-16 shrink-0 border-r py-2 text-center text-xs text-muted-foreground">{String(h).padStart(2, "0")}:00</div>
-                <div className="flex-1 space-y-1 p-1.5">{its.map((i, k) => <Chip key={k} i={i} />)}</div>
-              </div>
-            );
-          })}
-        </Panel>
+        <DayBoard
+          items={dayItems(cursor)}
+          date={cursor}
+          isAdmin={me?.role === "admin"}
+          name={name}
+          onRes={setSel}
+          onSch={setSchView}
+          onSettings={() => setSecOpen(true)}
+        />
       )}
 
       <ReservationDialog res={sel} onClose={() => setSel(null)} />
       {schOpen && <ScheduleDialog defaultDate={cursor} onClose={() => setSchOpen(false)} />}
+      {secOpen && <SectionSettingsDialog onClose={() => setSecOpen(false)} />}
       {schView && (
         <Dialog open onOpenChange={(o) => !o && setSchView(null)}>
           <DialogContent>
@@ -258,6 +261,165 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
           )}
           <p className="text-xs text-muted-foreground">관리자는 공개 범위와 관계없이 모든 일정을 볼 수 있습니다.</p>
           <Button className="w-full" onClick={save}>저장</Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+function DayBoard({
+  items, date, isAdmin, name, onRes, onSch, onSettings,
+}: {
+  items: Item[];
+  date: Date;
+  isAdmin: boolean;
+  name: (id: string) => string;
+  onRes: (r: Reservation) => void;
+  onSch: (s: Schedule) => void;
+  onSettings: () => void;
+}) {
+  const navigate = useNavigate();
+  const { data: allSections } = useQuery(sectionsQuery);
+  const sections = (allSections ?? []).filter((s) => s.active);
+  const activeNos = new Set(sections.map((s) => s.position));
+  const colOf = (i: Item) => (i.kind === "res" && i.r.section && activeNos.has(i.r.section) ? i.r.section : 0);
+  const hasOther = items.some((i) => colOf(i) === 0);
+  const cols: { key: number; label: string }[] = [
+    ...sections.map((s) => ({ key: s.position, label: s.name })),
+    ...(hasOther ? [{ key: 0, label: "미지정 · 일정" }] : []),
+  ];
+  const startOf = (i: Item) => new Date(i.kind === "res" ? i.r.start_at : i.s.start_at);
+  const endOf = (i: Item) => new Date(i.kind === "res" ? i.r.end_at : i.s.end_at);
+  const hrs = items.map((i) => startOf(i).getHours());
+  const firstH = Math.min(9, ...hrs);
+  const lastH = Math.max(21, ...hrs);
+  const HOURS = Array.from({ length: lastH - firstH + 1 }, (_, k) => k + firstH);
+  const gridStyle = { gridTemplateColumns: `56px repeat(${Math.max(cols.length, 1)}, minmax(150px, 1fr))` };
+
+  function newAt(section: number, h: number) {
+    navigate({
+      to: "/reservations/new",
+      search: { date: format(date, "yyyy-MM-dd"), start: `${String(h).padStart(2, "0")}:00`, section: section || undefined },
+    });
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">빈 칸을 누르면 해당 섹션·시간으로 예약을 등록합니다.</p>
+        {isAdmin && (
+          <Button size="sm" variant="outline" onClick={onSettings}>
+            <Settings2 className="h-4 w-4" /> 섹션 설정 ({sections.length}개)
+          </Button>
+        )}
+      </div>
+      <Panel className="overflow-x-auto p-0">
+        <div className="min-w-fit">
+          <div className="sticky top-0 z-10 grid border-b bg-card" style={gridStyle}>
+            <div className="border-r py-2 text-center text-xs text-muted-foreground">시간</div>
+            {cols.map((c) => (
+              <div key={c.key} className="truncate border-r px-2 py-2 text-center text-sm font-semibold text-primary last:border-r-0">
+                {c.label}
+              </div>
+            ))}
+          </div>
+          {HOURS.map((h) => (
+            <div key={h} className="grid min-h-16 border-b last:border-b-0" style={gridStyle}>
+              <div className="border-r py-2 text-center text-xs text-muted-foreground">{String(h).padStart(2, "0")}:00</div>
+              {cols.map((c) => {
+                const its = items.filter((i) => colOf(i) === c.key && startOf(i).getHours() === h);
+                return (
+                  <div key={c.key} className="group relative space-y-1 border-r p-1 last:border-r-0">
+                    {its.map((i, k) =>
+                      i.kind === "res" ? (
+                        <button key={k} onClick={() => onRes(i.r)} className="block w-full rounded-md bg-primary px-2 py-1.5 text-left text-xs text-primary-foreground">
+                          <span className="block opacity-80">{format(startOf(i), "HH:mm")}–{format(endOf(i), "HH:mm")} · {i.r.service}</span>
+                          <span className="block truncate font-semibold">예약자 {i.r.customer_name}</span>
+                          <span className="block truncate opacity-80">담당 {name(i.r.created_by) || "-"}</span>
+                        </button>
+                      ) : (
+                        <button key={k} onClick={() => onSch(i.s)} className="block w-full rounded-md border border-primary/30 bg-accent px-2 py-1.5 text-left text-xs text-accent-foreground">
+                          <span className="block opacity-70">{format(startOf(i), "HH:mm")}–{format(endOf(i), "HH:mm")} · 일정</span>
+                          <span className="block truncate font-semibold">{i.s.title}</span>
+                          <span className="block truncate opacity-70">{name(i.s.owner_id)}</span>
+                        </button>
+                      ),
+                    )}
+                    {c.key !== 0 && its.length === 0 && (
+                      <button
+                        aria-label={`${c.label} ${h}시 예약 등록`}
+                        onClick={() => newAt(c.key, h)}
+                        className="absolute inset-0 flex items-center justify-center text-muted-foreground opacity-0 transition-opacity hover:bg-accent/50 focus-visible:opacity-100 group-hover:opacity-100"
+                      >
+                        <Plus className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      </Panel>
+    </div>
+  );
+}
+
+function SectionSettingsDialog({ onClose }: { onClose: () => void }) {
+  const qc = useQueryClient();
+  const { data: sections } = useQuery(sectionsQuery);
+  const [count, setCount] = useState<number | null>(null);
+  const [names, setNames] = useState<Record<number, string>>({});
+  const [busy, setBusy] = useState(false);
+  if (!sections) return null;
+  const n = count ?? Math.max(sections.filter((s) => s.active).length, 1);
+  const nameOf = (p: number) => names[p] ?? sections.find((s) => s.position === p)?.name ?? `${p}번 룸`;
+
+  async function save() {
+    for (let p = 1; p <= n; p++) {
+      const v = nameOf(p).trim();
+      if (!v) { toast.error(`${p}번째 섹션 이름을 입력해 주세요.`); return; }
+      if (v.length > 20) { toast.error("섹션 이름은 20자 이내로 입력해 주세요."); return; }
+    }
+    setBusy(true);
+    const results = await Promise.all(
+      sections!.map((s) => supabase.from("day_sections").update({ name: nameOf(s.position).trim() || s.name, active: s.position <= n }).eq("position", s.position)),
+    );
+    setBusy(false);
+    const err = results.find((r) => r.error)?.error;
+    if (err) { toast.error(dbErrorMessage(err)); return; }
+    toast.success("섹션 설정이 저장되었습니다.");
+    qc.invalidateQueries({ queryKey: ["day_sections"] });
+    onClose();
+  }
+
+  return (
+    <Dialog open onOpenChange={(o) => !o && onClose()}>
+      <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogHeader><DialogTitle>일간 섹션 설정</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1">
+            <Label>섹션 개수</Label>
+            <div className="grid grid-cols-5 gap-1.5 sm:grid-cols-10">
+              {Array.from({ length: MAX_SECTIONS }, (_, k) => k + 1).map((v) => (
+                <button key={v} type="button" onClick={() => setCount(v)} className={cn("h-9 rounded-md border text-sm", v === n ? "border-primary bg-primary text-primary-foreground" : "bg-background")}>
+                  {v}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label>섹션 이름</Label>
+            {Array.from({ length: n }, (_, k) => k + 1).map((p) => (
+              <div key={p} className="flex items-center gap-2">
+                <span className="w-6 text-center text-xs text-muted-foreground">{p}</span>
+                <Input value={nameOf(p)} maxLength={20} onChange={(e) => setNames({ ...names, [p]: e.target.value })} />
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-muted-foreground">섹션 수를 줄여도 예약은 지워지지 않고, 숨겨진 섹션의 예약은 '미지정' 칸에 표시됩니다.</p>
+          <Button className="w-full" disabled={busy} onClick={save}>저장</Button>
         </div>
       </DialogContent>
     </Dialog>
