@@ -18,16 +18,19 @@ export type Database = {
         Row: {
           cancelled_slot_reusable: boolean
           id: boolean
+          slot_minutes: number
           updated_at: string
         }
         Insert: {
           cancelled_slot_reusable?: boolean
           id?: boolean
+          slot_minutes?: number
           updated_at?: string
         }
         Update: {
           cancelled_slot_reusable?: boolean
           id?: boolean
+          slot_minutes?: number
           updated_at?: string
         }
         Relationships: []
@@ -493,21 +496,57 @@ export type Database = {
           },
         ]
       }
+      staff_permission_log: {
+        Row: {
+          changed_by: string | null
+          created_at: string
+          id: string
+          kind: string
+          new_data: Json | null
+          old_data: Json | null
+          user_id: string
+        }
+        Insert: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          kind: string
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id: string
+        }
+        Update: {
+          changed_by?: string | null
+          created_at?: string
+          id?: string
+          kind?: string
+          new_data?: Json | null
+          old_data?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       staff_view_scopes: {
         Row: {
           can_view_pii: boolean
+          fields: string[]
+          menus: string[]
           scope: string
           updated_at: string
           user_id: string
         }
         Insert: {
           can_view_pii?: boolean
+          fields?: string[]
+          menus?: string[]
           scope?: string
           updated_at?: string
           user_id: string
         }
         Update: {
           can_view_pii?: boolean
+          fields?: string[]
+          menus?: string[]
           scope?: string
           updated_at?: string
           user_id?: string
@@ -552,6 +591,7 @@ export type Database = {
           category_id: string
           created_by: string
           customer_name: string
+          customer_no: number
           customer_phone: string
           end_at: string
           id: string
@@ -563,6 +603,7 @@ export type Database = {
           staff_id: string
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
+          visible: string[]
         }[]
       }
       can_edit_customer: {
@@ -580,6 +621,15 @@ export type Database = {
       can_view_owner: {
         Args: { _owner: string; _viewer: string }
         Returns: boolean
+      }
+      customer_visit_history: {
+        Args: { _reservation: string }
+        Returns: {
+          end_at: string
+          public_service: string
+          start_at: string
+          status: Database["public"]["Enums"]["reservation_status"]
+        }[]
       }
       find_overlaps: {
         Args: {
@@ -624,6 +674,10 @@ export type Database = {
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
         }[]
+      }
+      staff_has_field: {
+        Args: { _field: string; _user: string }
+        Returns: boolean
       }
       suggest_staff_color: { Args: { _n: number }; Returns: string }
     }

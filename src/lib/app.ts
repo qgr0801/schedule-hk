@@ -1,6 +1,7 @@
 import { queryOptions } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
+import { effectivePerms, type Perms } from "@/lib/permissions";
 
 export type Role = Database["public"]["Enums"]["app_role"];
 export type ResStatus = Database["public"]["Enums"]["reservation_status"];
@@ -47,24 +48,30 @@ export const SERVICES = [
 /** Calendar-facing item names shown to other staff instead of the detailed service. */
 export const PUBLIC_SERVICES = ["시술", "피부상담", "성형상담", "피부관리", "바디관리"];
 
-export type Me = { id: string; email: string; name: string; role: Role };
+export type Me = { id: string; email: string; name: string; role: Role; perms: Perms };
 
 export const meQuery = queryOptions({
   queryKey: ["me"],
+  // Permissions changed by an admin apply on the next fetch.
+  staleTime: 0,
+  refetchOnWindowFocus: true,
   queryFn: async (): Promise<Me | null> => {
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return null;
-    const [{ data: p }, { data: r }] = await Promise.all([
+    const [{ data: p }, { data: r }, { data: s }] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).maybeSingle(),
       supabase.from("user_roles").select("role").eq("user_id", user.id).maybeSingle(),
+      supabase.from("staff_view_scopes").select("scope, menus, fields").eq("user_id", user.id).maybeSingle(),
     ]);
+    const role = (r?.role ?? "external") as Role;
     return {
       id: user.id,
       email: user.email ?? "",
       name: p?.full_name || user.email || "",
-      role: (r?.role ?? "external") as Role,
+      role,
+      perms: effectivePerms(role, s as Partial<Perms> | null),
     };
   },
 });
@@ -86,6 +93,16 @@ export const sectionsQuery = queryOptions({
   queryKey: ["day_sections"],
   queryFn: async () => {
     const { data, error } = await supabase.from("day_sections").select("*").order("position");
+    if (error) throw error;
+    return data;
+  },
+});
+
+export const SLOT_OPTIONS = [10, 15, 30, 60] as const;
+export const bookingSettingsQuery = queryOptions({
+  queryKey: ["booking_settings"],
+  queryFn: async () => {
+    const { data, error } = await supabase.from("booking_settings").select("*").maybeSingle();
     if (error) throw error;
     return data;
   },

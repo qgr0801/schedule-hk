@@ -8,22 +8,29 @@ export type ResWithCustomer = Reservation & {
   customer?: { category_id: string | null; customer_category_tags: { category_id: string }[] } | null;
   /**
    * Another staff member's reservation from the calendar read model:
-   * block = time/section/public service/status only, detail = + detailed service & category, pii = + customer info.
+   * block = time/section/public service/status, detail = + detailed service & category.
+   * Customer info comes per field in `visible` (granted by admin, filtered on the server).
    */
-  access?: "block" | "detail" | "pii" | undefined;
+  access?: "block" | "detail" | undefined;
+  visible?: string[] | undefined;
+  customer_no?: number | null | undefined;
 };
 
-/** Fields each access level may show, whatever the display settings say. */
-export const BLOCK_FIELDS: CardField[] = ["time", "service", "staff", "status"];
-export const DETAIL_FIELDS: CardField[] = ["time", "service", "category", "creator", "staff", "status"];
-/** 등록자 is always shown on every card, whatever the display settings say. */
-export function allowedFields(access: ResWithCustomer["access"], fields: CardField[]): CardField[] {
+/** Card fields for another staff member's reservation, whatever the display settings say. */
+export function allowedFields(access: ResWithCustomer["access"], fields: CardField[], visible: string[] = []): CardField[] {
   const withCreator = fields.includes("creator") ? fields : [...fields, "creator" as CardField];
-  if (!access || access === "pii") return withCreator;
-  const allow = access === "block" ? [...BLOCK_FIELDS, "creator" as CardField] : DETAIL_FIELDS;
+  if (!access) return withCreator;
+  const allow: CardField[] = ["time", "service", "status", "creator"];
+  if (access === "detail") allow.push("category");
+  if (visible.includes("staff")) allow.push("staff");
+  if (visible.includes("customer")) allow.push("customer");
+  if (visible.includes("phone")) allow.push("phone");
+  if (visible.includes("memo")) allow.push("memo");
   const out = withCreator.filter((f) => allow.includes(f));
   return out.includes("service") ? out : [...out, "service"];
 }
+/** Stripe color when the treatment staff is hidden from the viewer. */
+export const HIDDEN_STAFF_COLOR = "#94A3B8";
 
 export function CategoryBadge({ cat, small }: { cat: Pick<Category, "name" | "color">; small?: boolean }) {
   return (
@@ -50,7 +57,7 @@ export function StatusPill({ status, colors, small }: { status: ResStatus; color
 
 /** Pure presentational card, also used for the settings preview. */
 export function CardView({
-  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick,
+  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick, className,
 }: {
   r: Pick<ResWithCustomer, "start_at" | "end_at" | "customer_name" | "customer_phone" | "service" | "memo" | "status">;
   fields: CardField[];
@@ -62,6 +69,7 @@ export function CardView({
   staffName: string;
   compact?: boolean | undefined;
   onClick?: (() => void) | undefined;
+  className?: string | undefined;
 }) {
   const c = cardColors(mode, status, staffColor);
   const has = (f: CardField) => fields.includes(f);
@@ -86,7 +94,7 @@ export function CardView({
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      className={cn("relative block w-full overflow-hidden rounded-md border text-left text-xs", compact ? "py-0.5 pl-2.5 pr-1" : "py-1.5 pl-3 pr-2", r.status === "cancelled" && "opacity-75")}
+      className={cn("relative block w-full overflow-hidden rounded-md border text-left text-xs", compact ? "py-0.5 pl-2.5 pr-1" : "py-1.5 pl-3 pr-2", r.status === "cancelled" && "opacity-75", className)}
       style={{ background: c.background, color: c.color, borderColor: c.borderColor }}
     >
       <span className="absolute inset-y-0 left-0 w-1.5" style={{ background: c.stripe }} aria-hidden />
@@ -113,7 +121,7 @@ export function CardView({
 
 /** Calendar card wired to saved settings. */
 export function ReservationCard({
-  r, view, name, compact, onClick, modeOverride,
+  r, view, name, compact, onClick, modeOverride, className,
 }: {
   r: ResWithCustomer;
   view: CalView;
@@ -121,9 +129,11 @@ export function ReservationCard({
   compact?: boolean | undefined;
   onClick?: (() => void) | undefined;
   modeOverride?: ColorMode | undefined;
+  className?: string | undefined;
 }) {
   const L = useCardLookups();
   const d = L.display(view);
+  const staffHidden = !!r.access && !r.visible?.includes("staff");
   const staffId = r.staff_id ?? r.created_by;
   const cats = [r.customer?.category_id, ...(r.customer?.customer_category_tags ?? []).map((t) => t.category_id)]
     .filter((id, i, a): id is string => !!id && a.indexOf(id) === i)
@@ -132,15 +142,16 @@ export function ReservationCard({
   return (
     <CardView
       r={r}
-      fields={allowedFields(r.access, d.fields)}
+      fields={allowedFields(r.access, d.fields, r.visible)}
       mode={modeOverride ?? d.color_mode}
       status={L.statusColor(r.status)}
-      staffColor={L.staffColor(staffId)}
+      staffColor={staffHidden ? HIDDEN_STAFF_COLOR : L.staffColor(staffId)}
       categories={cats}
       creatorName={name(r.created_by)}
       staffName={name(staffId)}
       compact={compact}
       onClick={onClick}
+      className={className}
     />
   );
 }

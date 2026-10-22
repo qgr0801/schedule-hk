@@ -40,6 +40,14 @@ try:
     st = json.load(open(state_path))
 except FileNotFoundError:
     st = {}
+    # Re-use the fake QA4 data from an earlier run if it exists.
+    for n in "ABC":
+        _, c = get(A, f"customers?name=eq.QA4가상고객{n}&select=id,customer_no")
+        _, r = get(A, f"reservations?customer_name=eq.QA4가상고객{n}&start_at=gte.2027-01-15T00:00:00%2B09:00&start_at=lte.2027-01-15T23:59:00%2B09:00&select=id")
+        if c and r: st[n] = {"cust": c[0]["id"], "no": c[0]["customer_no"], "res": r[0]["id"]}
+    if len(st) == 3: json.dump(st, open(state_path, "w"))
+if len(st) < 3:
+    st = {}
     for i, (n, t) in enumerate((("A", A), ("B", B), ("C", C))):
         s, c = post(t, "customers?select=id,customer_no", {"name": f"QA4가상고객{n}", "phone": f"010-0000-000{i+1}", "memo": f"QA4 테스트 메모 {n}"})
         assert s == 201, (s, c)
@@ -82,14 +90,24 @@ s, d = delete(C, f"reservations?id=eq.{st['C']['res']}")
 s2, d2 = get(C, f"reservations?id=eq.{st['C']['res']}&select=id")
 check("외부 C: 예약 삭제 차단 (취소만 가능)", len(d2) == 1, str(s))
 
-# 4. Calendar blocks for everyone, without PII
+# 4. Calendar blocks for everyone; customer fields only as granted (default template: 고객명 only, internal staff only)
+DAY = {"_from": "2027-01-15T00:00:00+09:00", "_to": "2027-01-15T23:59:00+09:00"}
 for n, t in (("B", B), ("C", C)):
-    s, d = rpc(t, "calendar_reservations", {"_from": "2027-01-15T00:00:00+09:00", "_to": "2027-01-15T23:59:00+09:00"})
+    s, d = rpc(t, "calendar_reservations", DAY)
     others = [x for x in d if x["id"] in ids.split(",")]
     exp = {st[o]["res"] for o in "ABC" if o != n}
-    check(f"{n}: 다른 직원 예약 시간 블록·공개 시술명 표시", {x["id"] for x in others} == exp and all(x["public_service"] == "피부상담" and x["start_at"] and x["end_at"] for x in others), f"{len(others)}건")
-    leaked = [k for x in others for k in ("customer_name", "customer_phone", "memo", "service", "category_id") if x.get(k)]
-    check(f"{n}: 캘린더에서 다른 직원 고객명·연락처·메모·상세시술 비공개", not leaked and all("customer_no" not in x and "customer_id" not in x for x in others), ",".join(leaked))
+    check(f"{n}: 다른 직원 예약 시간 블록·공개 시술명·상태 표시", {x["id"] for x in others} == exp and all(x["public_service"] == "피부상담" and x["start_at"] and x["end_at"] and x["status"] for x in others), f"{len(others)}건")
+    leaked = [k for x in others for k in ("customer_phone", "memo", "service", "category_id", "customer_no") if x.get(k)]
+    check(f"{n}: 다른 직원 고객번호·연락처·메모·상세시술 비공개", not leaked and all("customer_id" not in x for x in others), ",".join(leaked))
+    names = [x["customer_name"] for x in others if x.get("customer_name")]
+    if n == "B":
+        check("내부 B (고객명 허용): 다른 직원 예약 고객명 표시", len(names) == len(others), f"{len(names)}건")
+    else:
+        check("외부 C: 고객명 허용 템플릿이어도 다른 직원 고객명 비공개", names == [], f"{len(names)}건")
+    for o in others:
+        s, v = rpc(t, "customer_visit_history", {"_reservation": o["id"]})
+        check(f"{n}: 방문 이력 권한 없이 다른 직원 고객 방문 이력 차단", v == [] or s >= 400, f"{len(v or [])}건")
+        break
 
 # 5. Customers / customer number / history isolation
 for n, t, others in (("B", B, "AC"), ("C", C, "AB")):
@@ -143,6 +161,26 @@ s, d = patch(C, f"reservations?id=eq.{st['C']['res']}&select=status", {"status":
 s2, d2 = get(C, f"reservation_status_history?reservation_id=eq.{st['C']['res']}&select=to_status")
 check("외부 C: 본인 예약 취소 + 이력 보관", len(d) == 1 and d[0]["status"] == "cancelled" and any(x["to_status"] == "cancelled" for x in d2))
 patch(A, f"reservations?id=eq.{st['C']['res']}", {"status": "confirmed"})  # admin restores for re-runs
+
+# 10. Menu/field permissions: only admin changes them, changes apply on the next request, every change is logged
+s, d = patch(B, f"staff_view_scopes?user_id=eq.{me['B']}&select=menus", {"menus": ["dashboard", "customers", "admin_staff"], "fields": ["phone", "memo"]})
+check("내부 B: 스스로 메뉴·표시 권한 바꾸기 차단", d == [] or s >= 400)
+s, d = get(B, "staff_permission_log?select=id&limit=1")
+check("내부 B: 권한 변경 기록 열람 차단", d == [] or s >= 400)
+s, d = get(A, f"staff_view_scopes?user_id=eq.{me['B']}&select=scope,menus,fields")
+orig = d[0]
+s, _ = patch(A, f"staff_view_scopes?user_id=eq.{me['B']}", {"fields": orig["fields"] + ["phone", "customerNo", "history"]})
+s, d = rpc(B, "calendar_reservations", DAY)
+o = [x for x in d if x["id"] == st["A"]["res"]][0]
+check("관리자가 B에 연락처·고객번호 허용 → 다음 조회부터 바로 반영", o.get("customer_phone") == "010-0000-0001" and o.get("customer_no") == st["A"]["no"] and not o.get("memo"))
+s, v = rpc(B, "customer_visit_history", {"_reservation": st["A"]["res"]})
+check("방문 이력 허용 시 다른 직원 고객 방문 이력 표시", s == 200 and len(v) >= 1, f"{len(v or [])}건")
+patch(A, f"staff_view_scopes?user_id=eq.{me['B']}", {"fields": orig["fields"]})
+s, d = rpc(B, "calendar_reservations", DAY)
+o = [x for x in d if x["id"] == st["A"]["res"]][0]
+check("권한 되돌리면 다음 조회부터 다시 비공개", not o.get("customer_phone") and not o.get("customer_no"))
+s, d = get(A, f"staff_permission_log?user_id=eq.{me['B']}&order=created_at.desc&limit=2&select=changed_by,old_data,new_data")
+check("권한 변경 기록: 변경자·이전 권한·새 권한 저장", len(d) == 2 and d[0]["changed_by"] == me["A"] and d[0]["old_data"] and d[0]["new_data"])
 
 json.dump(results, open("/tmp/results.json", "w"), ensure_ascii=False)
 print("\nFAILED:", [r[1] for r in results if r[0] == "실패"])
