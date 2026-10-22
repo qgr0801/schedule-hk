@@ -62,7 +62,9 @@ function SetPasswordPage() {
     const problem = passwordProblem(pw, pw2);
     if (problem) { toast.error(problem); return; }
     setBusy(true);
-    const { error } = await supabase.auth.updateUser(needCurrent ? { password: pw, current_password: current } : { password: pw });
+    const { error } = await supabase.auth.updateUser(
+      needCurrent ? { password: pw, current_password: current, data: { password_set: true } } : { password: pw, data: { password_set: true } },
+    );
     setBusy(false);
     if (error?.code === "current_password_required") {
       setNeedCurrent(true);
@@ -79,7 +81,7 @@ function SetPasswordPage() {
     }
     setPhase("done");
     toast.success("비밀번호를 저장했습니다.");
-    navigate({ to: "/dashboard", replace: true });
+    navigate({ to: "/calendar", replace: true });
   }
 
   return (
