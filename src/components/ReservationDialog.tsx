@@ -9,12 +9,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/PageHeader";
-import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, type Reservation } from "@/lib/app";
+import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, type Reservation } from "@/lib/app";
 
 export function ReservationDialog({ res, onClose }: { res: Reservation | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
+  const { data: sections } = useQuery(sectionsQuery);
   const [reason, setReason] = useState("");
   const [confirming, setConfirming] = useState(false);
   const history = useQuery({
@@ -31,7 +32,8 @@ export function ReservationDialog({ res, onClose }: { res: Reservation | null; o
     },
   });
   if (!res) return null;
-  const name = (id: string | null) => profiles?.find((p) => p.id === id)?.full_name ?? "알 수 없음";
+  const name = (id: string | null) => (id ? profiles?.find((p) => p.id === id)?.full_name ?? "알 수 없음" : "시스템");
+  const sectionName = sections?.find((s) => s.position === res.section)?.name ?? res.room;
   const canEdit = me && (me.role === "admin" || me.id === res.created_by);
 
   async function cancel() {
@@ -61,12 +63,13 @@ export function ReservationDialog({ res, onClose }: { res: Reservation | null; o
           </DialogTitle>
         </DialogHeader>
         <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
+          <dt className="text-muted-foreground">예약자</dt><dd>{res.customer_name}</dd>
           <dt className="text-muted-foreground">시술</dt><dd>{res.service}</dd>
           <dt className="text-muted-foreground">일시</dt>
           <dd>{format(new Date(res.start_at), "M월 d일 (EEE) HH:mm", { locale: ko })} – {format(new Date(res.end_at), "HH:mm")}</dd>
           <dt className="text-muted-foreground">담당</dt><dd>{name(res.created_by)}</dd>
           <dt className="text-muted-foreground">연락처</dt><dd>{res.customer_phone || "-"}</dd>
-          <dt className="text-muted-foreground">공간</dt><dd>{res.room || "-"}</dd>
+          <dt className="text-muted-foreground">섹션</dt><dd>{sectionName || "미지정"}</dd>
           <dt className="text-muted-foreground">메모</dt><dd className="whitespace-pre-wrap">{res.memo || "-"}</dd>
           {res.status === "cancelled" && (<><dt className="text-muted-foreground">취소사유</dt><dd>{res.cancel_reason || "-"}</dd></>)}
         </dl>
