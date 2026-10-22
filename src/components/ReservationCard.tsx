@@ -16,10 +16,12 @@ export type ResWithCustomer = Reservation & {
 /** Fields each access level may show, whatever the display settings say. */
 export const BLOCK_FIELDS: CardField[] = ["time", "service", "staff", "status"];
 export const DETAIL_FIELDS: CardField[] = ["time", "service", "category", "creator", "staff", "status"];
+/** 등록자 is always shown on every card, whatever the display settings say. */
 export function allowedFields(access: ResWithCustomer["access"], fields: CardField[]): CardField[] {
-  if (!access || access === "pii") return fields;
-  const allow = access === "block" ? BLOCK_FIELDS : DETAIL_FIELDS;
-  const out = fields.filter((f) => allow.includes(f));
+  const withCreator = fields.includes("creator") ? fields : [...fields, "creator" as CardField];
+  if (!access || access === "pii") return withCreator;
+  const allow = access === "block" ? [...BLOCK_FIELDS, "creator" as CardField] : DETAIL_FIELDS;
+  const out = withCreator.filter((f) => allow.includes(f));
   return out.includes("service") ? out : [...out, "service"];
 }
 
@@ -93,6 +95,7 @@ export function CardView({
           {has("time") && <b className="shrink-0">{format(new Date(r.start_at), "HH:mm")}</b>}
           {has("customer") && <span className="truncate">{r.customer_name}</span>}
           {has("service") && !has("customer") && <span className="truncate">{r.service}</span>}
+          {has("creator") && <span className="truncate opacity-70">· {creatorName}</span>}
           {showStatus && <span className="ml-auto shrink-0"><StatusPill status={r.status} colors={status} small /></span>}
         </span>
       ) : (

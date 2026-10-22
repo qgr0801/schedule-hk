@@ -203,7 +203,7 @@ function ReservationForm() {
           </div>
           <div className="grid grid-cols-2 gap-3 rounded-lg bg-muted p-3 text-sm sm:col-span-2">
             <div>
-              <div className="text-xs text-muted-foreground">작성자 (자동)</div>
+              <div className="text-xs text-muted-foreground">등록자 (자동)</div>
               <div className="font-semibold">{(creatorId ? profiles?.find((p) => p.id === creatorId)?.full_name : me?.name) ?? "-"}</div>
             </div>
             <div>
