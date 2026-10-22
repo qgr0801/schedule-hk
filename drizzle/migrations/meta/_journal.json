@@ -64,6 +64,13 @@
       "when": 1792665220614,
       "tag": "0008_trial_security_hardening",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1792666261406,
+      "tag": "0009_profiles_self_admin_read_and_staff_directory",
+      "breakpoints": true
     }
   ]
 }
