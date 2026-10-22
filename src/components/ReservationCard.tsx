@@ -28,7 +28,7 @@ export function CategoryBadge({ cat, small }: { cat: Pick<Category, "name" | "co
 export function StatusPill({ status, colors, small }: { status: ResStatus; colors: StatusColor; small?: boolean }) {
   return (
     <span
-      className={cn("inline-block whitespace-nowrap rounded-full border font-semibold", small ? "px-1.5 text-[10px]" : "px-2 py-0.5 text-xs", status === "cancelled" && "line-through")}
+      className={cn("inline-block shrink-0 whitespace-nowrap rounded-full border font-semibold", small ? "px-1.5 text-[10px]" : "px-2 py-0.5 text-xs", status === "cancelled" && "line-through")}
       style={{ color: colors.text_color, background: colors.bg_color, borderColor: colors.border_color }}
     >
       {STATUS_LABEL[status]}
