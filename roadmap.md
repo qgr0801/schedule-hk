@@ -37,3 +37,9 @@
 - [x] Sign-up form removed from login page
 - [ ] Server-side 'Disable sign-up' switch — user toggles in Cloud Users → Auth settings
 - [x] Re-run scan and regression tests after approved changes
+
+## Critical 재검토 (no blanket ignore)
+- [ ] List every table/policy in the remaining Critical; separate shared settings vs personal data
+- [ ] Probe PII exposure (customer name/no/phone/memo, staff PII) per role with fake data
+- [ ] Replace "everyone" read rules with a real staff-only rule where possible; keep booking features
+- [ ] Rescan and report whether Critical is gone
