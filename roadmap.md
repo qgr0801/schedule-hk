@@ -7,3 +7,4 @@
 - [x] Colors & display: status colors, staff colors, 7 customer categories, card field settings, status buttons, customers page
 - [x] Staff permissions: per-staff view scope 전체/본인; others' reservations show only status (예약현황) + service (시술항목)
 - [x] Calendar visibility v2: everyone sees all blocks (time/section/public service/status); detail scope 전체/본인; separate PII permission; public service name; overlap by staff+section on server; admin setting for cancelled slot reuse; customer number search
+- [x] 4차 직원 권한 테스트: 테스트 계정 A/B/C, 서버 직접 요청 55개 항목 (tests/rls/qa4_staff_permissions.py)
