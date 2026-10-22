@@ -35,6 +35,7 @@ function StaffPage() {
     queryFn: async () => (await supabase.from("staff_view_scopes").select("*")).data ?? [],
   });
   if (me && me.role !== "admin") return <Panel>관리자만 접근할 수 있습니다.</Panel>;
+  if (!me || !roles || !scopes) return <Panel>불러오는 중…</Panel>;
   const roleOf = (id: string) => (roles?.find((r) => r.user_id === id)?.role ?? "external") as Role;
 
   async function changeRole(id: string, role: Role) {
@@ -68,7 +69,7 @@ function StaffPage() {
 
   return (
     <div>
-      <PageHeader title="직원 권한 설정" desc="역할을 지정하고, 내부 직원이 열람할 수 있는 다른 직원의 예약을 선택하세요. 외부 직원은 본인 예약만 볼 수 있습니다." />
+      <PageHeader title="직원 권한 설정" desc="모든 직원은 전체 예약의 시간 블록·섹션·공개용 시술명·상태를 봅니다. 예약 상세와 고객 개인정보는 아래 권한이 있어야 볼 수 있습니다." />
       <div className="space-y-4">
         {profiles?.map((p) => {
           const role = roleOf(p.id);
