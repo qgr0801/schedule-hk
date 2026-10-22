@@ -14,6 +14,24 @@ export type Database = {
   }
   public: {
     Tables: {
+      day_sections: {
+        Row: {
+          active: boolean
+          name: string
+          position: number
+        }
+        Insert: {
+          active?: boolean
+          name: string
+          position: number
+        }
+        Update: {
+          active?: boolean
+          name?: string
+          position?: number
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
@@ -115,6 +133,7 @@ export type Database = {
           id: string
           memo: string | null
           room: string | null
+          section: number | null
           service: string
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
@@ -131,6 +150,7 @@ export type Database = {
           id?: string
           memo?: string | null
           room?: string | null
+          section?: number | null
           service: string
           start_at: string
           status?: Database["public"]["Enums"]["reservation_status"]
@@ -147,12 +167,21 @@ export type Database = {
           id?: string
           memo?: string | null
           room?: string | null
+          section?: number | null
           service?: string
           start_at?: string
           status?: Database["public"]["Enums"]["reservation_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "reservations_section_fkey"
+            columns: ["section"]
+            isOneToOne: false
+            referencedRelation: "day_sections"
+            referencedColumns: ["position"]
+          },
+        ]
       }
       schedule_shares: {
         Row: {
