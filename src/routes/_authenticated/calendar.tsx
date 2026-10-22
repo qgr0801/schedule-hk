@@ -5,7 +5,7 @@ import {
   isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -200,13 +200,16 @@ function CalendarPage() {
           <span className="min-w-0 flex-1 truncate text-center font-semibold text-primary sm:min-w-32 sm:flex-none">{title}</span>
           <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
           <Button size="sm" variant="outline" className="h-10 shrink-0 sm:h-9" onClick={() => setCursor(new Date())}>오늘</Button>
-          <input
-            type="date"
-            aria-label="날짜 선택"
-            value={format(cursor, "yyyy-MM-dd")}
-            onChange={(e) => { if (e.target.value) setCursor(new Date(`${e.target.value}T00:00`)); }}
-            className="h-10 w-10 shrink-0 rounded-md border border-input bg-background px-1 text-sm sm:h-9 sm:w-auto sm:px-2"
-          />
+          <label className="relative flex h-10 w-11 shrink-0 items-center justify-center rounded-md border border-input bg-background sm:h-9 sm:w-auto sm:border-0 sm:bg-transparent">
+            <CalendarDays className="h-5 w-5 text-primary sm:hidden" />
+            <input
+              type="date"
+              aria-label="날짜 선택"
+              value={format(cursor, "yyyy-MM-dd")}
+              onChange={(e) => { if (e.target.value) setCursor(new Date(`${e.target.value}T00:00`)); }}
+              className="absolute inset-0 h-full w-full opacity-0 sm:static sm:h-9 sm:rounded-md sm:border sm:border-input sm:bg-background sm:px-2 sm:text-sm sm:opacity-100"
+            />
+          </label>
         </div>
         <p className="w-full text-xs text-muted-foreground md:hidden">이 줄을 손가락으로 좌우로 밀면 이전·다음 {view === "month" ? "달" : view === "week" ? "주" : "날"}로 이동합니다.</p>
       </div>
