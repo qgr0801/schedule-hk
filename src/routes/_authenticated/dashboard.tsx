@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { meQuery, profilesQuery, ROLE_LABEL, type Reservation } from "@/lib/app";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
-  head: () => ({ meta: [{ title: "대시보드 | Beauty Schedule Manager" }] }),
+  head: () => ({ meta: [{ title: "대시보드 | Schedule HK" }] }),
   component: Dashboard,
 });
 

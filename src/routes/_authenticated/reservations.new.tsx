@@ -18,7 +18,7 @@ export const Route = createFileRoute("/_authenticated/reservations/new")({
     start: z.string().regex(/^\d{2}:\d{2}$/).optional(),
     section: z.coerce.number().int().min(1).max(10).optional(),
   }),
-  head: () => ({ meta: [{ title: "예약 등록 | Beauty Schedule Manager" }] }),
+  head: () => ({ meta: [{ title: "예약 등록 | Schedule HK" }] }),
   component: ReservationForm,
 });
 

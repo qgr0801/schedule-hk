@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { meQuery, profilesQuery, STATUS_LABEL, type ResStatus, type Reservation } from "@/lib/app";
 
 export const Route = createFileRoute("/_authenticated/admin/reservations")({
-  head: () => ({ meta: [{ title: "전체 예약 조회 | Beauty Schedule Manager" }] }),
+  head: () => ({ meta: [{ title: "전체 예약 조회 | Schedule HK" }] }),
   component: AllReservations,
 });
 

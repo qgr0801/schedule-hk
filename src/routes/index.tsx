@@ -10,9 +10,9 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "로그인 | Beauty Schedule Manager" },
+      { title: "로그인 | Schedule HK" },
       { name: "description", content: "병원·메디컬뷰티 직원용 예약·스케줄 관리 시스템 로그인" },
-      { property: "og:title", content: "Beauty Schedule Manager" },
+      { property: "og:title", content: "Schedule HK" },
       { property: "og:description", content: "역할별 권한으로 안전하게 관리하는 예약 캘린더" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -60,7 +60,7 @@ function LoginPage() {
     <div className="grid min-h-screen lg:grid-cols-2">
       <div className="hidden flex-col justify-between bg-sidebar p-12 text-sidebar-foreground lg:flex">
         <div className="flex items-center gap-2 text-lg font-bold text-sidebar-primary">
-          <CalendarCheck2 className="h-6 w-6" /> Beauty Schedule Manager
+          <CalendarCheck2 className="h-6 w-6" /> Schedule HK
         </div>
         <div>
           <h1 className="text-4xl font-bold leading-tight text-sidebar-primary">
@@ -78,7 +78,7 @@ function LoginPage() {
       <div className="flex items-center justify-center p-6">
         <form onSubmit={submit} className="w-full max-w-sm space-y-5">
           <div className="flex items-center gap-2 font-bold text-primary lg:hidden">
-            <CalendarCheck2 className="h-5 w-5" /> Beauty Schedule Manager
+            <CalendarCheck2 className="h-5 w-5" /> Schedule HK
           </div>
           <div>
             <h2 className="text-2xl font-bold">{mode === "login" ? "로그인" : "직원 계정 만들기"}</h2>
