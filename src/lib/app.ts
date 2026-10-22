@@ -76,14 +76,13 @@ export const meQuery = queryOptions({
   },
 });
 
-/** Columns every signed-in staff member may read; e-mail addresses are admin-only (staffEmailsQuery). */
-export const PROFILE_COLS = "id, full_name, department, is_active, created_at";
+/** Name-only staff directory (staff_directory RPC); full profile rows are self/admin only. */
 export type StaffProfile = Omit<Profile, "email">;
 
 export const profilesQuery = queryOptions({
   queryKey: ["profiles"],
   queryFn: async (): Promise<StaffProfile[]> => {
-    const { data, error } = await supabase.from("profiles").select(PROFILE_COLS).order("full_name");
+    const { data, error } = await supabase.rpc("staff_directory");
     if (error) throw error;
     return data;
   },

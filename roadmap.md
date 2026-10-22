@@ -17,7 +17,7 @@
 - [x] Drag move save + overlap prevention check
 - [x] Signed-out access blocked (tables, RPCs)
 - [x] Security scan + fixes (anon grants, staff emails hidden)
-- [ ] Ahasoft Excel import: not built — waiting for a sample export file + approval (no real data)
+- [ ] Ahasoft Excel import: not built — user approved; waiting for blank template / fake-data sample file (no real data)
 - [x] Backup/restore procedure explanation
 - [x] Share/publish guidance (no publish)
 
@@ -33,6 +33,7 @@
 
 ## 치명적 개인정보 경고 (Critical)
 - [x] Cause found: profiles read rule open to all signed-in staff (staff e-mails) — e-mail column already blocked
-- [ ] Tighten profiles read to self/admin + name-only staff directory — waiting for user approval
-- [ ] Turn off open self-signup before publishing — waiting for user decision
-- [ ] Re-run scan and regression tests after approved changes
+- [x] Tighten profiles read to self/admin + name-only staff directory
+- [x] Sign-up form removed from login page
+- [ ] Server-side 'Disable sign-up' switch — user toggles in Cloud Users → Auth settings
+- [x] Re-run scan and regression tests after approved changes
