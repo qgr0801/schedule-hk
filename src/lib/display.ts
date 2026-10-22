@@ -30,7 +30,7 @@ export const DEFAULT_CATEGORIES = [
 ];
 
 export const STAFF_PALETTE = ["#7C3AED", "#0891B2", "#DB2777", "#EA580C", "#2563EB", "#16A34A", "#CA8A04", "#4F46E5", "#0D9488", "#BE123C"];
-export const suggestStaffColor = (n: number) => STAFF_PALETTE[((n % STAFF_PALETTE.length) + STAFF_PALETTE.length) % STAFF_PALETTE.length];
+export const suggestStaffColor = (n: number): string => STAFF_PALETTE[((n % STAFF_PALETTE.length) + STAFF_PALETTE.length) % STAFF_PALETTE.length] ?? "#2563EB";
 
 export const CARD_FIELDS = [
   { key: "time", label: "예약 시간" },
