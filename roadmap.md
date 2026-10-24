@@ -66,9 +66,10 @@
 - [x] Server blocks self-promotion to ADMIN; regression tests
 
 ## 복원 스크립트 안전성 수정 (v2 ZIP, no real restore)
-- [ ] 04_restore_run.sh: explicit target project ID check + precheck ON_ERROR_STOP=1, stop on unexpected output
-- [ ] 02_target_precheck.sql: explicit STOP for failed/missing required checks
-- [ ] 90_post.sql: least-privilege default grants
-- [ ] Windows 10 / PostgreSQL 18 guide
-- [ ] Isolated fake-data test: restore, rollback, guard cases
-- [ ] New ZIP (schedule-hk-restore_v2.zip) differing from v1 + change report
+- [x] 04_restore_run.sh: explicit target project ID check + precheck ON_ERROR_STOP=1, stop on unexpected output
+- [x] 02_target_precheck.sql: explicit STOP for failed/missing required checks
+- [x] 90_post.sql: least-privilege default grants
+- [x] Windows 10 / PostgreSQL 18 guide
+- [x] Isolated fake-data test: restore, rollback, guard cases
+- [x] New ZIP (schedule-hk-restore_v2.zip) differing from v1 + change report
+- [ ] Real restore into schedule-hk-test — waiting for user approval
