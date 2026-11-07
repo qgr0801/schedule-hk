@@ -70,3 +70,39 @@ cd <repository-name>
 npm i
 npm run dev
 ```
+
+## Independent hosting (`independent-supabase`)
+
+Use Node.js 24 and copy `.env.example` to `.env` for local development.
+For a hosted build, set the public build variables in the hosting platform.
+Supply the server variables to the running Node process through the host's
+environment or secret settings.
+
+| Variable | When needed | Value |
+| --- | --- | --- |
+| `VITE_APP_URL` | Build and local dev | Independent HTTPS site origin, with no path. Local dev can use `http://localhost:5173`. |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | Build and local dev | Independent Supabase URL and publishable key. |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | Server runtime | Same project URL and publishable key. |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server runtime | Server-only Supabase service-role key used for staff administration. |
+
+Never add the service-role key or database credentials to a `VITE_` variable
+or commit them. In the independent Supabase project's Authentication URL
+Configuration, set **Site URL** to the independent origin and add the exact
+`<origin>/set-password` as an allowed redirect URL. Invite and recovery
+templates should use Supabase's confirmation link so the redirect is preserved.
+Rebuild the app when a public build variable changes.
+
+```sh
+npm install
+npm test
+npm run build
+node .output/server/index.mjs
+```
+
+For a local production smoke test, use
+`node --env-file=.env .output/server/index.mjs`. The deployment target must
+run the Node SSR server and serve the generated `.output` bundle. Uploading
+only the static assets will omit the staff-management server functions.
+
+Before switching traffic, verify admin sign-in, staff invite, resend, password
+reset, and role permissions on the independent project with test accounts.

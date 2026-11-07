@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import type { Database, Json } from "@/integrations/supabase/types";
+import { staffPasswordSetupUrl } from "@/lib/app-url";
 import { inviteState, type AccountState } from "@/lib/staff-rules";
 
 export type { AccountState };
@@ -29,19 +30,10 @@ async function otherActiveAdmins(admin: Admin, userId: string): Promise<number> 
   return count ?? 0;
 }
 
-const redirectTo = z
-  .string()
-  .url()
-  .refine((u) => {
-    const url = new URL(u);
-    return (url.protocol === "https:" || url.hostname === "localhost") && url.pathname === "/set-password";
-  }, "잘못된 주소입니다.");
-
 const inviteInput = z.object({
   email: z.string().trim().toLowerCase().email().max(254),
   fullName: z.string().trim().min(1).max(40),
   role: z.enum(["admin", "internal", "external"]),
-  redirectTo,
 });
 
 /** Sends an invitation e-mail; the staff member sets their own password from the link. Only admins can invite (admins included). */
@@ -53,7 +45,7 @@ export const inviteStaff = createServerFn({ method: "POST" })
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data: res, error } = await supabaseAdmin.auth.admin.inviteUserByEmail(data.email, {
       data: { full_name: data.fullName },
-      redirectTo: data.redirectTo,
+      redirectTo: staffPasswordSetupUrl(),
     });
     if (error || !res.user) {
       const msg = error?.message ?? "";
@@ -209,7 +201,7 @@ export const deleteStaff = createServerFn({ method: "POST" })
  */
 export const resendSetupLink = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid(), redirectTo }).parse(input))
+  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     await assertAdmin(context.supabase, context.userId);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -217,8 +209,8 @@ export const resendSetupLink = createServerFn({ method: "POST" })
     const u = got?.user;
     if (error || !u?.email) throw new Error("직원 계정을 찾지 못했습니다.");
     const res = u.email_confirmed_at
-      ? await supabaseAdmin.auth.resetPasswordForEmail(u.email, { redirectTo: data.redirectTo })
-      : await supabaseAdmin.auth.admin.inviteUserByEmail(u.email, { redirectTo: data.redirectTo, data: u.user_metadata });
+      ? await supabaseAdmin.auth.resetPasswordForEmail(u.email, { redirectTo: staffPasswordSetupUrl() })
+      : await supabaseAdmin.auth.admin.inviteUserByEmail(u.email, { redirectTo: staffPasswordSetupUrl(), data: u.user_metadata });
     if (res.error) {
       if (/rate limit/i.test(res.error.message)) throw new Error("메일 발송 한도를 넘었습니다. 잠시 후 다시 시도해 주세요.");
       throw new Error("메일을 보내지 못했습니다.");

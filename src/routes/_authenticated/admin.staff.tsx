@@ -24,7 +24,6 @@ import {
 } from "@/components/staff/staff-data";
 import { cn } from "@/lib/utils";
 import { meQuery, ROLE_LABEL, staffEmailsQuery, type Role } from "@/lib/app";
-import { PUBLIC_APP_URL, staffAppOrigin } from "@/lib/app-url";
 import { effectivePerms, ROLE_CODE, SCOPE_LABEL, type Perms } from "@/lib/permissions";
 import { ACCOUNT_LABEL } from "@/lib/staff-rules";
 import { inviteStaff, setStaffActive } from "@/lib/staff.functions";
@@ -48,7 +47,7 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
     if (role === "admin" && !confirm(`${name}님을 최고 관리자(ADMIN)로 초대할까요? 모든 예약·고객 정보와 직원 관리 권한을 갖게 됩니다.`)) return;
     setBusy(true);
     try {
-      await inviteStaff({ data: { email, fullName: name, role, redirectTo: `${staffAppOrigin()}/set-password` } });
+      await inviteStaff({ data: { email, fullName: name, role } });
       toast.success(`${name}님에게 초대 메일을 보냈습니다. 메일의 링크에서 비밀번호를 정하면 바로 로그인할 수 있습니다.`);
       refreshStaff(qc);
       onClose();
@@ -87,7 +86,7 @@ function InviteDialog({ open, onClose }: { open: boolean; onClose: () => void })
             </div>
           </div>
           <p className="rounded-md bg-muted px-3 py-2 text-xs text-muted-foreground">
-            메일의 링크는 {PUBLIC_APP_URL.replace("https://", "")} 로 연결되고 24시간 동안 유효합니다. STAFF·EXTERNAL은 '기본 직원' 권한으로 시작하며 초대 후 바꿀 수 있습니다.
+            메일의 링크는 설정된 운영 사이트로 연결되고 24시간 동안 유효합니다. STAFF·EXTERNAL은 '기본 직원' 권한으로 시작하며 초대 후 바꿀 수 있습니다.
           </p>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>취소</Button>

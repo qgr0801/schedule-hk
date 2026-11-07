@@ -15,7 +15,6 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { dbErrorMessage, ROLE_LABEL, type Role } from "@/lib/app";
-import { staffAppOrigin } from "@/lib/app-url";
 import { effectivePerms, FIELDS, MENUS, ROLE_CODE, SCOPE_LABEL, TEMPLATES, type FieldKey, type MenuKey, type Perms, type Scope } from "@/lib/permissions";
 import { ACCOUNT_LABEL, canDeleteAccount, type AccountState } from "@/lib/staff-rules";
 import { deleteStaff, resendSetupLink, setStaffActive, staffLinks, updateStaffInfo } from "@/lib/staff.functions";
@@ -328,7 +327,7 @@ function AccountTab({ target, meId, state, lastSignInAt, invitedAt, onClose }: T
             {state === "expired" ? "초대 링크가 만료되었습니다(24시간). 다시 보내 주세요." : state === "pending" ? "링크는 열었지만 아직 비밀번호를 정하지 않았습니다." : "직원이 아직 초대 메일의 링크를 열지 않았습니다."}
           </p>
           <Button variant="outline" size="sm" disabled={busy}
-            onClick={() => run(() => resendSetupLink({ data: { userId: target.id, redirectTo: `${staffAppOrigin()}/set-password` } }), `${target.full_name}님에게 메일을 다시 보냈습니다.`)}>
+            onClick={() => run(() => resendSetupLink({ data: { userId: target.id } }), `${target.full_name}님에게 메일을 다시 보냈습니다.`)}>
             초대 메일 다시 보내기
           </Button>
         </section>

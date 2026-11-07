@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { staffAppOrigin } from "@/lib/app-url";
+import { staffPasswordSetupUrl } from "@/lib/app-url";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -50,8 +50,14 @@ function LoginPage() {
   async function forgot() {
     if (!/^\S+@\S+\.\S+$/.test(email)) { toast.error("위 칸에 이메일을 먼저 입력해 주세요."); return; }
     setBusy(true);
-    await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${staffAppOrigin()}/set-password` });
-    setBusy(false);
+    try {
+      await supabase.auth.resetPasswordForEmail(email, { redirectTo: staffPasswordSetupUrl() });
+    } catch {
+      toast.error("비밀번호 재설정을 시작하지 못했습니다. 관리자에게 문의해 주세요.");
+      return;
+    } finally {
+      setBusy(false);
+    }
     // Same message whether or not the address exists, so the form cannot be used to probe accounts.
     toast.success("등록된 이메일이면 비밀번호 재설정 메일이 발송됩니다. 메일함(스팸함 포함)을 확인해 주세요.");
   }
