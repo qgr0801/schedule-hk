@@ -210,10 +210,12 @@ export function ReservationCard({
       <PopoverContent side="left" align="start" collisionPadding={12} className="w-36 max-w-[calc(100vw-1.5rem)] p-1.5" aria-label="예약 메뉴">
         <div className="grid gap-1">
           <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick(); }}>예약 상세</Button>
-          {canChange && <Button asChild variant="ghost" size="sm"><Link to="/reservations/new" search={{ id: r.id }}>예약 수정</Link></Button>}
-          {canChange && r.status !== "cancelled" && <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick("cancelled"); }}>예약 취소</Button>}
-          {canChange && r.status !== "no_show" && <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick("no_show"); }}>노쇼</Button>}
-          {canReadCustomer && (r.customer_id || r.access) && <Button variant="ghost" size="sm" disabled={loadingCustomer} onClick={openCustomer}>고객정보</Button>}
+          {canChange
+            ? <Button asChild variant="ghost" size="sm"><Link to="/reservations/new" search={{ id: r.id }}>예약 수정</Link></Button>
+            : canReadCustomer && <Button variant="ghost" size="sm" disabled>예약 수정</Button>}
+          {(canChange || canReadCustomer) && <Button variant="ghost" size="sm" disabled={!canChange || r.status === "cancelled"} onClick={() => { setOpen(false); onClick("cancelled"); }}>예약 취소</Button>}
+          {(canChange || canReadCustomer) && <Button variant="ghost" size="sm" disabled={!canChange || r.status === "no_show"} onClick={() => { setOpen(false); onClick("no_show"); }}>노쇼</Button>}
+          {canReadCustomer && <Button variant="ghost" size="sm" disabled={loadingCustomer || (!r.customer_id && !r.access)} onClick={openCustomer}>고객정보</Button>}
         </div>
       </PopoverContent>
     </Popover>
