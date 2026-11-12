@@ -5,6 +5,7 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
 import { meQuery, STATUS_LABEL, type Reservation, type ResStatus } from "@/lib/app";
 import { cardColors, maskPhone, useCardLookups, type CardField, type CalView, type Category, type ColorMode, type StatusColor } from "@/lib/display";
@@ -63,7 +64,7 @@ export function StatusPill({ status, colors, small }: { status: ResStatus; color
 
 /** Pure presentational card, also used for the settings preview. */
 export function CardView({
-  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick, className, title,
+  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick, className,
 }: {
   r: Pick<ResWithCustomer, "start_at" | "end_at" | "customer_name" | "customer_phone" | "service" | "memo" | "status">;
   fields: CardField[];
@@ -75,7 +76,6 @@ export function CardView({
   staffName: string;
   compact?: boolean | undefined;
   onClick?: (() => void) | undefined;
-  title?: string | undefined;
   className?: string | undefined;
 }) {
   const c = cardColors(mode, status, staffColor);
@@ -101,7 +101,6 @@ export function CardView({
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
-      title={title}
       className={cn("relative block w-full overflow-hidden rounded-md border text-left text-xs", compact ? "py-0.5 pl-2.5 pr-1" : "py-1.5 pl-3 pr-2", r.status === "cancelled" && "opacity-75", className)}
       style={{ background: c.background, color: c.color, borderColor: c.borderColor }}
     >
@@ -144,6 +143,7 @@ export function ReservationCard({
   const { data: me } = useQuery(meQuery);
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
   const canReadCustomer = me?.role === "admin" || me?.role === "internal";
   const canEdit = !!me && !r.access && (me.role === "admin" || me.id === r.created_by);
@@ -190,19 +190,24 @@ export function ReservationCard({
       creatorName={name(r.created_by)}
       staffName={name(staffId)}
       compact={compact}
-      onClick={onClick ? () => { if (canOpen?.() !== false) setOpen(true); } : undefined}
-      title={open ? undefined : summary.join("\n")}
+      onClick={onClick ? () => { if (canOpen?.() !== false) { setPreviewOpen(false); setOpen(true); } } : undefined}
       className={className}
     />
   );
   if (!onClick) return card;
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverAnchor asChild><div className={className}>{card}</div></PopoverAnchor>
-      <PopoverContent side="right" align="start" className="w-56 max-w-[calc(100vw-2rem)] space-y-2 p-2" aria-label="예약 메뉴">
-        <div className="space-y-0.5 border-b px-2 pb-2 text-xs">
-          {summary.map((line, index) => <div key={index}>{line}</div>)}
-        </div>
+      <TooltipProvider delayDuration={250}>
+        <Tooltip open={previewOpen && !open} onOpenChange={setPreviewOpen} disableHoverableContent>
+          <PopoverAnchor asChild>
+            <TooltipTrigger asChild><div className={className}>{card}</div></TooltipTrigger>
+          </PopoverAnchor>
+          <TooltipContent side="right" align="start" collisionPadding={12} className="max-w-[min(15rem,calc(100vw-1.5rem))] space-y-0.5 border bg-popover text-popover-foreground shadow-md">
+            {summary.map((line, index) => <div key={index} className="break-words">{line}</div>)}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+      <PopoverContent side="left" align="start" collisionPadding={12} className="w-36 max-w-[calc(100vw-1.5rem)] p-1.5" aria-label="예약 메뉴">
         <div className="grid gap-1">
           <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick(); }}>예약 상세</Button>
           {canChange && <Button asChild variant="ghost" size="sm"><Link to="/reservations/new" search={{ id: r.id }}>예약 수정</Link></Button>}
