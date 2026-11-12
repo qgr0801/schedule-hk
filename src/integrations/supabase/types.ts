@@ -684,6 +684,10 @@ export type Database = {
         Args: { _owner: string; _viewer: string }
         Returns: boolean
       }
+      calendar_customer_id: {
+        Args: { _reservation: string }
+        Returns: string | null
+      }
       customer_visit_history: {
         Args: { _reservation: string }
         Returns: {

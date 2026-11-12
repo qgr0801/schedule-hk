@@ -53,7 +53,7 @@ export function TimeGrid({
   canDrag: (r: ResWithCustomer) => boolean;
   /** Reason the slot is taken, or null. */
   conflict: (r: ResWithCustomer, start: Date, end: Date, section: number | null) => string | null;
-  onRes: (r: ResWithCustomer) => void;
+  onRes: (r: ResWithCustomer, action?: "cancelled" | "no_show") => void;
   onSch: (s: Schedule) => void;
   onEmpty?: ((col: GridCol, minutes: number) => void) | undefined;
   onDrop: (t: MoveTarget) => void;
@@ -251,14 +251,14 @@ export function TimeGrid({
                     className={cn("group/card absolute z-[2]", movable && "cursor-grab active:cursor-grabbing", draggingId === i.r.id && "opacity-40")}
                     onPointerDown={(ev) => begin(ev, i.r, "move", c.key)}
                     onContextMenu={(ev) => movable && ev.preventDefault()}
-                    title={movable ? "끌어서 이동 · 아래 가장자리를 끌어 길이 조절" : undefined}
                   >
                     <ReservationCard
                       r={i.r}
                       view={view}
                       name={name}
                       className="h-full"
-                      onClick={() => { if (!suppressClick.current) onRes(i.r); }}
+                      onClick={(action) => onRes(i.r, action)}
+                      canOpen={() => !suppressClick.current}
                     />
                     {movable && (
                       <div

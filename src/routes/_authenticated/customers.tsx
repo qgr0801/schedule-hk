@@ -22,10 +22,23 @@ export const Route = createFileRoute("/_authenticated/customers")({
       { name: "description", content: "고객 구분과 보조 태그로 고객을 등록하고 검색합니다." },
     ],
   }),
+  validateSearch: (search: Record<string, unknown>) => ({ customer: typeof search["customer"] === "string" ? search["customer"] : undefined }),
   component: CustomersPage,
 });
 
 function CustomersPage() {
+  const { customer } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const detail = useQuery({
+    queryKey: ["customers", "detail", customer],
+    enabled: !!customer,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("customers")
+        .select("*, customer_category_tags(category_id)").eq("id", customer!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
   const { data: customers } = useQuery(customersQuery);
   const { data: profiles } = useQuery(profilesQuery);
   const L = useCardLookups();
@@ -81,6 +94,8 @@ function CustomersPage() {
         })}
         {list.length === 0 && <p className="text-sm text-muted-foreground">조건에 맞는 고객이 없습니다.</p>}
       </div>
+      {customer && detail.data && <CustomerDialog customer={detail.data} onClose={() => navigate({ search: { customer: undefined }, replace: true })} />}
+      {customer && (detail.isError || detail.data === null) && <p role="alert" className="text-sm text-muted-foreground">연결된 고객정보를 열 수 없습니다.</p>}
       {edit && <CustomerDialog customer={edit === "new" ? null : edit} onClose={() => setEdit(null)} />}
     </div>
   );

@@ -42,7 +42,8 @@ type Item = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
 function CalendarPage() {
   const [view, setView] = useState<View>("week");
   const [cursor, setCursor] = useState(new Date());
-  const [sel, setSel] = useState<ResWithCustomer | null>(null);
+  const [sel, setSel] = useState<{ reservation: ResWithCustomer; action?: "cancelled" | "no_show" | undefined } | null>(null);
+  const openReservation = (reservation: ResWithCustomer, action?: "cancelled" | "no_show") => setSel({ reservation, action });
   const [schOpen, setSchOpen] = useState(false);
   const [schView, setSchView] = useState<Schedule | null>(null);
   const [secOpen, setSecOpen] = useState(false);
@@ -72,7 +73,7 @@ function CalendarPage() {
     queryKey: ["calendar", range.from.toISOString(), range.to.toISOString()],
     queryFn: async () => {
       const [r, s, sh] = await Promise.all([
-        supabase.from("reservations").select("*, customer:customers(category_id, customer_category_tags(category_id))").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
+        supabase.from("reservations").select("*, customer:customers(customer_no, category_id, customer_category_tags(category_id))").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
         supabase.from("schedules").select("*").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
         supabase.rpc("calendar_reservations", { _from: range.from.toISOString(), _to: range.to.toISOString() }),
       ]);
@@ -91,7 +92,7 @@ function CalendarPage() {
       }));
       if (r.error) throw r.error;
       if (s.error) throw s.error;
-      return { res: [...(r.data as ResWithCustomer[]), ...shared], sch: s.data };
+      return { res: [...r.data.map((row) => ({ ...row, customer_no: row.customer?.customer_no })), ...shared], sch: s.data };
     },
   });
 
@@ -144,7 +145,7 @@ function CalendarPage() {
       .from("reservations")
       .update({ start_at: t.start.toISOString(), end_at: t.end.toISOString(), section: t.section })
       .eq("id", t.r.id)
-      .select("*, customer:customers(category_id, customer_category_tags(category_id))");
+      .select("*, customer:customers(customer_no, category_id, customer_category_tags(category_id))");
     setSaving(false);
     setMove(null);
     qc.invalidateQueries({ queryKey: ["calendar"] });
@@ -252,12 +253,12 @@ function CalendarPage() {
             {days.map((d) => {
               const its = dayItems(d);
               return (
-                <button key={d.toISOString()} onClick={() => { setCursor(d); setView("day"); }} className={cn("min-h-20 border-b border-r p-1 text-left align-top sm:min-h-28", !isSameMonth(d, cursor) && "bg-muted/60 text-muted-foreground")}>
-                  <div className={cn("mb-1 text-xs", isSameDay(d, new Date()) && "inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground")}>{format(d, "d")}</div>
+                <div key={d.toISOString()} className={cn("min-h-20 border-b border-r p-1 text-left align-top sm:min-h-28", !isSameMonth(d, cursor) && "bg-muted/60 text-muted-foreground")}>
+                  <button type="button" onClick={() => { setCursor(d); setView("day"); }} className={cn("mb-1 text-xs", isSameDay(d, new Date()) && "inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground")}>{format(d, "d")}</button>
                   <div className="hidden space-y-0.5 sm:block">
                     {its.slice(0, 3).map((i, k) =>
                       i.kind === "res" ? (
-                        <ReservationCard key={k} r={i.r} view="month" name={name} compact />
+                        <ReservationCard key={k} r={i.r} view="month" name={name} compact onClick={(action) => openReservation(i.r, action)} />
                       ) : (
                         <div key={k} className="truncate rounded bg-accent px-1 text-[11px] text-accent-foreground">
                           {format(start(i), "HH:mm")} {i.s.title}
@@ -267,7 +268,7 @@ function CalendarPage() {
                     {its.length > 3 && <div className="text-[11px] text-muted-foreground">+{its.length - 3}건</div>}
                   </div>
                   {its.length > 0 && <div className="text-[11px] font-semibold text-primary sm:hidden">{its.length}건</div>}
-                </button>
+                </div>
               );
             })}
           </div>
@@ -290,7 +291,7 @@ function CalendarPage() {
                 highlight: isSameDay(d, new Date()),
               }))}
               firstH={firstH} lastH={lastH} step={slotStep} view="week" colMinWidth={130} name={name}
-              canDrag={canDrag} conflict={conflict} onRes={setSel} onSch={setSchView} onDrop={onDrop}
+              canDrag={canDrag} conflict={conflict} onRes={openReservation} onSch={setSchView} onDrop={onDrop}
               onEmpty={(c, m) => newAt(c.date, null, m)}
               colLabelText={(c) => format(c.date, "M월 d일")}
             />
@@ -304,7 +305,7 @@ function CalendarPage() {
           date={cursor}
           isAdmin={me?.role === "admin"}
           name={name}
-          onRes={setSel}
+          onRes={openReservation}
           onSch={setSchView}
           onSettings={() => setSecOpen(true)}
           sectionFilter={sectionF ? Number(sectionF) : null}
@@ -312,7 +313,7 @@ function CalendarPage() {
         />
       )}
 
-      <ReservationDialog res={sel} onClose={() => setSel(null)} />
+      {sel && <ReservationDialog res={sel.reservation} initialAction={sel.action} onClose={() => setSel(null)} />}
       <AlertDialog open={!!move} onOpenChange={(o) => { if (!o && !saving) setMove(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -453,7 +454,7 @@ function DayBoard({
   date: Date;
   isAdmin: boolean;
   name: (id: string) => string;
-  onRes: (r: ResWithCustomer) => void;
+  onRes: (r: ResWithCustomer, action?: "cancelled" | "no_show") => void;
   onSch: (s: Schedule) => void;
   onSettings: () => void;
   grid: GridOpts;

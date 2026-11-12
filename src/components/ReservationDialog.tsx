@@ -18,14 +18,14 @@ import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, ST
 import { STATUS_ORDER, useCardLookups } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
-export function ReservationDialog({ res, onClose }: { res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access" | "visible" | "customer_no">>) | null; onClose: () => void }) {
+export function ReservationDialog({ res, onClose, initialAction }: { initialAction?: "cancelled" | "no_show" | undefined; res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access" | "visible" | "customer_no">>) | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
   const { data: sections } = useQuery(sectionsQuery);
   const L = useCardLookups();
   const [reason, setReason] = useState("");
-  const [confirming, setConfirming] = useState(false);
+  const [confirming, setConfirming] = useState<"cancelled" | "no_show" | null>(initialAction ?? null);
   const [busy, setBusy] = useState(false);
   const [moving, setMoving] = useState(false);
   const history = useQuery({
@@ -123,7 +123,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
     if (!data?.length) { toast.error("이 예약의 상태를 변경할 권한이 없습니다."); return; }
     toast.success(status === "cancelled" ? "예약이 취소되었습니다. 이력은 보관됩니다." : `'${STATUS_LABEL[status]}'(으)로 변경되었습니다.`);
     qc.invalidateQueries();
-    setConfirming(false);
+    setConfirming(null);
     onClose();
   }
 
@@ -166,7 +166,7 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
                     key={s}
                     type="button"
                     disabled={busy || current}
-                    onClick={() => (s === "cancelled" ? setConfirming(true) : apply(s))}
+                    onClick={() => (s === "cancelled" ? setConfirming("cancelled") : apply(s))}
                     className={cn("h-11 rounded-md border-2 text-sm font-semibold transition-opacity disabled:cursor-default", current ? "ring-2 ring-offset-1" : "hover:opacity-80")}
                     style={{ color: c.text_color, background: c.bg_color, borderColor: c.border_color, ["--tw-ring-color" as string]: c.border_color }}
                   >
@@ -222,17 +222,17 @@ export function ReservationDialog({ res, onClose }: { res: (Reservation & Partia
         </div>
       </DialogContent>
 
-      <AlertDialog open={confirming} onOpenChange={setConfirming}>
+      <AlertDialog open={!!confirming && canChange} onOpenChange={(open) => { if (!open) setConfirming(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>예약을 취소할까요?</AlertDialogTitle>
-            <AlertDialogDescription>예약은 삭제되지 않고 '예약 취소' 상태와 변경 이력으로 보관됩니다.</AlertDialogDescription>
+            <AlertDialogTitle>{confirming === "no_show" ? "노쇼로 변경할까요?" : "예약을 취소할까요?"}</AlertDialogTitle>
+            <AlertDialogDescription>예약 상태와 변경 이력이 기록됩니다.</AlertDialogDescription>
           </AlertDialogHeader>
-          <Textarea placeholder="취소 사유 (선택)" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />
+          {confirming === "cancelled" && <Textarea placeholder="취소 사유 (선택)" value={reason} maxLength={300} onChange={(e) => setReason(e.target.value)} />}
           <AlertDialogFooter>
             <AlertDialogCancel>닫기</AlertDialogCancel>
-            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => { e.preventDefault(); apply("cancelled"); }}>
-              취소 확정
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={(e) => { e.preventDefault(); if (confirming) apply(confirming); }}>
+              {confirming === "no_show" ? "노쇼 확정" : "취소 확정"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

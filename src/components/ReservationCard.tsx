@@ -1,6 +1,12 @@
 import { format } from "date-fns";
-import type { ReactNode } from "react";
-import { STATUS_LABEL, type Reservation, type ResStatus } from "@/lib/app";
+import { useState, type ReactNode } from "react";
+import { Link, useNavigate } from "@tanstack/react-router";
+import { useQuery } from "@tanstack/react-query";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
+import { supabase } from "@/integrations/supabase/client";
+import { meQuery, STATUS_LABEL, type Reservation, type ResStatus } from "@/lib/app";
 import { cardColors, maskPhone, useCardLookups, type CardField, type CalView, type Category, type ColorMode, type StatusColor } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
@@ -57,7 +63,7 @@ export function StatusPill({ status, colors, small }: { status: ResStatus; color
 
 /** Pure presentational card, also used for the settings preview. */
 export function CardView({
-  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick, className,
+  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick, className, title,
 }: {
   r: Pick<ResWithCustomer, "start_at" | "end_at" | "customer_name" | "customer_phone" | "service" | "memo" | "status">;
   fields: CardField[];
@@ -69,6 +75,7 @@ export function CardView({
   staffName: string;
   compact?: boolean | undefined;
   onClick?: (() => void) | undefined;
+  title?: string | undefined;
   className?: string | undefined;
 }) {
   const c = cardColors(mode, status, staffColor);
@@ -94,6 +101,7 @@ export function CardView({
     <Tag
       type={onClick ? "button" : undefined}
       onClick={onClick}
+      title={title}
       className={cn("relative block w-full overflow-hidden rounded-md border text-left text-xs", compact ? "py-0.5 pl-2.5 pr-1" : "py-1.5 pl-3 pr-2", r.status === "cancelled" && "opacity-75", className)}
       style={{ background: c.background, color: c.color, borderColor: c.borderColor }}
     >
@@ -121,17 +129,49 @@ export function CardView({
 
 /** Calendar card wired to saved settings. */
 export function ReservationCard({
-  r, view, name, compact, onClick, modeOverride, className,
+  r, view, name, compact, onClick, canOpen, modeOverride, className,
 }: {
   r: ResWithCustomer;
   view: CalView;
   name: (id: string) => string;
   compact?: boolean | undefined;
-  onClick?: (() => void) | undefined;
+  onClick?: ((action?: "cancelled" | "no_show") => void) | undefined;
+  canOpen?: (() => boolean) | undefined;
   modeOverride?: ColorMode | undefined;
   className?: string | undefined;
 }) {
   const L = useCardLookups();
+  const { data: me } = useQuery(meQuery);
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [loadingCustomer, setLoadingCustomer] = useState(false);
+  const canReadCustomer = me?.role === "admin" || me?.role === "internal";
+  const canEdit = !!me && !r.access && (me.role === "admin" || me.id === r.created_by);
+  const canChange = canEdit && (r.status !== "cancelled" || me.role === "admin");
+  const start = new Date(r.start_at);
+  const end = new Date(r.end_at);
+  const summary = [
+    canReadCustomer && (!r.access || r.visible?.includes("customer")) ? r.customer_name : null,
+    canReadCustomer && r.customer_no && (!r.access || r.visible?.includes("customerNo")) ? `No.${r.customer_no}` : null,
+    `${format(start, "HH:mm")}–${format(end, "HH:mm")}`,
+    r.service,
+    `${Math.round((end.getTime() - start.getTime()) / 60000)}분`,
+  ].filter(Boolean);
+
+  async function openCustomer() {
+    setLoadingCustomer(true);
+    try {
+      const { data, error } = await supabase.rpc("calendar_customer_id", { _reservation: r.id });
+      if (error || !data) {
+        toast.error("연결된 고객정보를 열 수 없습니다.");
+        return;
+      }
+      setOpen(false);
+      await navigate({ to: "/customers", search: { customer: data } });
+    } finally {
+      setLoadingCustomer(false);
+    }
+  }
   const d = L.display(view);
   const staffHidden = !!r.access && !r.visible?.includes("staff");
   const staffId = r.staff_id ?? r.created_by;
@@ -139,7 +179,7 @@ export function ReservationCard({
     .filter((id, i, a): id is string => !!id && a.indexOf(id) === i)
     .map((id) => L.category(id))
     .filter((c): c is Category => !!c);
-  return (
+  const card = (
     <CardView
       r={r}
       fields={allowedFields(r.access, d.fields, r.visible)}
@@ -150,8 +190,27 @@ export function ReservationCard({
       creatorName={name(r.created_by)}
       staffName={name(staffId)}
       compact={compact}
-      onClick={onClick}
+      onClick={onClick ? () => { if (canOpen?.() !== false) setOpen(true); } : undefined}
+      title={open ? undefined : summary.join("\n")}
       className={className}
     />
+  );
+  if (!onClick) return card;
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverAnchor asChild><div className={className}>{card}</div></PopoverAnchor>
+      <PopoverContent side="right" align="start" className="w-56 max-w-[calc(100vw-2rem)] space-y-2 p-2" aria-label="예약 메뉴">
+        <div className="space-y-0.5 border-b px-2 pb-2 text-xs">
+          {summary.map((line, index) => <div key={index}>{line}</div>)}
+        </div>
+        <div className="grid gap-1">
+          <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick(); }}>예약 상세</Button>
+          {canChange && <Button asChild variant="ghost" size="sm"><Link to="/reservations/new" search={{ id: r.id }}>예약 수정</Link></Button>}
+          {canChange && r.status !== "cancelled" && <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick("cancelled"); }}>예약 취소</Button>}
+          {canChange && r.status !== "no_show" && <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick("no_show"); }}>노쇼</Button>}
+          {canReadCustomer && (r.customer_id || r.access) && <Button variant="ghost" size="sm" disabled={loadingCustomer} onClick={openCustomer}>고객정보</Button>}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 }
