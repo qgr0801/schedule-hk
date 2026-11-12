@@ -32,8 +32,7 @@ export function atMinutes(day: Date, min: number): Date {
 export type SlotRes = { id: string; start: Date; end: Date; staff: string; section: number | null; cancelled: boolean };
 
 /**
- * Local overlap check mirroring the server rules: same treatment staff or same section,
- * cancelled bookings only count when cancelled slots are not reusable.
+ * Check cancelled bookings when their slots are not reusable.
  */
 export function findConflict(
   moving: { id: string; staff: string; section: number | null },
@@ -44,7 +43,7 @@ export function findConflict(
 ): "staff" | "section" | null {
   for (const o of others) {
     if (o.id === moving.id) continue;
-    if (o.cancelled && cancelledReusable) continue;
+    if (!o.cancelled || cancelledReusable) continue;
     if (!(o.start < end && start < o.end)) continue;
     if (o.staff === moving.staff) return "staff";
     if (moving.section != null && o.section === moving.section) return "section";

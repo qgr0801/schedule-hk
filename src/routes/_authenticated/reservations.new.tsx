@@ -171,7 +171,7 @@ function ReservationForm() {
 
   return (
     <div className="max-w-2xl">
-      <PageHeader title={id ? "예약 수정" : "예약 등록"} desc="같은 담당자나 같은 섹션(시술실)의 시간이 겹치면 경고가 표시되고 저장이 막힙니다. 가상 데이터만 사용하세요." />
+      <PageHeader title={id ? "예약 수정" : "예약 등록"} desc="같은 시간에 같은 담당자와 시술실로 여러 예약을 등록할 수 있습니다. 가상 데이터만 사용하세요." />
       <Panel>
         <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
@@ -276,7 +276,7 @@ function ReservationForm() {
           </div>
           {!!overlap.data?.length && (
             <div role="alert" className="space-y-1 rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm sm:col-span-2">
-              <div className="flex items-center gap-2 font-semibold text-destructive"><AlertTriangle className="h-4 w-4" /> 시간이 겹치는 예약이 있습니다</div>
+              <div className="flex items-center gap-2 font-semibold text-destructive"><AlertTriangle className="h-4 w-4" /> 재사용할 수 없는 취소 예약 시간대입니다</div>
               {overlap.data.map((o, k) => (
                 <div key={k} className="text-xs">
                   {format(new Date(o.start_at), "HH:mm")}~{format(new Date(o.end_at), "HH:mm")} · {o.public_service} · {STATUS_LABEL[o.status]} ·{" "}

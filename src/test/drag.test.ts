@@ -26,10 +26,11 @@ describe("calendar drag rules", () => {
     expect(resizeEnd(10 * 60, 10 * 60 + 2, 10, 22 * 60)).toBe(10 * 60 + 10);
   });
 
-  it("detects same staff or same section overlaps", () => {
+  it("allows overlapping active reservations for the same staff or section", () => {
     const others = [{ id: "b", start: d(10), end: d(11), staff: "s1", section: 2, cancelled: false }];
-    expect(findConflict({ id: "a", staff: "s1", section: 5 }, d(10, 30), d(11, 30), others, true)).toBe("staff");
-    expect(findConflict({ id: "a", staff: "s9", section: 2 }, d(10, 30), d(11, 30), others, true)).toBe("section");
+    expect(findConflict({ id: "a", staff: "s1", section: 5 }, d(10, 30), d(11, 30), others, true)).toBeNull();
+    expect(findConflict({ id: "a", staff: "s1", section: 2 }, d(10, 30), d(11, 30), others, true)).toBeNull();
+    expect(findConflict({ id: "a", staff: "s9", section: 2 }, d(10, 30), d(11, 30), others, true)).toBeNull();
     expect(findConflict({ id: "a", staff: "s9", section: 3 }, d(10, 30), d(11, 30), others, true)).toBeNull();
     expect(findConflict({ id: "a", staff: "s1", section: 2 }, d(11), d(12), others, true)).toBeNull();
   });

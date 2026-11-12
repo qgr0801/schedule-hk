@@ -122,7 +122,7 @@ function CalendarPage() {
   const canDrag = (r: ResWithCustomer) => !!me && !r.access && r.status !== "cancelled" && (me.role === "admin" || r.created_by === me.id);
   const conflict = (r: ResWithCustomer, s: Date, e: Date, section: number | null) => {
     const c = findConflict({ id: r.id, staff: staffKey(r), section }, s, e, slots, booking?.cancelled_slot_reusable ?? true);
-    return c === "staff" ? "같은 담당자 예약과 겹칩니다" : c === "section" ? "같은 섹션에 예약이 있습니다" : null;
+    return c === "staff" ? "같은 담당자의 취소된 시간대입니다" : c === "section" ? "같은 섹션의 취소된 시간대입니다" : null;
   };
   async function onDrop(t: MoveTarget) {
     // Server re-check across every staff member's reservations before asking to confirm.
@@ -132,7 +132,7 @@ function CalendarPage() {
     });
     if (error) { toast.error(dbErrorMessage(error)); return; }
     if (ov?.length) {
-      toast.error(ov[0]!.conflict === "staff" ? "같은 담당자의 예약과 겹쳐 이동할 수 없습니다." : "같은 섹션에 이미 예약이 있어 이동할 수 없습니다.");
+      toast.error(ov[0]!.conflict === "staff" ? "같은 담당자의 취소된 시간대에는 이동할 수 없습니다." : "같은 섹션의 취소된 시간대에는 이동할 수 없습니다.");
       return;
     }
     setMove(t);

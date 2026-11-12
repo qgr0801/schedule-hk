@@ -269,7 +269,7 @@ function MoveForm({ res, onDone }: { res: Reservation; onDone: () => void }) {
     if (e1) { setBusy(false); toast.error(dbErrorMessage(e1)); return; }
     if (ov?.length) {
       setBusy(false);
-      toast.error(ov[0]!.conflict === "staff" ? "같은 담당자의 예약과 겹쳐 이동할 수 없습니다." : "같은 섹션에 이미 예약이 있어 이동할 수 없습니다.");
+      toast.error(ov[0]!.conflict === "staff" ? "같은 담당자의 취소된 시간대에는 이동할 수 없습니다." : "같은 섹션의 취소된 시간대에는 이동할 수 없습니다.");
       return;
     }
     const { data, error } = await supabase
