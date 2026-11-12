@@ -92,7 +92,8 @@ function CalendarPage() {
       }));
       if (r.error) throw r.error;
       if (s.error) throw s.error;
-      return { res: [...r.data.map((row) => ({ ...row, customer_no: row.customer?.customer_no })), ...shared], sch: s.data };
+      const fullIds = new Set(r.data.map((row) => row.id));
+      return { res: [...r.data.map((row) => ({ ...row, customer_no: row.customer?.customer_no })), ...shared.filter((row) => !fullIds.has(row.id))], sch: s.data };
     },
   });
 
@@ -120,7 +121,7 @@ function CalendarPage() {
   const slots: SlotRes[] = (data?.res ?? []).map((r) => ({
     id: r.id, start: new Date(r.start_at), end: new Date(r.end_at), staff: staffKey(r), section: r.section, cancelled: r.status === "cancelled",
   }));
-  const canDrag = (r: ResWithCustomer) => !!me && !r.access && r.status !== "cancelled" && (me.role === "admin" || r.created_by === me.id);
+  const canDrag = (r: ResWithCustomer) => !!me && !r.access && r.status !== "cancelled" && (me.role === "admin" || me.role === "internal" || r.created_by === me.id);
   const conflict = (r: ResWithCustomer, s: Date, e: Date, section: number | null) => {
     const c = findConflict({ id: r.id, staff: staffKey(r), section }, s, e, slots, booking?.cancelled_slot_reusable ?? true);
     return c === "staff" ? "같은 담당자의 취소된 시간대입니다" : c === "section" ? "같은 섹션의 취소된 시간대입니다" : null;
@@ -278,7 +279,7 @@ function CalendarPage() {
 
       {view === "week" && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">본인 예약은 끌어서 다른 날짜·시간으로 옮기고, 아래 가장자리를 끌어 길이를 바꿀 수 있습니다{me?.role === "admin" ? " (관리자는 모든 예약)" : ""}. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
+          <p className="text-xs text-muted-foreground">수정할 수 있는 예약은 끌어서 다른 날짜·시간으로 옮기고, 아래 가장자리를 끌어 길이를 바꿀 수 있습니다{me?.role === "admin" ? " (관리자는 모든 예약)" : ""}. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
           <Panel className="max-h-[75vh] overflow-auto p-0">
             <TimeGrid
               cols={days.map((d): GridCol => ({
@@ -472,7 +473,7 @@ function DayBoard({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">빈 곳을 누르면 그 섹션·시간으로 예약을 등록합니다. 본인 예약은 위아래로 끌면 시간, 옆 섹션으로 끌면 섹션이 바뀝니다. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
+        <p className="text-xs text-muted-foreground">빈 곳을 누르면 그 섹션·시간으로 예약을 등록합니다. 수정할 수 있는 예약은 위아래로 끌면 시간, 옆 섹션으로 끌면 섹션이 바뀝니다. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
         {isAdmin && (
           <Button size="sm" variant="outline" className="shrink-0" onClick={onSettings}>
             <Settings2 className="h-4 w-4" /> 섹션 설정 ({sections.length}개)

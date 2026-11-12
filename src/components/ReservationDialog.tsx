@@ -59,7 +59,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
   if (!res) return null;
   const name = (id: string | null) => (id ? profiles?.find((p) => p.id === id)?.full_name ?? "알 수 없음" : "시스템");
   const sectionName = sections?.find((s) => s.position === res.section)?.name ?? res.room;
-  const canEdit = !!me && (me.role === "admin" || me.id === res.created_by);
+  const canEdit = !!me && (me.role === "admin" || me.role === "internal" || me.id === res.created_by);
   const canChange = canEdit && (res.status !== "cancelled" || me?.role === "admin");
   const cats = [res.customer?.category_id, ...(res.customer?.customer_category_tags ?? []).map((t) => t.category_id)]
     .filter((id, i, a): id is string => !!id && a.indexOf(id) === i)

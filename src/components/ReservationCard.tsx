@@ -146,7 +146,7 @@ export function ReservationCard({
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
   const canReadCustomer = me?.role === "admin" || me?.role === "internal";
-  const canEdit = !!me && !r.access && (me.role === "admin" || me.id === r.created_by);
+  const canEdit = !!me && !r.access && (me.role === "admin" || me.role === "internal" || me.id === r.created_by);
   const canChange = canEdit && (r.status !== "cancelled" || me.role === "admin");
   const start = new Date(r.start_at);
   const end = new Date(r.end_at);
