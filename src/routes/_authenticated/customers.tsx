@@ -48,7 +48,7 @@ function CustomersPage() {
   const digits = q.replace(/\D/g, "");
   const list = (customers ?? []).filter(
     (c) =>
-      (!q.trim() || c.name.includes(q.trim()) || String(c.customer_no) === q.trim().replace(/^No\.?\s*/i, "") || (!!digits && (c.phone ?? "").replace(/\D/g, "").includes(digits))) &&
+      (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase()) || String(c.customer_no) === q.trim().replace(/^No\.?\s*/i, "") || (!!digits && (c.phone ?? "").replace(/\D/g, "").includes(digits))) &&
       (!cat || c.category_id === cat || c.customer_category_tags.some((t) => t.category_id === cat)),
   );
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "-";

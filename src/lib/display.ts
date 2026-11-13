@@ -125,12 +125,19 @@ export const displayQuery = queryOptions({
 export const customersQuery = queryOptions({
   queryKey: ["customers"],
   queryFn: async () => {
-    const { data, error } = await supabase
+    const pageSize = 500;
+    const query = () => supabase
       .from("customers")
       .select("*, customer_category_tags(category_id)")
-      .order("name");
-    if (error) throw error;
-    return data;
+      .order("name")
+      .order("id");
+    const customers: NonNullable<Awaited<ReturnType<typeof query>>["data"]> = [];
+    for (let offset = 0; ; offset += pageSize) {
+      const { data, error } = await query().range(offset, offset + pageSize - 1);
+      if (error) throw error;
+      customers.push(...data);
+      if (data.length < pageSize) return customers;
+    }
   },
 });
 export type CustomerRow = Awaited<ReturnType<NonNullable<typeof customersQuery.queryFn>>>[number];

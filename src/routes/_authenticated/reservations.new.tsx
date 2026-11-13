@@ -90,7 +90,7 @@ function ReservationForm() {
   const selected = customers?.find((x) => x.id === customerId);
   const canEditCustomer = !selected || me?.role === "admin" || selected.created_by === me?.id;
   const matches = search.trim()
-    ? (customers ?? []).filter((c) => c.name.includes(search.trim()) || (c.phone ?? "").replace(/\D/g, "").includes(search.replace(/\D/g, "") || "\u0000") || String(c.customer_no) === search.trim().replace(/^No\.?\s*/i, "")).slice(0, 6)
+    ? (customers ?? []).filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()) || (c.phone ?? "").replace(/\D/g, "").includes(search.replace(/\D/g, "") || "\u0000") || String(c.customer_no) === search.trim().replace(/^No\.?\s*/i, "")).slice(0, 6)
     : [];
 
   // Live overlap warning against every staff's reservation blocks (server re-checks on save)
