@@ -134,6 +134,20 @@
       "when": 1792672700292,
       "tag": "0018_booking_service_options",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1792672700293,
+      "tag": "0019_visit_statuses",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1792672700294,
+      "tag": "0020_visit_status_colors",
+      "breakpoints": true
     }
   ]
 }

@@ -18,7 +18,9 @@ export const ROLE_LABEL: Record<Role, string> = {
 export const STATUS_LABEL: Record<ResStatus, string> = {
   pending: "예약 대기",
   confirmed: "예약 확정",
+  arrived: "고객입장",
   completed: "시술 완료",
+  paid: "계산 완료",
   no_show: "노쇼",
   cancelled: "예약 취소",
   changed: "예약 변경",

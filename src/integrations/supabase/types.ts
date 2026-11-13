@@ -777,6 +777,8 @@ export type Database = {
         | "pending"
         | "confirmed"
         | "completed"
+        | "arrived"
+        | "paid"
         | "cancelled"
         | "no_show"
         | "changed"
@@ -913,6 +915,8 @@ export const Constants = {
         "pending",
         "confirmed",
         "completed",
+        "arrived",
+        "paid",
         "cancelled",
         "no_show",
         "changed",

@@ -40,7 +40,7 @@ function Dashboard() {
     { label: "오늘 예약", value: today.filter((r) => r.status !== "cancelled").length },
     { label: "이번 주 예약", value: active.length },
     { label: "이번 주 취소", value: (week ?? []).filter((r) => r.status === "cancelled").length },
-    { label: "시술 완료", value: (week ?? []).filter((r) => r.status === "completed").length },
+    { label: "시술 완료", value: (week ?? []).filter((r) => r.status === "completed" || r.status === "paid").length },
   ];
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "-";
   const byStaff = Object.entries(

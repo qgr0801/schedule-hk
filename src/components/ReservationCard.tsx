@@ -1,13 +1,13 @@
 import { format } from "date-fns";
 import { useState, type ReactNode } from "react";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverAnchor, PopoverContent } from "@/components/ui/popover";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { supabase } from "@/integrations/supabase/client";
-import { meQuery, STATUS_LABEL, type Reservation, type ResStatus } from "@/lib/app";
+import { dbErrorMessage, meQuery, STATUS_LABEL, type Reservation, type ResStatus } from "@/lib/app";
 import { cardColors, maskPhone, useCardLookups, type CardField, type CalView, type Category, type ColorMode, type StatusColor } from "@/lib/display";
 import { cn } from "@/lib/utils";
 
@@ -78,9 +78,10 @@ export function CardView({
   onClick?: (() => void) | undefined;
   className?: string | undefined;
 }) {
-  const c = cardColors(mode, status, staffColor);
+  const isVisitStatus = r.status === "arrived" || r.status === "paid";
+  const c = cardColors(isVisitStatus ? "status" : mode, status, staffColor);
   const has = (f: CardField) => fields.includes(f);
-  const showStatus = has("status") || mode === "staff" || r.status === "cancelled" || r.status === "no_show";
+  const showStatus = isVisitStatus || has("status") || mode === "staff" || r.status === "cancelled" || r.status === "no_show";
   const lines: ReactNode[] = [];
   if (has("customer")) lines.push(<span key="c" className="block truncate font-semibold">고객: {r.customer_name}</span>);
   if (has("category") && categories.length > 0)
@@ -142,6 +143,8 @@ export function ReservationCard({
   const L = useCardLookups();
   const { data: me } = useQuery(meQuery);
   const navigate = useNavigate();
+  const qc = useQueryClient();
+  const [savingStatus, setSavingStatus] = useState(false);
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [loadingCustomer, setLoadingCustomer] = useState(false);
@@ -157,6 +160,29 @@ export function ReservationCard({
     r.service,
     `${Math.round((end.getTime() - start.getTime()) / 60000)}분`,
   ].filter(Boolean);
+
+  async function markVisitStatus(status: "arrived" | "paid") {
+    setSavingStatus(true);
+    try {
+      const { data, error } = await supabase.from("reservations")
+        .update({ status })
+        .eq("id", r.id)
+        .eq("status", r.status)
+        .select("id");
+      if (error) throw error;
+      await qc.invalidateQueries();
+      if (!data.length) {
+        toast.error("예약 상태가 이미 변경되었거나 변경 권한이 없습니다.");
+        return;
+      }
+      setOpen(false);
+      toast.success(`${STATUS_LABEL[status]} 상태로 저장했습니다.`);
+    } catch (error) {
+      toast.error(dbErrorMessage(error));
+    } finally {
+      setSavingStatus(false);
+    }
+  }
 
   async function openCustomer() {
     setLoadingCustomer(true);
@@ -209,6 +235,12 @@ export function ReservationCard({
       </TooltipProvider>
       <PopoverContent side="left" align="start" collisionPadding={12} className="w-36 max-w-[calc(100vw-1.5rem)] p-1.5" aria-label="예약 메뉴">
         <div className="grid gap-1">
+          {canEdit && r.status !== "cancelled" && (
+            <>
+              <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "arrived" || r.status === "paid"} onClick={() => markVisitStatus("arrived")}>고객입장</Button>
+              <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "paid"} onClick={() => markVisitStatus("paid")}>계산</Button>
+            </>
+          )}
           <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick(); }}>예약 상세</Button>
           {canChange
             ? <Button asChild variant="ghost" size="sm"><Link to="/reservations/new" search={{ id: r.id }}>예약 수정</Link></Button>
@@ -216,6 +248,7 @@ export function ReservationCard({
           {(canChange || canReadCustomer) && <Button variant="ghost" size="sm" disabled={!canChange || r.status === "cancelled"} onClick={() => { setOpen(false); onClick("cancelled"); }}>예약 취소</Button>}
           {(canChange || canReadCustomer) && <Button variant="ghost" size="sm" disabled={!canChange || r.status === "no_show"} onClick={() => { setOpen(false); onClick("no_show"); }}>노쇼</Button>}
           {canReadCustomer && <Button variant="ghost" size="sm" disabled={loadingCustomer || (!r.customer_id && !r.access)} onClick={openCustomer}>고객정보</Button>}
+          <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>닫기</Button>
         </div>
       </PopoverContent>
     </Popover>

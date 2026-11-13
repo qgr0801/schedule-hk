@@ -14,7 +14,9 @@ describe("display rules", () => {
     expect(DEFAULT_STATUS_COLORS.no_show.border_color).toBe("#DC2626");
     expect(DEFAULT_STATUS_COLORS.cancelled.border_color).toBe("#64748B");
     expect(DEFAULT_STATUS_COLORS.changed.border_color).toBe("#9333EA");
-    expect(STATUS_ORDER).toHaveLength(6);
+    expect(DEFAULT_STATUS_COLORS.arrived.border_color).toBe("#26768A");
+    expect(DEFAULT_STATUS_COLORS.paid.border_color).toBe("#A45C9D");
+    expect(STATUS_ORDER).toEqual(["pending", "confirmed", "arrived", "completed", "paid", "no_show", "cancelled", "changed"]);
   });
 
   it("has seven default customer categories", () => {

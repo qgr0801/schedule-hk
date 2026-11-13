@@ -8,11 +8,13 @@ export type ColorMode = "status" | "staff";
 export type StatusColor = { text_color: string; bg_color: string; border_color: string };
 export type Category = Database["public"]["Tables"]["customer_categories"]["Row"];
 
-export const STATUS_ORDER: ResStatus[] = ["pending", "confirmed", "completed", "no_show", "cancelled", "changed"];
+export const STATUS_ORDER: ResStatus[] = ["pending", "confirmed", "arrived", "completed", "paid", "no_show", "cancelled", "changed"];
 
 export const DEFAULT_STATUS_COLORS: Record<ResStatus, StatusColor> = {
   pending: { text_color: "#B45309", bg_color: "#FEF3C7", border_color: "#F59E0B" },
   confirmed: { text_color: "#1D4ED8", bg_color: "#DBEAFE", border_color: "#2563EB" },
+  arrived: { text_color: "#0E5261", bg_color: "#A9D5DD", border_color: "#26768A" },
+  paid: { text_color: "#6B345F", bg_color: "#EBD4ED", border_color: "#A45C9D" },
   completed: { text_color: "#15803D", bg_color: "#DCFCE7", border_color: "#16A34A" },
   no_show: { text_color: "#B91C1C", bg_color: "#FEE2E2", border_color: "#DC2626" },
   cancelled: { text_color: "#475569", bg_color: "#F1F5F9", border_color: "#64748B" },

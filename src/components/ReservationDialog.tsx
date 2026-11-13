@@ -68,7 +68,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
 
   const visitList = canVisits && (
     <div className="border-t pt-4">
-      <h4 className="mb-2 text-sm font-semibold text-primary">고객 방문 이력 {visits.data && `(${visits.data.filter((v) => v.status === "completed").length}회 방문)`}</h4>
+      <h4 className="mb-2 text-sm font-semibold text-primary">고객 방문 이력 {visits.data && `(${visits.data.filter((v) => v.status === "completed" || v.status === "paid").length}회 방문)`}</h4>
       <ul className="max-h-48 space-y-1 overflow-y-auto text-sm">
         {visits.data?.map((v, k) => (
           <li key={k} className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-1.5">

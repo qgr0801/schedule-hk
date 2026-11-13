@@ -203,7 +203,7 @@ function VisitHistory({ customerId }: { customerId: string }) {
       return data;
     },
   });
-  const done = data?.filter((v) => v.status === "completed").length ?? 0;
+  const done = data?.filter((v) => v.status === "completed" || v.status === "paid").length ?? 0;
   return (
     <div className="border-t pt-4">
       <h4 className="mb-2 text-sm font-semibold text-primary">재방문 내역 {data && `(예약 ${data.length}건 · 시술 완료 ${done}회)`}</h4>
