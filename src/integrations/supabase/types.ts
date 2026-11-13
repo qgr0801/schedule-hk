@@ -16,6 +16,8 @@ export type Database = {
     Tables: {
       booking_settings: {
         Row: {
+          services: string[]
+          public_services: string[]
           cancelled_slot_reusable: boolean
           id: boolean
           slot_minutes: number
@@ -23,6 +25,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          services?: string[]
+          public_services?: string[]
           cancelled_slot_reusable?: boolean
           id?: boolean
           slot_minutes?: number
@@ -30,6 +34,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          services?: string[]
+          public_services?: string[]
           cancelled_slot_reusable?: boolean
           id?: boolean
           slot_minutes?: number

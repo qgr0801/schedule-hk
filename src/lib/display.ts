@@ -38,7 +38,7 @@ export const CARD_FIELDS = [
   { key: "category", label: "고객 구분" },
   { key: "service", label: "시술 또는 상담 내용" },
   { key: "creator", label: "예약 등록자" },
-  { key: "staff", label: "시술 담당자" },
+  { key: "staff", label: "담당자" },
   { key: "status", label: "예약 상태" },
   { key: "phone", label: "연락처 일부" },
   { key: "memo", label: "예약 메모" },

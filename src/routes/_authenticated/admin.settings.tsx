@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, SLOT_OPTIONS, STATUS_LABEL, type ResStatus } from "@/lib/app";
+import { bookingSettingsQuery, dbErrorMessage, PUBLIC_SERVICES, SERVICES, meQuery, profilesQuery, SLOT_OPTIONS, STATUS_LABEL, type ResStatus } from "@/lib/app";
 import {
   CARD_FIELDS, categoriesQuery, DEFAULT_CATEGORIES, DEFAULT_FIELDS, DEFAULT_STATUS_COLORS, displayQuery, isHex,
   staffColorsQuery, STATUS_ORDER, statusColorsQuery, suggestStaffColor, VIEW_LABEL,
@@ -50,6 +50,53 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
         aria-label={`${label} HEX 코드`}
       />
     </label>
+  );
+}
+
+function ServiceOptions() {
+  const qc = useQueryClient();
+  const { data } = useQuery(bookingSettingsQuery);
+  const [services, setServices] = useState<string>();
+  const [publicServices, setPublicServices] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const serviceText = services ?? (data?.services ?? SERVICES).join("\n");
+  const publicText = publicServices ?? (data?.public_services ?? PUBLIC_SERVICES).join("\n");
+
+  async function save() {
+    const parse = (value: string) => [...new Set(value.split("\n").map((item) => item.trim()).filter(Boolean))];
+    const next = { services: parse(serviceText), public_services: parse(publicText) };
+    if (!next.services.length || !next.public_services.length) {
+      toast.error("각 목록에 항목을 하나 이상 입력해 주세요.");
+      return;
+    }
+    setBusy(true);
+    try {
+      const { error } = await supabase.from("booking_settings").update(next).eq("id", true).select("id").single();
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: bookingSettingsQuery.queryKey });
+      setServices(undefined);
+      setPublicServices(undefined);
+      toast.success("시술 목록을 저장했습니다.");
+    } catch (error) {
+      toast.error(dbErrorMessage(error));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <p className="text-sm text-muted-foreground">한 줄에 한 항목씩 입력하세요. 추가할 항목은 새 줄에 쓰고, 뺄 항목은 해당 줄을 지운 뒤 저장하세요.</p>
+      <label className="block space-y-2 text-sm font-medium">
+        <span>시술</span>
+        <textarea className="block w-full rounded-md border border-input bg-background p-3" rows={8} value={serviceText} onChange={(e) => setServices(e.target.value)} disabled={busy || !data} />
+      </label>
+      <label className="block space-y-2 text-sm font-medium">
+        <span>캘린더 공개용 시술명</span>
+        <textarea className="block w-full rounded-md border border-input bg-background p-3" rows={5} value={publicText} onChange={(e) => setPublicServices(e.target.value)} disabled={busy || !data} />
+      </label>
+      <Button onClick={save} disabled={busy || !data || (services === undefined && publicServices === undefined)}>저장</Button>
+    </div>
   );
 }
 
@@ -201,6 +248,7 @@ function SettingsPage() {
               <TabsTrigger value="staff">담당자별 색상</TabsTrigger>
               <TabsTrigger value="cats">고객 구분 7개</TabsTrigger>
               <TabsTrigger value="fields">예약 카드 표시 항목</TabsTrigger>
+              <TabsTrigger value="services">시술 목록</TabsTrigger>
               <TabsTrigger value="rules">예약 규칙</TabsTrigger>
             </TabsList>
 
@@ -291,6 +339,9 @@ function SettingsPage() {
                 표시 항목을 켜도 열람 권한이 없는 직원에게는 고객명·연락처·상담 내용이 보이지 않습니다. 노쇼·예약 취소는 항상 상태가 표시됩니다.
               </p>
               {footer(saveDisp, () => setDisp({ day: { fields: DEFAULT_FIELDS.day, color_mode: "status" }, week: { fields: DEFAULT_FIELDS.week, color_mode: "status" }, month: { fields: DEFAULT_FIELDS.month, color_mode: "status" } }))}
+            </TabsContent>
+            <TabsContent value="services">
+              <ServiceOptions />
             </TabsContent>
             <TabsContent value="rules">
               <BookingRules />

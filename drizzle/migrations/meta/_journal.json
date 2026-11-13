@@ -127,6 +127,13 @@
       "when": 1792672700291,
       "tag": "0017_internal_reservation_updates",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1792672700292,
+      "tag": "0018_booking_service_options",
+      "breakpoints": true
     }
   ]
 }

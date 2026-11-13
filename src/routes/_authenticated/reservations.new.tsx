@@ -11,7 +11,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CategoryBadge } from "@/components/ReservationCard";
-import { dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput } from "@/lib/app";
+import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput } from "@/lib/app";
 import { format } from "date-fns";
 import { AlertTriangle } from "lucide-react";
 import { categoriesQuery, customersQuery, maskPhone, useCardLookups } from "@/lib/display";
@@ -45,13 +45,16 @@ function ReservationForm() {
   const { data: categories } = useQuery(categoriesQuery);
   const { data: customers } = useQuery(customersQuery);
   const L = useCardLookups();
+  const { data: settings } = useQuery(bookingSettingsQuery);
+  const services = settings?.services ?? SERVICES;
+  const publicServices = settings?.public_services ?? PUBLIC_SERVICES;
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
   const [staffId, setStaffId] = useState<string>("");
   const [search, setSearch] = useState("");
-  const [publicService, setPublicService] = useState(PUBLIC_SERVICES[0]!);
-  const [f, setF] = useState({ customer_name: "", customer_phone: "", service: SERVICES[0], section: qSection ? String(qSection) : "", memo: "", date: qDate ?? "", start: qStart ?? "10:00", minutes: 60 });
+  const [publicService, setPublicService] = useState("");
+  const [f, setF] = useState({ customer_name: "", customer_phone: "", service: "", section: qSection ? String(qSection) : "", memo: "", date: qDate ?? "", start: qStart ?? "10:00", minutes: 60 });
   const [busy, setBusy] = useState(false);
   const [creatorId, setCreatorId] = useState<string | null>(null);
   const [newCustomerNo, setNewCustomerNo] = useState<number | null>(null);
@@ -87,6 +90,8 @@ function ReservationForm() {
     setTags(c.customer_category_tags.map((t) => t.category_id));
   }, [customerId, customers]);
 
+  const serviceValue = id || services.includes(f.service) ? f.service : (services[0] ?? "");
+  const publicServiceValue = id || publicServices.includes(publicService) ? publicService : (publicServices[0] ?? "");
   const selected = customers?.find((x) => x.id === customerId);
   const canEditCustomer = !selected || me?.role === "admin" || selected.created_by === me?.id;
   const matches = search.trim()
@@ -145,7 +150,7 @@ function ReservationForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    const parsed = schema.safeParse(f);
+    const parsed = schema.safeParse({ ...f, service: serviceValue });
     if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요"); return; }
     const start = new Date(`${f.date}T${f.start}`);
     const end = new Date(start.getTime() + f.minutes * 60000);
@@ -155,7 +160,7 @@ function ReservationForm() {
     setBusy(true);
     const cid = await saveCustomer(parsed.data.customer_name, parsed.data.customer_phone || null);
     if (!cid) { setBusy(false); return; }
-    Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicService });
+    Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicServiceValue });
     const { error } = id
       ? await supabase.from("reservations").update(payload).eq("id", id)
       : await supabase.from("reservations").insert(payload);
@@ -223,7 +228,7 @@ function ReservationForm() {
             </select>
           </div>
           <div className="space-y-2">
-            <Label>시술 담당자</Label>
+            <Label>담당자</Label>
             <select value={staffId} onChange={(e) => setStaffId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
               {profiles?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
             </select>
@@ -242,8 +247,9 @@ function ReservationForm() {
           </div>
           <div className="space-y-2">
             <Label>시술 *</Label>
-            <select value={f.service} onChange={set("service")} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-              {SERVICES.map((s) => <option key={s}>{s}</option>)}
+            <select value={serviceValue} onChange={set("service")} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              {services.map((s) => <option key={s}>{s}</option>)}
+              {id && serviceValue && !services.includes(serviceValue) && <option>{serviceValue}</option>}
             </select>
           </div>
           <div className="space-y-2">
@@ -258,9 +264,9 @@ function ReservationForm() {
           </div>
           <div className="space-y-2">
             <Label>캘린더 공개용 시술명</Label>
-            <select value={publicService} onChange={(e) => setPublicService(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
-              {PUBLIC_SERVICES.map((s) => <option key={s}>{s}</option>)}
-              {!PUBLIC_SERVICES.includes(publicService) && <option value={publicService}>{publicService}</option>}
+            <select value={publicServiceValue} onChange={(e) => setPublicService(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              {publicServices.map((s) => <option key={s}>{s}</option>)}
+              {id && publicServiceValue && !publicServices.includes(publicServiceValue) && <option>{publicServiceValue}</option>}
             </select>
             <p className="text-xs text-muted-foreground">다른 직원의 캘린더에는 상세 시술명 대신 이 이름이 보입니다.</p>
           </div>
