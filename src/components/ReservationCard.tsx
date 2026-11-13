@@ -161,7 +161,7 @@ export function ReservationCard({
     `${Math.round((end.getTime() - start.getTime()) / 60000)}분`,
   ].filter(Boolean);
 
-  async function markVisitStatus(status: "arrived" | "paid") {
+  async function markVisitStatus(status: "arrived" | "paid" | "confirmed") {
     setSavingStatus(true);
     try {
       const { data, error } = await supabase.from("reservations")
@@ -237,7 +237,9 @@ export function ReservationCard({
         <div className="grid gap-1">
           {canEdit && r.status !== "cancelled" && (
             <>
-              <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "arrived" || r.status === "paid"} onClick={() => markVisitStatus("arrived")}>고객입장</Button>
+              {r.status === "arrived"
+                ? <Button variant="ghost" size="sm" disabled={savingStatus} onClick={() => markVisitStatus("confirmed")}>입장취소</Button>
+                : <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "paid"} onClick={() => markVisitStatus("arrived")}>고객입장</Button>}
               <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "paid"} onClick={() => markVisitStatus("paid")}>계산</Button>
             </>
           )}
