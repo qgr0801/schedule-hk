@@ -45,6 +45,14 @@ function CustomersPage() {
   const [q, setQ] = useState("");
   const [cat, setCat] = useState("");
   const [edit, setEdit] = useState<CustomerRow | "new" | null>(null);
+  const categoryCounts = new Map<string, number>();
+  for (const customer of customers ?? []) {
+    const categoryIds = new Set(customer.customer_category_tags.map((tag) => tag.category_id));
+    if (customer.category_id) categoryIds.add(customer.category_id);
+    for (const id of categoryIds) {
+      categoryCounts.set(id, (categoryCounts.get(id) ?? 0) + 1);
+    }
+  }
   const digits = q.replace(/\D/g, "");
   const list = (customers ?? []).filter(
     (c) =>
@@ -63,8 +71,8 @@ function CustomersPage() {
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름, 고객번호, 전화번호 검색" className="h-11 text-base sm:h-9 sm:max-w-xs sm:text-sm" />
         <select value={cat} onChange={(e) => setCat(e.target.value)} className="h-11 rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm" aria-label="고객 구분 필터">
-          <option value="">전체 고객 구분</option>
-          {L.categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          <option value="">전체 고객 구분 ({(customers?.length ?? 0).toLocaleString("ko-KR")}명)</option>
+          {L.categories.map((c) => <option key={c.id} value={c.id}>{c.name} ({(categoryCounts.get(c.id) ?? 0).toLocaleString("ko-KR")}명)</option>)}
         </select>
       </div>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
