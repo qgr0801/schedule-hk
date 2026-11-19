@@ -112,10 +112,10 @@ export function ProductInventory() {
         {error && <p role="alert" className="p-3">제품 목록을 불러오지 못했습니다.</p>}
         {routesQuery.error && <p role="alert" className="p-3">경로를 불러오지 못했습니다.</p>}
         {data?.some(p=>!p.stock_confirmed) && <p className="px-3 py-2 text-xs text-muted-foreground">초기 재고 미확인 제품은 실제 수량 확인 후 제품 수정에서 입력해 주세요.</p>}
-        <div className="max-h-[75vh] overflow-y-auto"><table aria-label="경로 제품명 현재 재고" className="w-full table-fixed text-sm">
-          <thead className="sticky top-0 z-10 bg-muted"><tr><th className="w-[18%] px-2 py-2 text-left">경로</th><th className="w-[57%] px-3 py-2 text-left">제품명</th><th className="px-3 py-2 text-right">현재 재고</th></tr></thead>
+        <div className="max-h-[75vh] overflow-y-auto"><table aria-label="제품명 경로 현재 재고" className="w-full table-fixed text-sm">
+          <thead className="sticky top-0 z-10 bg-muted"><tr><th className="w-[57%] px-3 py-2 text-left">제품명</th><th className="w-[18%] px-2 py-2 text-left">경로</th><th className="px-3 py-2 text-right">현재 재고</th></tr></thead>
           <tbody>{data?.map((p) => <tr key={p.id} className={`border-t ${detailId === p.id ? "bg-accent" : ""}`}>
-            <td className="break-words px-2 py-2 text-xs">{routeName(p.route_id)}</td><td className="break-words px-3 py-2"><button className="w-full text-left font-medium underline-offset-2 hover:underline" onClick={() => setDetailId(p.id)}>{p.name}{!p.is_active && <span className="ml-1 text-xs text-muted-foreground">중지</span>}</button></td>
+            <td className="break-words px-3 py-2"><button className="w-full text-left font-medium underline-offset-2 hover:underline" onClick={() => setDetailId(p.id)}>{p.name}{!p.is_active && <span className="ml-1 text-xs text-muted-foreground">중지</span>}</button></td><td className="break-words px-2 py-2 text-xs">{routeName(p.route_id)}</td>
             <td className={`px-3 py-2 text-right font-semibold ${p.stock_confirmed && p.stock === 0 ? "text-destructive" : p.stock_confirmed && p.stock <= 3 ? "text-amber-800" : ""}`}>{p.stock_confirmed ? <>{fmt(p.stock)}<span className="ml-1 text-xs font-normal">{p.unit}</span></> : <span className="text-xs font-normal text-muted-foreground">{p.stock ? `${fmt(p.stock)}${p.unit} · ` : ""}초기 미확인</span>}</td>
           </tr>)}</tbody>
         </table></div>
