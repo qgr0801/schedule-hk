@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as SetPasswordRouteImport } from './routes/set-password'
+import { Route as AuthenticatedAttendanceRouteImport } from './routes/_authenticated/attendance'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedCustomersRouteImport } from './routes/_authenticated/customers'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
@@ -35,6 +36,11 @@ const SetPasswordRoute = SetPasswordRouteImport.update({
   id: '/set-password',
   path: '/set-password',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedAttendanceRoute = AuthenticatedAttendanceRouteImport.update({
+  id: '/attendance',
+  path: '/attendance',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   id: '/calendar',
@@ -90,6 +96,7 @@ const AuthenticatedReservationsNewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/set-password': typeof SetPasswordRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -103,6 +110,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/set-password': typeof SetPasswordRoute
+  '/attendance': typeof AuthenticatedAttendanceRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/customers': typeof AuthenticatedCustomersRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
@@ -118,6 +126,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/set-password': typeof SetPasswordRoute
+  '/_authenticated/attendance': typeof AuthenticatedAttendanceRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/customers': typeof AuthenticatedCustomersRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
@@ -133,6 +142,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/set-password'
+    | '/attendance'
     | '/calendar'
     | '/customers'
     | '/dashboard'
@@ -146,6 +156,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/set-password'
+    | '/attendance'
     | '/calendar'
     | '/customers'
     | '/dashboard'
@@ -160,6 +171,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/set-password'
+    | '/_authenticated/attendance'
     | '/_authenticated/calendar'
     | '/_authenticated/customers'
     | '/_authenticated/dashboard'
@@ -199,6 +211,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/set-password'
       preLoaderRoute: typeof SetPasswordRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/attendance': {
+      id: '/_authenticated/attendance'
+      path: '/attendance'
+      fullPath: '/attendance'
+      preLoaderRoute: typeof AuthenticatedAttendanceRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/calendar': {
       id: '/_authenticated/calendar'
@@ -267,6 +286,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedAttendanceRoute: typeof AuthenticatedAttendanceRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCustomersRoute: typeof AuthenticatedCustomersRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
@@ -279,6 +299,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedAttendanceRoute: AuthenticatedAttendanceRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCustomersRoute: AuthenticatedCustomersRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,

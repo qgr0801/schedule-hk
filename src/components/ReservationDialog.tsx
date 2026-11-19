@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/PageHeader";
 import { CategoryBadge, type ResWithCustomer } from "@/components/ReservationCard";
 import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, STATUS_LABEL, type Reservation, type ResStatus } from "@/lib/app";
 import { STATUS_ORDER, useCardLookups } from "@/lib/display";
+import { PaymentHistory } from "@/components/PaymentHistory";
 import { cn } from "@/lib/utils";
 
 export function ReservationDialog({ res, onClose, initialAction }: { initialAction?: "cancelled" | "no_show" | undefined; res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access" | "visible" | "customer_no">>) | null; onClose: () => void }) {
@@ -139,6 +140,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
         <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
           <dt className="text-muted-foreground">예약자</dt><dd>{res.customer_name}</dd>
           <dt className="text-muted-foreground">시술</dt><dd>{res.service}</dd>
+          {res.service_detail && <><dt className="text-muted-foreground">직접 입력 시술명</dt><dd>{res.service_detail}</dd></>}
           <dt className="text-muted-foreground">공개용</dt><dd>{res.public_service}</dd>
           <dt className="text-muted-foreground">일시</dt>
           <dd>{format(new Date(res.start_at), "M월 d일 (EEE) HH:mm", { locale: ko })} – {format(new Date(res.end_at), "HH:mm")}</dd>
@@ -191,6 +193,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
           </div>
         )}
 
+        <PaymentHistory reservationId={res.id} />
         <div className="border-t pt-4">
           <h4 className="mb-2 text-sm font-semibold text-primary">상태 변경 기록</h4>
           <ul className="space-y-2 text-sm">

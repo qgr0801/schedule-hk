@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      freelancer_attendance: {
+        Row: { id: string; employee_id: string; start_at: string; end_at: string; memo: string; created_by: string }
+        Insert: { id?: string; employee_id: string; start_at: string; end_at: string; memo?: string }
+        Update: { employee_id?: string; start_at?: string; end_at?: string; memo?: string }
+        Relationships: []
+      }
+      products: {
+        Row: { id: string; name: string; price: number; stock: number; is_active: boolean }
+        Insert: { name: string; price?: number }
+        Update: { name?: string; price?: number; is_active?: boolean }
+        Relationships: []
+      }
+      customer_payments: {
+        Row: { reservation_id: string; customer_id: string; paid_on: string; rows: Json; sales: Json; memo: string; version: number; updated_by: string; updated_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      stock_movements: {
+        Row: { id: string; product_id: string; quantity: number; reason: string; reservation_id: string | null; created_at: string; created_by: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
       employees: {
         Row: { id: string; name: string; is_active: boolean; created_at: string }
         Insert: { id?: string; name: string; is_active?: boolean; created_at?: string }
@@ -366,6 +390,7 @@ export type Database = {
           public_service: string
           room: string | null
           section: number | null
+          service_detail: string
           service: string
           staff_id: string | null
           start_at: string
@@ -387,6 +412,7 @@ export type Database = {
           public_service?: string
           room?: string | null
           section?: number | null
+          service_detail?: string
           service: string
           staff_id?: string | null
           start_at: string
@@ -408,6 +434,7 @@ export type Database = {
           public_service?: string
           room?: string | null
           section?: number | null
+          service_detail?: string
           service?: string
           staff_id?: string | null
           start_at?: string
@@ -658,6 +685,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      attendance_summary: { Args: { _from: string; _to: string; _employee?: string }; Returns: { employee_id: string; minutes: number }[] }
+      save_reservation_payment: { Args: { _id: string; _reservation: Json; _payment: Json }; Returns: string }
+      adjust_product_stock: { Args: { _event: string; _product: string; _quantity: number; _reason: string }; Returns: undefined }
+      payment_summary: { Args: { _customer?: string; _from?: string; _to?: string }; Returns: { kind: string; cost: number; card: number; krw: number; jpy: number; usd: number; cny: number }[] }
+      product_payment_summary: { Args: { _customer?: string; _from?: string; _to?: string }; Returns: { kind: string; cost: number; card: number; krw: number; jpy: number; usd: number; cny: number }[] }
       calendar_reservations: {
         Args: { _from: string; _to: string }
         Returns: {

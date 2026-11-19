@@ -3,6 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { CustomerRecords } from "@/components/CustomerRecords";
+import { PaymentHistory } from "@/components/PaymentHistory";
+import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
 import { PageHeader, Panel, StatusBadge } from "@/components/PageHeader";
 import { CategoryBadge } from "@/components/ReservationCard";
@@ -104,6 +107,7 @@ function CustomersPage() {
       </div>
       {customer && detail.data && <CustomerDialog customer={detail.data} onClose={() => navigate({ search: { customer: undefined }, replace: true })} />}
       {customer && (detail.isError || detail.data === null) && <p role="alert" className="text-sm text-muted-foreground">연결된 고객정보를 열 수 없습니다.</p>}
+      <Panel className="mt-6"><PaymentHistory global /></Panel>
       {edit && <CustomerDialog customer={edit === "new" ? null : edit} onClose={() => setEdit(null)} />}
     </div>
   );
@@ -182,7 +186,7 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
         ) : (
           <p className="text-xs text-muted-foreground">다른 직원이 등록한 고객은 등록자나 관리자만 수정할 수 있습니다.</p>
         )}
-        {customer && <VisitHistory customerId={customer.id} />}
+        {customer && <CustomerRecords customerId={customer.id}><VisitHistory customerId={customer.id} /></CustomerRecords>}
       </DialogContent>
     </Dialog>
   );
@@ -210,7 +214,7 @@ function VisitHistory({ customerId }: { customerId: string }) {
       <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
         {data?.map((v) => (
           <li key={v.id} className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
-            <span className="min-w-0 truncate">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.service}</span>
+            <Link className="min-w-0 truncate underline" to="/reservations/new" search={{ id: v.id }}>{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.service}</Link>
             <StatusBadge status={v.status} />
           </li>
         ))}

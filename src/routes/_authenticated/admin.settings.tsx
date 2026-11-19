@@ -16,6 +16,7 @@ import {
   staffColorsQuery, STATUS_ORDER, statusColorsQuery, suggestStaffColor, VIEW_LABEL,
   type CalView, type CardField, type ColorMode, type StatusColor,
 } from "@/lib/display";
+import { ProductInventory } from "@/components/ProductInventory";
 import { EmployeeDirectory } from "@/components/EmployeeDirectory";
 import { cn } from "@/lib/utils";
 
@@ -249,6 +250,7 @@ function SettingsPage() {
               <TabsTrigger value="staff">담당자별 색상</TabsTrigger>
               <TabsTrigger value="cats">고객 구분 7개</TabsTrigger>
               <TabsTrigger value="fields">예약 카드 표시 항목</TabsTrigger>
+              <TabsTrigger value="products">제품·재고</TabsTrigger>
               <TabsTrigger value="employees">직원 등록</TabsTrigger>
               <TabsTrigger value="services">시술 목록</TabsTrigger>
               <TabsTrigger value="rules">예약 규칙</TabsTrigger>
@@ -342,6 +344,7 @@ function SettingsPage() {
               </p>
               {footer(saveDisp, () => setDisp({ day: { fields: DEFAULT_FIELDS.day, color_mode: "status" }, week: { fields: DEFAULT_FIELDS.week, color_mode: "status" }, month: { fields: DEFAULT_FIELDS.month, color_mode: "status" } }))}
             </TabsContent>
+            <TabsContent value="products"><ProductInventory /></TabsContent>
             <TabsContent value="employees"><EmployeeDirectory /></TabsContent>
             <TabsContent value="services">
               <ServiceOptions />

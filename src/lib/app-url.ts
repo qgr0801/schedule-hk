@@ -1,6 +1,6 @@
 /** Canonical address used by all Supabase invite and recovery flows. */
 export function staffPasswordSetupUrl(): string {
-  const configuredOrigin = import.meta.env.VITE_APP_URL;
+  const configuredOrigin = import.meta.env["VITE_APP_URL"];
   const url = URL.canParse(configuredOrigin ?? "") ? new URL(configuredOrigin) : null;
   const isLocalHttp =
     url?.protocol === "http:" && ["localhost", "127.0.0.1", "[::1]"].includes(url.hostname);

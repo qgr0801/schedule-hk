@@ -13,6 +13,9 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { CategoryBadge } from "@/components/ReservationCard";
 import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput } from "@/lib/app";
 import { format } from "date-fns";
+import type { Json } from "@/integrations/supabase/types";
+import { PaymentFields } from "@/components/PaymentFields";
+import { blankPayment, hasPayment, paymentDraft, type PaymentDraft } from "@/lib/payments";
 import { AlertTriangle } from "lucide-react";
 import { categoriesQuery, customersQuery, maskPhone, useCardLookups } from "@/lib/display";
 
@@ -56,6 +59,21 @@ function ReservationForm() {
   const [publicService, setPublicService] = useState("");
   const [f, setF] = useState({ customer_name: "", customer_phone: "", service: "", section: qSection ? String(qSection) : "", memo: "", date: qDate ?? "", start: qStart ?? "10:00", minutes: 60 });
   const [busy, setBusy] = useState(false);
+  const [reservationKey] = useState(() => id ?? crypto.randomUUID());
+  const [serviceDetail, setServiceDetail] = useState("");
+  const [paymentOverride, setPaymentOverride] = useState<PaymentDraft | null>(null);
+  const canBill = me?.role === "admin" || me?.role === "internal";
+  const paymentQuery = useQuery({
+    queryKey: ["reservation-payment", id],
+    enabled: !!id && canBill,
+    refetchOnWindowFocus: false,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("customer_payments").select("*").eq("reservation_id", id!).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const payment = paymentOverride ?? (paymentQuery.data ? paymentDraft(paymentQuery.data) : blankPayment(f.date || undefined));
   const [creatorId, setCreatorId] = useState<string | null>(null);
   const [newCustomerNo, setNewCustomerNo] = useState<number | null>(null);
 
@@ -67,6 +85,7 @@ function ReservationForm() {
     supabase.from("reservations").select("*").eq("id", id).maybeSingle().then(({ data }) => {
       if (!data) { toast.error("예약을 찾을 수 없거나 열람 권한이 없습니다."); return; }
       setCustomerId(data.customer_id);
+      setServiceDetail(data.service_detail);
       setStaffId(data.staff_id ?? data.created_by);
       setCreatorId(data.created_by);
       setPublicService(data.public_service);
@@ -132,6 +151,7 @@ function ReservationForm() {
       const { data, error } = await supabase.from("customers").insert({ name, phone, category_id: categoryId || null }).select("id, customer_no").single();
       if (error) { toast.error(dbErrorMessage(error)); return null; }
       cid = data.id;
+      setCustomerId(cid);
       setNewCustomerNo(data.customer_no);
       toast.info(`새 고객번호 No.${data.customer_no}가 부여되었습니다.`);
     } else if (canEditCustomer) {
@@ -150,6 +170,8 @@ function ReservationForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (busy || !me) return;
+    if (canBill && id && (paymentQuery.isPending || paymentQuery.error)) { toast.error("계산 내역을 불러온 뒤 저장해 주세요."); return; }
     const parsed = schema.safeParse({ ...f, service: serviceValue });
     if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요"); return; }
     const start = new Date(`${f.date}T${f.start}`);
@@ -160,10 +182,12 @@ function ReservationForm() {
     setBusy(true);
     const cid = await saveCustomer(parsed.data.customer_name, parsed.data.customer_phone || null);
     if (!cid) { setBusy(false); return; }
-    Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicServiceValue });
-    const { error } = id
-      ? await supabase.from("reservations").update(payload).eq("id", id)
-      : await supabase.from("reservations").insert(payload);
+    Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicServiceValue, service_detail: serviceDetail.trim() });
+    const { error } = canBill
+      ? await supabase.rpc("save_reservation_payment", { _id: reservationKey, _reservation: payload as unknown as Json, _payment: hasPayment(payment) ? payment as unknown as Json : null })
+      : id
+        ? await supabase.from("reservations").update(payload).eq("id", id)
+        : await supabase.from("reservations").insert(payload);
     setBusy(false);
     if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success(id ? "예약이 수정되었습니다." : "예약이 등록되었습니다.");
@@ -252,6 +276,7 @@ function ReservationForm() {
               {id && serviceValue && !services.includes(serviceValue) && <option>{serviceValue}</option>}
             </select>
           </div>
+          <div className="space-y-2"><Label>시술명 직접 입력</Label><Input aria-label="시술명 직접 입력" maxLength={200} value={serviceDetail} onChange={(e) => setServiceDetail(e.target.value)} /></div>
           <div className="space-y-2">
             <Label>섹션 (공간)</Label>
             <select value={f.section} onChange={set("section")} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
@@ -293,8 +318,12 @@ function ReservationForm() {
             </div>
           )}
           <div className="space-y-2 sm:col-span-2"><Label>메모</Label><Textarea value={f.memo} onChange={set("memo")} /></div>
+          {canBill && <div className="sm:col-span-2">
+            {paymentQuery.error && <p role="alert" className="text-sm text-destructive">기존 계산 내역을 불러오지 못했습니다.</p>}
+            <PaymentFields value={payment} onChange={setPaymentOverride} disabled={busy || (!!id && paymentQuery.isPending)} />
+          </div>}
           <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" disabled={busy} className="h-11 flex-1 sm:flex-none sm:px-8">{id ? "수정 저장" : "예약 등록"}</Button>
+            <Button type="submit" disabled={busy || !me || (canBill && !!id && (paymentQuery.isPending || !!paymentQuery.error))} className="h-11 flex-1 sm:flex-none sm:px-8">{id ? "수정 저장" : "예약 등록"}</Button>
             <Button type="button" variant="outline" className="h-11" onClick={() => history.back()}>돌아가기</Button>
           </div>
         </form>
