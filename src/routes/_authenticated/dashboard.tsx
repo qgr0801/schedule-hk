@@ -125,6 +125,7 @@ function Dashboard() {
             <ul className="space-y-2">
               {leaves?.map((s) => <li key={s.id} className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
                 <div className="font-semibold">{s.title.slice(4).trim()} · 휴무</div>
+                <p className="text-xs">{format(new Date(s.start_at), "M/d HH:mm")}–{format(new Date(s.end_at), "M/d HH:mm")}</p>
                 {s.memo && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{s.memo}</p>}
               </li>)}
             </ul>

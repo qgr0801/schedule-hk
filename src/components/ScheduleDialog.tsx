@@ -20,6 +20,7 @@ export function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; on
   const { data: profiles } = useQuery(profilesQuery);
   const [title, setTitle] = useState("");
   const [leave, setLeave] = useState(false);
+  const [allDay, setAllDay] = useState(false);
   const [leaveStaff, setLeaveStaff] = useState("");
   const [registerEmployee, setRegisterEmployee] = useState(false);
   const { data: employees, error: employeeError } = useQuery({ ...employeesQuery, enabled: leave });
@@ -36,8 +37,8 @@ export function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; on
     const staffName = employees?.find((p) => p.id === leaveStaff && p.is_active)?.name;
     if (leave && !staffName) { toast.error("직원을 선택해 주세요."); return; }
     if (!leave && !title.trim()) { toast.error("제목을 입력해 주세요."); return; }
-    const start = new Date(`${date}T${leave ? "00:00" : st}`);
-    const end = leave ? addDays(new Date(`${lastDate}T00:00`), 1) : new Date(`${date}T${en}`);
+    const start = new Date(`${date}T${leave && allDay ? "00:00" : st}`);
+    const end = leave && allDay ? addDays(new Date(`${lastDate}T00:00`), 1) : new Date(`${leave ? lastDate : date}T${en}`);
     if (!(end > start)) { toast.error("종료 날짜와 시간을 확인해 주세요."); return; }
     setBusy(true);
     const { data, error } = await supabase
@@ -73,16 +74,22 @@ export function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; on
             {employeeError && <p role="alert" className="text-sm text-destructive">직원 목록을 불러오지 못했습니다.</p>}
             {me?.role === "admin" && <Button type="button" size="sm" variant="outline" onClick={() => setRegisterEmployee((v) => !v)}>직원 등록·관리</Button>}
             {registerEmployee && me?.role === "admin" && <EmployeeDirectory />}
-            <Label htmlFor="leave-end">휴무 마지막 날짜</Label>
-            <Input id="leave-end" type="date" min={date} value={lastDate} onChange={(e) => setLastDate(e.target.value)} />
-            <p className="text-xs text-muted-foreground">선택한 기간의 종일 휴무가 모든 직원의 캘린더에 표시됩니다.</p>
+            <label className="flex items-center gap-2"><Checkbox checked={allDay} onCheckedChange={(v) => setAllDay(v === true)} />종일 휴무</label>
+            <div className="grid grid-cols-2 gap-2">
+              <label className="space-y-1 text-sm">시작일<Input aria-label="휴무 시작 날짜" type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value > lastDate) setLastDate(e.target.value); }} /></label>
+              <label className="space-y-1 text-sm">시작 시간·분<Input aria-label="휴무 시작 시간" type="time" step={60} value={st} disabled={allDay} onChange={(e) => setSt(e.target.value)} /></label>
+              <label className="space-y-1 text-sm">종료일<Input aria-label="휴무 종료 날짜" type="date" min={date} value={lastDate} onChange={(e) => setLastDate(e.target.value)} /></label>
+              <label className="space-y-1 text-sm">종료 시간·분<Input aria-label="휴무 종료 시간" type="time" step={60} value={en} disabled={allDay} onChange={(e) => setEn(e.target.value)} /></label>
+            </div>
+            <p className="text-xs text-muted-foreground">선택한 휴무 기간이 모든 직원의 캘린더에 표시됩니다.</p>
           </div>}
           {!leave && <div className="space-y-1"><Label>제목</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 원내 교육" /></div>}
-          <div className="grid grid-cols-3 gap-2">
-            <Input aria-label={leave ? "휴무 시작 날짜" : "일정 날짜"} type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value > lastDate) setLastDate(e.target.value); }} className="col-span-3 sm:col-span-1" />
-            {!leave && <Input type="time" value={st} onChange={(e) => setSt(e.target.value)} />}
-            {!leave && <Input type="time" value={en} onChange={(e) => setEn(e.target.value)} />}
+          {!leave && <div className="grid grid-cols-3 gap-2">
+            <Input aria-label="일정 날짜" type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value > lastDate) setLastDate(e.target.value); }} className="col-span-3 sm:col-span-1" />
+            <Input aria-label="일정 시작 시간" type="time" value={st} onChange={(e) => setSt(e.target.value)} />
+            <Input aria-label="일정 종료 시간" type="time" value={en} onChange={(e) => setEn(e.target.value)} />
           </div>
+          }
           <div className="space-y-1"><Label>메모</Label><Input value={memo} onChange={(e) => setMemo(e.target.value)} /></div>
           {!leave && <div className="space-y-1">
             <Label>공개 범위</Label>

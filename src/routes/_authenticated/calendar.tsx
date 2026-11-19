@@ -253,7 +253,7 @@ function CalendarPage() {
           <div className="flex flex-wrap gap-2">
             {(data?.sch ?? []).filter((s) => s.title.startsWith("[휴무]")).map((s) => (
               <button key={s.id} className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-800" onClick={() => setSchView(s)}>
-                {s.title.slice(4).trim()} · {format(new Date(s.start_at), "M/d")}–{format(addDays(new Date(s.end_at), -1), "M/d")}
+                {s.title.slice(4).trim()} · {format(new Date(s.start_at), "M/d HH:mm")}–{format(new Date(s.end_at), "M/d HH:mm")}
               </button>
             ))}
           </div>
