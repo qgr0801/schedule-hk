@@ -246,6 +246,13 @@
       "when": 1792672700308,
       "tag": "0034_admin_route_settlements",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1792672700309,
+      "tag": "0035_monthly_work_reports",
+      "breakpoints": true
     }
   ]
 }

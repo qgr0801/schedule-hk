@@ -14,6 +14,19 @@ export type Database = {
   }
   public: {
     Tables: {
+      monthly_work_reports: {
+        Row: { id: string; employee_id: string; report_month: string; shot_edit_count: number; influencer_upload_count: number; upload_count: number; memo: string; links: Json; version: number; created_by: string; updated_by: string; created_at: string; updated_at: string }
+        Insert: { id?: string; employee_id: string; report_month: string; shot_edit_count?: number; influencer_upload_count?: number; upload_count?: number; memo?: string; links?: Json; version?: number; created_by?: string; updated_by?: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; employee_id?: string; report_month?: string; shot_edit_count?: number; influencer_upload_count?: number; upload_count?: number; memo?: string; links?: Json; version?: number; updated_by?: string; updated_at?: string }
+        Relationships: []
+      }
+      monthly_work_report_history: {
+        Row: { id: string; report_id: string; request: Json; snapshot: Json; changed_by: string; changed_at: string }
+        Insert: { id: string; report_id: string; request: Json; snapshot: Json; changed_by?: string; changed_at?: string }
+        Update: { id?: string; report_id?: string; request?: Json; snapshot?: Json; changed_by?: string; changed_at?: string }
+        Relationships: []
+      }
+
       booking_routes: {
         Row: { id: string; name: string; is_active: boolean; created_at: string }
         Insert: { id?: string; name: string; is_active?: boolean; created_at?: string }
@@ -715,6 +728,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      save_monthly_work_report: { Args: { _id: string; _event: string; _employee: string; _month: string; _shot_count: number; _influencer_count: number; _upload_count: number; _memo: string; _links: Json; _version?: number }; Returns: string }
+
       route_settlement_summary: { Args: { _from: string; _to: string; _route?: string; _staff?: string; _customer?: string }; Returns: { route_id: string | null; route_name: string; kind: string; settlement_count: number; customer_count: number; cost: number; card: number; bank: number; krw: number; jpy: number; usd: number; cny: number }[] }
 
       save_booking_route: { Args: { _id: string; _name: string; _active?: boolean }; Returns: string }
