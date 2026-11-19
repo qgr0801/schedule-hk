@@ -24,7 +24,7 @@ function Work() {
   if (me?.role !== "admin" && me?.role !== "internal") return <p>WORK 열람 권한이 없습니다.</p>;
   return <div className="space-y-4"><PageHeader title="WORK" />
     <Tabs value={tab} onValueChange={(value) => navigate({ search: { tab: value } })}>
-      <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="time">TIME LO</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger></TabsList>
+      <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="time">TIME</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger></TabsList>
       <TabsContent value="time"><Attendance /></TabsContent>
       <TabsContent value="products"><Panel><ProductInventory /></Panel></TabsContent>
     </Tabs>
