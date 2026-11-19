@@ -29,6 +29,8 @@ import {
 } from "@/lib/app";
 import { cn } from "@/lib/utils";
 import { useSwipe } from "@/hooks/use-swipe";
+import { employeesQuery } from "@/lib/employees";
+import { EmployeeDirectory } from "@/components/EmployeeDirectory";
 import { displayQuery, useCardLookups, type ColorMode } from "@/lib/display";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
@@ -387,7 +389,9 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
   const { data: profiles } = useQuery(profilesQuery);
   const [title, setTitle] = useState("");
   const [leave, setLeave] = useState(false);
-  const [leaveStaff, setLeaveStaff] = useState(me?.id ?? "");
+  const [leaveStaff, setLeaveStaff] = useState("");
+  const [registerEmployee, setRegisterEmployee] = useState(false);
+  const { data: employees, error: employeeError } = useQuery({ ...employeesQuery, enabled: leave });
   const [lastDate, setLastDate] = useState(format(defaultDate, "yyyy-MM-dd"));
   const [busy, setBusy] = useState(false);
   const [memo, setMemo] = useState("");
@@ -398,7 +402,7 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
   const [shared, setShared] = useState<string[]>([]);
 
   async function save() {
-    const staffName = profiles?.find((p) => p.id === (leaveStaff || me?.id))?.full_name;
+    const staffName = employees?.find((p) => p.id === leaveStaff && p.is_active)?.name;
     if (leave && !staffName) { toast.error("직원을 선택해 주세요."); return; }
     if (!leave && !title.trim()) { toast.error("제목을 입력해 주세요."); return; }
     const start = new Date(`${date}T${leave ? "00:00" : st}`);
@@ -430,9 +434,13 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
           <label className="flex items-center gap-2"><Checkbox checked={leave} onCheckedChange={(v) => setLeave(v === true)} />직원 휴무</label>
           {leave && <div className="space-y-2">
             <Label htmlFor="leave-staff">휴무 직원</Label>
-            <select id="leave-staff" className="h-10 w-full rounded-md border bg-background px-3" value={leaveStaff || me?.id || ""} onChange={(e) => setLeaveStaff(e.target.value)}>
-              {profiles?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+            <select id="leave-staff" className="h-10 w-full rounded-md border bg-background px-3" value={leaveStaff} onChange={(e) => setLeaveStaff(e.target.value)}>
+              <option value="">직원을 선택하세요</option>
+              {employees?.filter((p) => p.is_active).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
+            {employeeError && <p role="alert" className="text-sm text-destructive">직원 목록을 불러오지 못했습니다.</p>}
+            {me?.role === "admin" && <Button type="button" size="sm" variant="outline" onClick={() => setRegisterEmployee((v) => !v)}>직원 등록·관리</Button>}
+            {registerEmployee && me?.role === "admin" && <EmployeeDirectory />}
             <Label htmlFor="leave-end">휴무 마지막 날짜</Label>
             <Input id="leave-end" type="date" min={date} value={lastDate} onChange={(e) => setLastDate(e.target.value)} />
             <p className="text-xs text-muted-foreground">선택한 기간의 종일 휴무가 모든 직원의 캘린더에 표시됩니다.</p>

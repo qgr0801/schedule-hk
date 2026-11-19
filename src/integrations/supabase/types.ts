@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      employees: {
+        Row: { id: string; name: string; is_active: boolean; created_at: string }
+        Insert: { id?: string; name: string; is_active?: boolean; created_at?: string }
+        Update: { name?: string; is_active?: boolean }
+        Relationships: []
+      }
       booking_settings: {
         Row: {
           services: string[]
