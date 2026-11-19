@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ProductSalesReport } from "@/components/ProductSalesReport";
 import { ProductStockDetail } from "@/components/ProductStockDetail";
 import { format, startOfMonth } from "date-fns";
@@ -93,64 +94,47 @@ export function ProductInventory() {
     return Object.entries(totals).filter(([, n]) => n !== 0).map(([u, n]) => `${fmt(n)}${u}`).join(" · ") || "0";
   };
   return <section className="space-y-4">
-    <h3 className="text-lg font-semibold">재고 관리</h3>
-    <div className="flex flex-wrap items-end gap-2">
-      <label className="text-sm">조회 시작일<Input aria-label="제품 조회 시작일" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} /></label>
-      <label className="text-sm">조회 종료일<Input aria-label="제품 조회 종료일" type="date" min={reportFrom} value={reportTo} onChange={(e) => setReportTo(e.target.value)} /></label>
-      <Button variant="outline" onClick={() => { setReportFrom(format(startOfMonth(new Date()), "yyyy-MM-dd")); setReportTo(format(new Date(), "yyyy-MM-dd")); }}>이번 달</Button>
-      <Button variant="outline" onClick={() => { const today = format(new Date(), "yyyy-MM-dd"); setReportFrom(today); setReportTo(today); }}>오늘</Button>
-    </div>
-    {!validReport && <p role="alert">조회 기간을 확인해 주세요.</p>}
-    {overview.error && <p role="alert">제품 현황을 불러오지 못했습니다.</p>}
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-      {[["입고 수량", unitsTotal("received")], ["판매 수량", unitsTotal("sold")], ["제품 판매금액", `${(overview.data?.reduce((sum, r) => sum + Number(r.sales_amount), 0) ?? 0).toLocaleString("ko-KR")}원`], ["재고 부족 제품", `${data?.filter((p) => p.is_active && p.stock <= 3).length ?? 0}종`]].map(([label, value]) => <div key={label} className="rounded-lg bg-muted p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{(label === "재고 부족 제품" ? !data : overview.isPending || !validReport || overview.error) ? "—" : value}</p></div>)}
-    </div>
-    <p className="text-xs text-muted-foreground">기초 + 입고 − 출고·사용 − 내부 − 판매 + 조정 = 종료일 재고. 기초에는 조회 기간에 등록한 초기 재고도 포함됩니다. 판매금액은 저장된 판매단가(원) 기준이며, 예약 판매는 자동 반영됩니다.</p>
-    <p className="text-sm font-semibold">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 30종</p>
-    {isPending && <p>제품을 불러오는 중입니다.</p>}
-    {error && <p role="alert">제품 목록을 불러오지 못했습니다.</p>}
-    <div className={`grid min-w-0 gap-4 ${detailProduct ? "xl:grid-cols-[minmax(0,1.5fr)_minmax(320px,1fr)]" : ""}`}>
-      <div className="min-w-0 overflow-x-auto rounded border"><table className="w-full min-w-[1180px] text-sm">
-        <thead className="bg-emerald-50 text-primary"><tr>{["제품명", "단위", "기초", "입고", "합계", "출고·사용", "내부", "판매", "조정", `${reportTo.slice(5)} 재고`, "판매금액(원)", "비고", "관리"].map((title, i) => <th key={i} className={`whitespace-nowrap border-b p-2 ${i === 0 ? "sticky left-0 z-10 min-w-40 bg-emerald-50 text-left" : "text-center"}`}>{title}</th>)}</tr></thead>
-        <tbody>{data?.map((p) => {
-          const r = overview.data?.find((r) => r.product_id === p.id);
-          return <tr key={p.id} className={`border-b ${detailId === p.id ? "bg-accent" : "bg-background"}`}>
-            <th className="sticky left-0 z-10 border-r bg-inherit px-2 py-2 text-left font-medium"><button className="text-left underline-offset-2 hover:underline" onClick={() => setDetailId(p.id)}>{p.name}{!p.is_active && " · 중지"}</button></th>
-            <td className="px-2 text-center">{p.unit}</td><td className="px-2 text-right">{fmt(r?.opening_stock)}</td><td className="bg-orange-50 px-2 text-right">{fmt(r?.received)}</td><td className="bg-orange-50 px-2 text-right">{r ? fmt(Number(r.opening_stock) + Number(r.received)) : "—"}</td>
-            <td className="px-2 text-right">{fmt(r?.used)}</td><td className="px-2 text-right">{fmt(r?.internal_used)}</td><td className="px-2 text-right">{fmt(r?.sold)}</td><td className="px-2 text-right">{fmt(r?.adjustment)}</td>
-            <td className="bg-sky-100 px-2 text-right font-semibold">{fmt(r?.closing_stock)}{r && Number(r.closing_stock) !== Number(p.stock) && <p className="text-xs font-normal">현재 {fmt(p.stock)}</p>}{p.is_active && p.stock <= 3 && <p className={p.stock === 0 ? "text-xs text-destructive" : "text-xs text-amber-800"}>{p.stock === 0 ? "품절" : "부족"}</p>}</td>
-            <td className="px-2 text-right">{r ? Number(r.sales_amount).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : "—"}</td><td className="max-w-64 break-words p-2 text-xs">{r?.notes || "—"}</td>
-            <td className="p-1"><div className="flex gap-1"><Button size="sm" variant="outline" onClick={() => setDetailId(p.id)}>내역</Button>{admin && <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => supabase.from("products").update({ is_active: !p.is_active }).eq("id", p.id))}>{p.is_active ? "중지" : "재사용"}</Button>}</div></td>
-          </tr>;
-        })}</tbody>
-      </table></div>
-      {detailProduct && validReport && <ProductStockDetail key={`${detailProduct.id}-${reportFrom}-${reportTo}`} product={detailProduct} from={reportFrom} to={reportTo} onClose={() => setDetailId("")} />}
-    </div>
-    {data?.length === 0 && <p className="text-sm">아래 ‘제품 · 초기 재고 등록’에서 보유 제품을 등록해 주세요.</p>}
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">제품 · 재고 관리</h3><p className="text-sm">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 60종</p></div>
+    <div className="grid items-start gap-4 lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.4fr)]">
+      <section className="min-w-0 rounded-lg border bg-background">
+        <h4 className="border-b px-3 py-3 font-semibold">전체 제품 재고</h4>
+        {isPending && <p className="p-3">제품을 불러오는 중입니다.</p>}
+        {error && <p role="alert" className="p-3">제품 목록을 불러오지 못했습니다.</p>}
+        <div className="max-h-[75vh] overflow-y-auto"><table aria-label="전체 제품명과 현재 재고" className="w-full table-fixed text-sm">
+          <thead className="sticky top-0 z-10 bg-muted"><tr><th className="w-[70%] px-3 py-2 text-left">제품명</th><th className="px-3 py-2 text-right">현재 재고</th></tr></thead>
+          <tbody>{data?.map((p) => <tr key={p.id} className={`border-t ${detailId === p.id ? "bg-accent" : ""}`}>
+            <td className="break-words px-3 py-2"><button className="w-full text-left font-medium underline-offset-2 hover:underline" onClick={() => setDetailId(p.id)}>{p.name}{!p.is_active && <span className="ml-1 text-xs text-muted-foreground">중지</span>}</button></td>
+            <td className={`px-3 py-2 text-right font-semibold ${p.stock === 0 ? "text-destructive" : p.stock <= 3 ? "text-amber-800" : ""}`}>{fmt(p.stock)}<span className="ml-1 text-xs font-normal">{p.unit}</span></td>
+          </tr>)}</tbody>
+        </table></div>
+        {data?.length === 0 && <p className="p-3 text-sm text-muted-foreground">제품을 등록하면 이 표에 재고가 표시됩니다.</p>}
+      </section>
+      <div className="min-w-0 space-y-4">
+    <section className="space-y-3 rounded-lg border p-4"><h4 className="font-semibold">제품 · 초기 재고 등록</h4><form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("register_inventory_product", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock), _unit: unit.trim() })); }}>
+      <label className="min-w-40 flex-1 text-sm">제품명<Input aria-label="새 제품명" placeholder="제품명" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} required /></label>
+      <label className="text-sm">판매가(원)<Input aria-label="제품 판매가" placeholder="판매가(원)" className="w-36" type="number" min={0} max={999999999999} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
+      <label className="text-sm">현재 보유 수량<Input aria-label="현재 보유 수량" className="w-36" type="number" min={0} max={100000000} step="0.001" required value={initialStock} onChange={(e) => setInitialStock(e.target.value)} /></label>
+      <label className="text-sm">단위<Input aria-label="제품 단위" className="w-24" maxLength={20} required placeholder="개 / box / ml" value={unit} onChange={(e) => setUnit(e.target.value)} /></label>
+      <Button disabled={busy || !name.trim() || (data?.filter((p) => p.is_active).length ?? 60) >= 60}>제품 · 초기 재고 등록</Button>
+    </form></section>
+
     <form onSubmit={(e) => {
       e.preventDefault();
       if (!adjustment || busy) return;
       const fallback = movementKind === "receipt" ? "제품 입고" : movementKind === "usage" ? "제품 출고" : movementKind === "internal" ? "내부 소진" : "재고 조정";
       void run(() => supabase.rpc("record_product_movement", { _event: adjustment.event, _product: adjustment.id, _kind: movementKind, _quantity: Number(quantity), _date: movementDate, _reason: reason.trim() || fallback }));
-    }} className="grid gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-2 lg:grid-cols-4">
-      <h4 className="font-semibold sm:col-span-2 lg:col-span-4">입고·출고 입력</h4>
-      <label className="text-sm sm:col-span-2 lg:col-span-2">제품<select aria-label="입출고 제품 선택" required disabled={busy} className="h-10 w-full rounded border bg-background px-2" value={adjustment?.id ?? ""} onChange={(e) => { setAdjustment(e.target.value ? { id: e.target.value, event: crypto.randomUUID() } : null); }}><option value="">▼ 등록된 제품 선택</option>{data?.filter((p) => p.is_active).map((p) => <option key={p.id} value={p.id}>{p.name} · 현재 {fmt(p.stock)}{p.unit}</option>)}</select></label>
+    }} className="grid gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-2 ">
+      <h4 className="font-semibold sm:col-span-2">입고·출고 입력</h4>
+      <label className="text-sm sm:col-span-2">제품<select aria-label="입출고 제품 선택" required disabled={busy} className="h-10 w-full rounded border bg-background px-2" value={adjustment?.id ?? ""} onChange={(e) => { setAdjustment(e.target.value ? { id: e.target.value, event: crypto.randomUUID() } : null); }}><option value="">▼ 등록된 제품 선택</option>{data?.filter((p) => p.is_active).map((p) => <option key={p.id} value={p.id}>{p.name} · 현재 {fmt(p.stock)}{p.unit}</option>)}</select></label>
       <label className="text-sm">입고 / 출고<select aria-label="재고 기록 구분" disabled={busy} className="h-10 w-full rounded border bg-background px-2" value={movementKind} onChange={(e) => setMovementKind(e.target.value)}><option value="receipt">입고 (+)</option><option value="usage">출고·사용 (−)</option><option value="internal">내부·증정 (−)</option>{admin && <option value="adjustment">재고 조정 (증감)</option>}</select></label>
       <label className="text-sm">날짜<Input aria-label="재고 기록 날짜" disabled={busy} required type="date" value={movementDate} onChange={(e) => setMovementDate(e.target.value)} /></label>
       <label className="text-sm">수량 {adjustment && `(${data?.find((p) => p.id === adjustment.id)?.unit ?? "개"})`}<Input aria-label="재고 기록 수량" disabled={busy} required type="number" inputMode="decimal" min={movementKind === "adjustment" ? -100000000 : 0.001} max={100000000} step="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={movementKind === "adjustment" ? "증가 + / 감소 −" : "예: 1 또는 0.2"} /></label>
-      <label className="text-sm sm:col-span-2 lg:col-span-2">내용·비고 (선택)<Input aria-label="재고 기록 내용" disabled={busy} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 납품처, 시술 사용, 고객 증정" /></label>
+      <label className="text-sm sm:col-span-2">내용·비고 (선택)<Input aria-label="재고 기록 내용" disabled={busy} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 납품처, 시술 사용, 고객 증정" /></label>
       <div className="flex items-end gap-2"><Button disabled={busy || !adjustment || !Number(quantity)}>입고·출고 저장</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { setAdjustment(null); setQuantity(""); setReason(""); }}>초기화</Button></div>
-      <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-4">저장하면 위 재고표에 반영됩니다. 예약의 제품구매는 자동 연결되므로 이곳에서 같은 판매를 다시 입력할 필요가 없습니다. 제품명을 클릭하면 입고·출고·판매 이력을 확인할 수 있습니다.</p>
+      <p className="text-xs text-muted-foreground sm:col-span-2">저장하면 위 재고표에 반영됩니다. 예약의 제품구매는 자동 연결되므로 이곳에서 같은 판매를 다시 입력할 필요가 없습니다. 제품명을 클릭하면 입고·출고·판매 이력을 확인할 수 있습니다.</p>
     </form>
-    {validReport && <ProductSalesReport key={`${reportFrom}-${reportTo}`} from={reportFrom} to={reportTo} />}
-    {<details className="rounded border p-3" open={data?.length === 0 || undefined}><summary className="cursor-pointer text-sm font-semibold">+ 제품 · 초기 재고 등록</summary><form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("register_inventory_product", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock), _unit: unit.trim() })); }}>
-      <label className="min-w-40 flex-1 text-sm">제품명<Input aria-label="새 제품명" placeholder="제품명" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} required /></label>
-      <label className="text-sm">판매가(원)<Input aria-label="제품 판매가" placeholder="판매가(원)" className="w-36" type="number" min={0} max={999999999999} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
-      <label className="text-sm">현재 보유 수량<Input aria-label="현재 보유 수량" className="w-36" type="number" min={0} max={100000000} step="0.001" required value={initialStock} onChange={(e) => setInitialStock(e.target.value)} /></label>
-      <label className="text-sm">단위<Input aria-label="제품 단위" className="w-24" maxLength={20} required placeholder="개 / box / ml" value={unit} onChange={(e) => setUnit(e.target.value)} /></label>
-      <Button disabled={busy || !name.trim() || (data?.filter((p) => p.is_active).length ?? 30) >= 30}>제품 · 초기 재고 등록</Button>
-    </form></details>}
-    <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">+ 예약 외 제품 판매 등록</summary><form onSubmit={sell} className="space-y-3 rounded border p-3">
+
+        <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">예약 외 판매 등록·내역</summary><div className="mt-3 space-y-3">    <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">+ 예약 외 제품 판매 등록</summary><form onSubmit={sell} className="space-y-3 rounded border p-3">
       <h4 className="font-semibold">제품 판매 등록</h4>
       <p className="text-xs text-muted-foreground">예약에서 제품판매를 연결한 경우 이미 자동 반영됩니다. 여기에는 예약 없이 판매한 제품만 등록해 주세요.</p>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -173,5 +157,42 @@ export function ProductInventory() {
       {sales.data?.length === 0 && <p className="text-sm">등록된 판매가 없습니다.</p>}
       <div className="flex gap-2"><Button variant="outline" disabled={salesPage === 0} onClick={() => setSalesPage(salesPage - 1)}>이전</Button><Button variant="outline" disabled={sales.data?.length !== 30} onClick={() => setSalesPage(salesPage + 1)}>다음</Button></div>
     </details>
+</div></details>
+      </div>
+    </div>
+    {detailProduct && validReport && <Dialog open onOpenChange={(open) => !open && setDetailId("")}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl"><DialogHeader><DialogTitle>{detailProduct.name} · 이력</DialogTitle></DialogHeader><ProductStockDetail key={`${detailProduct.id}-${reportFrom}-${reportTo}`} product={detailProduct} from={reportFrom} to={reportTo} onClose={() => setDetailId("")} /></DialogContent></Dialog>}
+    <section className="space-y-3 rounded-lg border p-4"><h4 className="font-semibold">기간별 판매·재고 조회</h4>
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="text-sm">조회 시작일<Input aria-label="제품 조회 시작일" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} /></label>
+      <label className="text-sm">조회 종료일<Input aria-label="제품 조회 종료일" type="date" min={reportFrom} value={reportTo} onChange={(e) => setReportTo(e.target.value)} /></label>
+      <Button variant="outline" onClick={() => { setReportFrom(format(startOfMonth(new Date()), "yyyy-MM-dd")); setReportTo(format(new Date(), "yyyy-MM-dd")); }}>이번 달</Button>
+      <Button variant="outline" onClick={() => { const today = format(new Date(), "yyyy-MM-dd"); setReportFrom(today); setReportTo(today); }}>오늘</Button>
+    </div>
+
+      {!validReport && <p role="alert">조회 기간을 확인해 주세요.</p>}
+      {validReport && <ProductSalesReport key={`${reportFrom}-${reportTo}`} from={reportFrom} to={reportTo} />}
+      <details className="space-y-3 rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">상세 재고·입출고 통계</summary>
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {[["입고 수량", unitsTotal("received")], ["판매 수량", unitsTotal("sold")], ["제품 판매금액", `${(overview.data?.reduce((sum, r) => sum + Number(r.sales_amount), 0) ?? 0).toLocaleString("ko-KR")}원`], ["재고 부족 제품", `${data?.filter((p) => p.is_active && p.stock <= 3).length ?? 0}종`]].map(([label, value]) => <div key={label} className="rounded-lg bg-muted p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{(label === "재고 부족 제품" ? !data : overview.isPending || !validReport || overview.error) ? "—" : value}</p></div>)}
+    </div>
+    <p className="text-xs text-muted-foreground">기초 + 입고 − 출고·사용 − 내부 − 판매 + 조정 = 종료일 재고. 기초에는 조회 기간에 등록한 초기 재고도 포함됩니다. 판매금액은 저장된 판매단가(원) 기준이며, 예약 판매는 자동 반영됩니다.</p>
+
+      <div className="min-w-0 overflow-x-auto rounded border"><table className="w-full min-w-[1180px] text-sm">
+        <thead className="bg-emerald-50 text-primary"><tr>{["제품명", "단위", "기초", "입고", "합계", "출고·사용", "내부", "판매", "조정", `${reportTo.slice(5)} 재고`, "판매금액(원)", "비고", "관리"].map((title, i) => <th key={i} className={`whitespace-nowrap border-b p-2 ${i === 0 ? "sticky left-0 z-10 min-w-40 bg-emerald-50 text-left" : "text-center"}`}>{title}</th>)}</tr></thead>
+        <tbody>{data?.map((p) => {
+          const r = overview.data?.find((r) => r.product_id === p.id);
+          return <tr key={p.id} className={`border-b ${detailId === p.id ? "bg-accent" : "bg-background"}`}>
+            <th className="sticky left-0 z-10 border-r bg-inherit px-2 py-2 text-left font-medium"><button className="text-left underline-offset-2 hover:underline" onClick={() => setDetailId(p.id)}>{p.name}{!p.is_active && " · 중지"}</button></th>
+            <td className="px-2 text-center">{p.unit}</td><td className="px-2 text-right">{fmt(r?.opening_stock)}</td><td className="bg-orange-50 px-2 text-right">{fmt(r?.received)}</td><td className="bg-orange-50 px-2 text-right">{r ? fmt(Number(r.opening_stock) + Number(r.received)) : "—"}</td>
+            <td className="px-2 text-right">{fmt(r?.used)}</td><td className="px-2 text-right">{fmt(r?.internal_used)}</td><td className="px-2 text-right">{fmt(r?.sold)}</td><td className="px-2 text-right">{fmt(r?.adjustment)}</td>
+            <td className="bg-sky-100 px-2 text-right font-semibold">{fmt(r?.closing_stock)}{r && Number(r.closing_stock) !== Number(p.stock) && <p className="text-xs font-normal">현재 {fmt(p.stock)}</p>}{p.is_active && p.stock <= 3 && <p className={p.stock === 0 ? "text-xs text-destructive" : "text-xs text-amber-800"}>{p.stock === 0 ? "품절" : "부족"}</p>}</td>
+            <td className="px-2 text-right">{r ? Number(r.sales_amount).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : "—"}</td><td className="max-w-64 break-words p-2 text-xs">{r?.notes || "—"}</td>
+            <td className="p-1"><div className="flex gap-1"><Button size="sm" variant="outline" onClick={() => setDetailId(p.id)}>내역</Button>{admin && <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => supabase.from("products").update({ is_active: !p.is_active }).eq("id", p.id))}>{p.is_active ? "중지" : "재사용"}</Button>}</div></td>
+          </tr>;
+        })}</tbody>
+      </table></div>
+
+      </details>
+    </section>
   </section>;
 }
