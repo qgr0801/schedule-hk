@@ -80,7 +80,10 @@ function Dashboard() {
           <div className="touch-pan-y" {...swipe}>
           <div className="mb-4 flex items-center justify-between gap-2">
             <Button variant="outline" size="sm" aria-label="이전 날짜" onClick={() => setDay(addDays(day, -1))}>‹</Button>
-            <h2 className="font-semibold text-primary">{isSameDay(day, now) ? "오늘 일정" : format(day, "M월 d일 (EEE)", { locale: ko })}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="font-semibold text-primary">{isSameDay(day, now) ? "오늘 일정" : format(day, "M월 d일 (EEE)", { locale: ko })}</h2>
+              <Button variant="outline" size="sm" onClick={() => setDay(startOfDay(new Date()))}>오늘</Button>
+            </div>
             <Button variant="outline" size="sm" aria-label="다음 날짜" onClick={() => setDay(addDays(day, 1))}>›</Button>
           </div>
           {dayLoading && <p className="py-6 text-sm text-muted-foreground">일정을 불러오는 중입니다.</p>}
