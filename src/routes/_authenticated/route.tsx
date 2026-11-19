@@ -1,3 +1,4 @@
+import { AppRefreshButton } from "@/components/AppRefreshButton";
 import { createFileRoute, redirect, Outlet, Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CalendarDays, LayoutDashboard, ListChecks, LogOut, PlusCircle, Plus, Users, ClipboardList, CalendarCheck2, Contact, Palette, Lock, MessageSquareWarning, FlaskConical, KeyRound } from "lucide-react";
@@ -81,12 +82,10 @@ function AppShell() {
 
       <header className="sticky top-0 z-20 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b bg-background px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
         <div className="flex min-w-0 items-center gap-2 font-bold text-primary">
-          <CalendarCheck2 className="h-5 w-5 shrink-0" /> <span className="truncate">Schedule HK</span>
+          <CalendarCheck2 className="h-5 w-5 shrink-0" /><span className="min-w-0"><span className="block truncate">Schedule HK</span><span className="block truncate text-xs font-normal text-muted-foreground">{me?.name} · {me && ROLE_LABEL[me.role]}</span></span>
         </div>
         <div className="flex min-w-0 items-center gap-1">
-          <span className="truncate text-xs text-muted-foreground">
-            {me?.name} · {me && ROLE_LABEL[me.role]}
-          </span>
+          <AppRefreshButton />
           <button onClick={signOut} aria-label="로그아웃" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg">
             <LogOut className="h-5 w-5 text-muted-foreground" />
           </button>
@@ -95,6 +94,7 @@ function AppShell() {
 
       <main className="min-w-0 flex-1 p-4 pb-44 md:p-8">
         <OfflineBanner />
+        <div className="mb-4 hidden justify-end md:flex"><AppRefreshButton /></div>
         {booking?.trial_mode && (
           <div role="status" className="mb-4 flex items-start gap-2 rounded-lg border border-primary/30 bg-accent px-3 py-2 text-xs text-accent-foreground md:text-sm">
             <FlaskConical className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
