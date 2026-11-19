@@ -6,6 +6,7 @@ export const MENUS = [
   { key: "calendar", label: "캘린더", path: "/calendar", adminOnly: false },
   { key: "reservation_new", label: "예약 등록", path: "/reservations/new", adminOnly: false },
   { key: "my_reservations", label: "내 예약", path: "/my-reservations", adminOnly: false },
+  { key: "attendance", label: "프리랜서 출근부", path: "/attendance", adminOnly: false },
   { key: "customers", label: "고객 관리", path: "/customers", adminOnly: false },
   { key: "admin_reservations", label: "전체 예약", path: "/admin/reservations", adminOnly: true },
   { key: "admin_staff", label: "직원 권한", path: "/admin/staff", adminOnly: true },
@@ -89,6 +90,7 @@ export function effectivePerms(role: Role, saved: Partial<Perms> | null | undefi
 }
 
 export function canMenu(role: Role, perms: Perms, key: MenuKey): boolean {
+  if (key === "attendance") return role === "admin" || role === "internal";
   if (role === "admin") return true;
   if (MENUS.find((m) => m.key === key)?.adminOnly) return false;
   return perms.menus.includes(key);
