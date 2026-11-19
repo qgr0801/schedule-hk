@@ -19,7 +19,6 @@ export const Route = createFileRoute("/_authenticated/attendance")({
   validateSearch: (search: Record<string, unknown>) => ({ tab: search["tab"] === "products" ? "products" : search["tab"] === "admin" ? "admin" : "time" }),
   component: Work,
 });
-const workNavigationStyle="min-h-10 border border-transparent text-white hover:bg-sidebar-accent focus-visible:ring-white data-[state=active]:border-white/50 data-[state=active]:bg-sidebar-accent data-[state=active]:text-white data-[state=active]:shadow-none";
 function Work() {
   const { tab } = Route.useSearch();
   const navigate = Route.useNavigate();
@@ -27,7 +26,7 @@ function Work() {
   if (me?.role !== "admin" && me?.role !== "internal") return <p>WORK 열람 권한이 없습니다.</p>;
   return <div className="space-y-4"><PageHeader title="WORK" />
     <Tabs value={tab === "admin" && me?.role !== "admin" ? "time" : tab} onValueChange={(value) => navigate({ search: { tab: value } })}>
-      <TabsList className={`grid h-auto w-full gap-1 rounded-xl bg-sidebar p-1 text-white shadow-sm ${me?.role === "admin" ? "grid-cols-3" : "grid-cols-2"}`}><TabsTrigger className={workNavigationStyle} value="time">업무</TabsTrigger><TabsTrigger className={workNavigationStyle} value="products">제품</TabsTrigger>{me?.role === "admin" && <TabsTrigger className={workNavigationStyle} value="admin">ADMIN</TabsTrigger>}</TabsList>
+      <TabsList className={`grid w-full ${me?.role === "admin" ? "grid-cols-3" : "grid-cols-2"}`}><TabsTrigger value="time">업무</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger>{me?.role === "admin" && <TabsTrigger value="admin">ADMIN</TabsTrigger>}</TabsList>
       <TabsContent value="time"><Tabs defaultValue="timelog" className="space-y-4"><TabsList className="grid w-full grid-cols-2"><TabsTrigger value="timelog">타임로그</TabsTrigger><TabsTrigger value="worklog">워크로그</TabsTrigger></TabsList><TabsContent value="timelog"><Attendance /></TabsContent><TabsContent value="worklog"><WorkLog /></TabsContent></Tabs></TabsContent>
       {me?.role === "admin" && <TabsContent value="admin"><Panel><BookingActivityReport /></Panel></TabsContent>}
       <TabsContent value="products"><Panel><ProductInventory /></Panel></TabsContent>
