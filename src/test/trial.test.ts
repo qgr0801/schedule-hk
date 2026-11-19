@@ -34,14 +34,14 @@ describe("first login of an invited staff member", () => {
   it("new staff without saved permissions get dashboard, calendar, new reservation and my reservations", () => {
     for (const role of ["internal", "external"] as const) {
       const p = effectivePerms(role, null);
-      expect(p.menus).toEqual(["dashboard", "calendar", "reservation_new", "my_reservations"]);
+      expect(p.menus).toEqual(["dashboard", "calendar", "reservation_new", "my_reservations", ...(role === "internal" ? ["attendance"] : [])]);
       expect(p.scope).toBe("own");
       for (const f of ["customerNo", "phone", "memo", "history"]) expect(p.fields).not.toContain(f);
     }
   });
 
   it("an empty or admin-only menu list never leaves a staff member with no menus", () => {
-    expect(effectivePerms("internal", { menus: [] }).menus).toEqual(["dashboard", "calendar", "reservation_new", "my_reservations"]);
+    expect(effectivePerms("internal", { menus: [] }).menus).toEqual(["dashboard", "calendar", "reservation_new", "my_reservations", "attendance"]);
     expect(effectivePerms("external", { menus: ["admin_staff"] as never }).menus).toEqual(["dashboard", "calendar", "reservation_new", "my_reservations"]);
   });
 });

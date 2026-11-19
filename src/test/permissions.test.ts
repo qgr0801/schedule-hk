@@ -16,7 +16,7 @@ describe("staff permission rules", () => {
 
   it("admin-only menus are never opened by a checkbox", () => {
     const p = effectivePerms("internal", { menus: ["calendar", "admin_staff", "admin_settings", "admin_reservations"] });
-    expect(p.menus).toEqual(["calendar"]);
+    expect(p.menus).toEqual(["calendar", "attendance"]);
     expect(canMenu("internal", { ...p, menus: ["admin_staff"] as never }, "admin_staff")).toBe(false);
   });
 
@@ -31,6 +31,17 @@ describe("staff permission rules", () => {
   it("admin always has every menu", () => {
     const p = effectivePerms("admin", { menus: [] });
     expect(canMenu("admin", p, "admin_staff")).toBe(true);
+  });
+
+  it("gives WORK to internal staff independently of reservation scope and excludes external staff", () => {
+    for (const scope of ["own", "selected", "all"] as const) {
+      const p = effectivePerms("internal", { scope, menus: ["calendar"] });
+      expect(p.menus).toContain("attendance");
+      expect(canMenu("internal", p, "attendance")).toBe(true);
+    }
+    const external = effectivePerms("external", { menus: ["calendar", "attendance"] });
+    expect(external.menus).not.toContain("attendance");
+    expect(canMenu("external", external, "attendance")).toBe(false);
   });
 
   it("maps direct URLs to the menu that guards them", () => {

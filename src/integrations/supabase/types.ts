@@ -692,6 +692,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      product_sales_report: { Args: { _from: string; _to: string; _offset?: number }; Returns: { sale_key: string; paid_on: string; customer_name: string; product_name: string; quantity: number; unit: string; unit_price: number; sales_amount: number; reservation_id: string | null; source: string; total_count: number; total_amount: number }[] }
+
       create_product_with_stock: { Args: { _id: string; _name: string; _price: number; _stock: number }; Returns: string }
       record_work_product_sale: { Args: { _id: string; _product: string; _quantity: number; _paid_on: string; _method: string; _memo?: string; _customer?: string }; Returns: string }
       product_inventory_overview: { Args: { _from: string; _to: string }; Returns: { product_id: string; received: number; sold: number; sales_amount: number }[] }

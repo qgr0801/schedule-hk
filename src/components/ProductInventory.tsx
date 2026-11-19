@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { ProductSalesReport } from "@/components/ProductSalesReport";
 import { ProductStockDetail } from "@/components/ProductStockDetail";
 import { format, startOfMonth } from "date-fns";
 import { meQuery, dbErrorMessage } from "@/lib/app";
@@ -77,7 +78,7 @@ export function ProductInventory() {
     try {
       const { error } = await supabase.rpc("record_product_sale", { _id: saleId, _product: saleProduct, _quantity: Number(saleQuantity), _paid_on: saleDate, _method: saleMethod, _memo: saleMemo, ...(salePrice !== "" ? { _unit_price: Number(salePrice) } : {}), ...(customer ? { _customer: customer.id } : {}) });
       if (error) throw error;
-      await Promise.all(["product-overview", "products", "work-sales", "product-ledger", "customer-products", "customer-work-products", "payment-summary"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
+      await Promise.all(["product-sales-report", "product-overview", "products", "work-sales", "product-ledger", "customer-products", "customer-work-products", "payment-summary"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
       setSaleId(crypto.randomUUID()); setSaleProduct(""); setSaleQuantity("1"); setSalePrice(""); setSaleMemo(""); setCustomer(null); setSearch(""); setSalesPage(0);
       toast.success("판매를 등록하고 재고를 차감했습니다.");
     } catch (err) { toast.error(dbErrorMessage(err)); }
@@ -141,7 +142,8 @@ export function ProductInventory() {
       <div className="flex items-end gap-2"><Button disabled={busy || !adjustment || !Number(quantity)}>입고·출고 저장</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { setAdjustment(null); setQuantity(""); setReason(""); }}>초기화</Button></div>
       <p className="text-xs text-muted-foreground sm:col-span-2 lg:col-span-4">저장하면 위 재고표에 반영됩니다. 예약의 제품구매는 자동 연결되므로 이곳에서 같은 판매를 다시 입력할 필요가 없습니다. 제품명을 클릭하면 입고·출고·판매 이력을 확인할 수 있습니다.</p>
     </form>
-    {admin && <details className="rounded border p-3" open={data?.length === 0 || undefined}><summary className="cursor-pointer text-sm font-semibold">+ 제품 · 초기 재고 등록</summary><form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("register_inventory_product", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock), _unit: unit.trim() })); }}>
+    {validReport && <ProductSalesReport key={`${reportFrom}-${reportTo}`} from={reportFrom} to={reportTo} />}
+    {<details className="rounded border p-3" open={data?.length === 0 || undefined}><summary className="cursor-pointer text-sm font-semibold">+ 제품 · 초기 재고 등록</summary><form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("register_inventory_product", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock), _unit: unit.trim() })); }}>
       <label className="min-w-40 flex-1 text-sm">제품명<Input aria-label="새 제품명" placeholder="제품명" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} required /></label>
       <label className="text-sm">판매가(원)<Input aria-label="제품 판매가" placeholder="판매가(원)" className="w-36" type="number" min={0} max={999999999999} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
       <label className="text-sm">현재 보유 수량<Input aria-label="현재 보유 수량" className="w-36" type="number" min={0} max={100000000} step="0.001" required value={initialStock} onChange={(e) => setInitialStock(e.target.value)} /></label>

@@ -151,7 +151,7 @@ function PermsTab({ target, meId, role, saved, staff }: TabProps) {
 
   async function changeRole(next: Role) {
     if (next === "admin" && !confirm(`${target.full_name}님을 최고 관리자(ADMIN)로 바꿀까요? 모든 예약·고객 정보와 직원 관리 권한을 갖게 됩니다.`)) return;
-    const { error } = await supabase.from("user_roles").update({ role: next }).eq("user_id", target.id);
+    const { error } = await supabase.from("user_roles").update({ role: next }).eq("user_id", target.id).select("user_id,role").single();
     if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success(`역할을 ${ROLE_CODE[next]}(으)로 바꿨습니다.`);
     refreshStaff(qc);
@@ -162,7 +162,7 @@ function PermsTab({ target, meId, role, saved, staff }: TabProps) {
     const { error } = await supabase.from("staff_view_scopes").upsert(
       { user_id: target.id, scope: v.scope, menus: v.menus, fields: v.fields, updated_at: new Date().toISOString() },
       { onConflict: "user_id" },
-    );
+    ).select("user_id").single();
     setBusy(false);
     if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success("권한을 저장했습니다. 다음 조회부터 바로 적용됩니다.");
@@ -242,9 +242,9 @@ function PermsTab({ target, meId, role, saved, staff }: TabProps) {
             <div className="grid gap-2 sm:grid-cols-2">
               {MENUS.map((m) => (
                 <label key={m.key} className={cn("flex items-center gap-3 rounded-md border px-3 py-2 text-sm", m.adminOnly && "bg-muted text-muted-foreground")}>
-                  <Checkbox checked={!m.adminOnly && cur.menus.includes(m.key)} disabled={m.adminOnly} onCheckedChange={(v) => edit({ menus: toggle<MenuKey>(cur.menus, m.key, !!v) })} />
+                  <Checkbox checked={m.key === "attendance" ? role === "internal" : !m.adminOnly && cur.menus.includes(m.key)} disabled={m.adminOnly || m.key === "attendance"} onCheckedChange={(v) => edit({ menus: toggle<MenuKey>(cur.menus, m.key, !!v) })} />
                   {m.label}
-                  <span className="ml-auto text-xs">{m.adminOnly ? "관리자 전용" : cur.menus.includes(m.key) ? "허용" : "차단"}</span>
+                  <span className="ml-auto text-xs">{m.key === "attendance" ? role === "internal" ? "내부 직원 기본 허용" : "내부 직원 전용" : m.adminOnly ? "관리자 전용" : cur.menus.includes(m.key) ? "허용" : "차단"}</span>
                 </label>
               ))}
             </div>
