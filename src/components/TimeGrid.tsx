@@ -7,6 +7,7 @@ import { ReservationCard, type ResWithCustomer } from "@/components/ReservationC
 import type { Schedule } from "@/lib/app";
 import { atMinutes, HOUR_PX, layoutLanes, minutesOf, moveStart, resizeEnd } from "@/lib/drag";
 import type { CalView } from "@/lib/display";
+import { isStaffNotice, scheduleName } from "@/lib/schedules";
 import { cn } from "@/lib/utils";
 
 export type GridItem = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
@@ -19,7 +20,6 @@ export type GridCol = {
   droppable: boolean;
   items: GridItem[];
   highlight?: boolean;
-  leaves?: Schedule[];
 };
 export type MoveTarget = { r: ResWithCustomer; start: Date; end: Date; section: number | null; colLabel: string };
 
@@ -187,7 +187,6 @@ export function TimeGrid({
         {cols.map((c) => (
           <div key={c.key} className={cn("truncate border-r px-2 py-2 text-center text-sm font-semibold text-primary last:border-r-0", c.highlight && "bg-accent")}>
             {c.label}
-            {c.leaves?.map((s) => <button key={s.id} className="mt-1 block w-full truncate rounded bg-red-100 px-1 py-1 text-left text-xs font-semibold text-red-800" onClick={() => onSch(s)}>{s.title.slice(4).trim()} 휴무</button>)}
           </div>
         ))}
       </div>
@@ -238,10 +237,10 @@ export function TimeGrid({
                 };
                 if (i.kind === "sch") {
                   return (
-                    <button key={`s${i.s.id}`} onClick={() => onSch(i.s)} style={style} className="absolute z-[1] overflow-hidden rounded-md border border-primary/30 bg-accent px-2 py-1 text-left text-xs text-accent-foreground">
-                      <span className="block opacity-70">{format(new Date(i.s.start_at), "HH:mm")}–{format(new Date(i.s.end_at), "HH:mm")} · 일정</span>
-                      <span className="block truncate font-semibold">{i.s.title}</span>
-                      <span className="block truncate opacity-70">{name(i.s.owner_id)}</span>
+                    <button key={`s${i.s.id}`} onClick={() => onSch(i.s)} style={style} className={cn("absolute z-[1] overflow-hidden rounded-md border px-2 py-1 text-left text-xs", isStaffNotice(i.s) ? "border-red-300 bg-red-50 text-slate-900" : "border-primary/30 bg-accent text-accent-foreground")}>
+                      {isStaffNotice(i.s)
+                        ? <span className="block truncate font-semibold">{scheduleName(i.s)} · {i.s.title.startsWith("[OVER TIME]") ? "OVER TIME" : "휴무"}</span>
+                        : <><span className="block opacity-70">{format(new Date(i.s.start_at), "HH:mm")}–{format(new Date(i.s.end_at), "HH:mm")} · 일정</span><span className="block truncate font-semibold">{i.s.title}</span><span className="block truncate opacity-70">{name(i.s.owner_id)}</span></>}
                     </button>
                   );
                 }

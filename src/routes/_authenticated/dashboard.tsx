@@ -7,6 +7,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel, StatusBadge } from "@/components/PageHeader";
 import { ReservationDialog } from "@/components/ReservationDialog";
 import { Button } from "@/components/ui/button";
+import { ScheduleDialog } from "@/components/ScheduleDialog";
+import { scheduleName, schedulePeriod } from "@/lib/schedules";
 import { useSwipe } from "@/hooks/use-swipe";
 import { meQuery, profilesQuery, ROLE_LABEL, type Reservation } from "@/lib/app";
 
@@ -19,6 +21,7 @@ function Dashboard() {
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
   const [sel, setSel] = useState<Reservation | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const now = new Date();
   const [day, setDay] = useState(startOfDay(now));
   const swipe = useSwipe(() => setDay((d) => addDays(d, -1)), () => setDay((d) => addDays(d, 1)));
@@ -36,7 +39,7 @@ function Dashboard() {
     queryKey: ["dashboard-leaves", day.toISOString()],
     queryFn: async () => {
       const { data, error } = await supabase.from("schedules").select("*")
-        .like("title", "[휴무]%")
+        .or("title.like.[휴무]%,title.like.[OVER TIME]%")
         .lte("start_at", endOfDay(day).toISOString())
         .gt("end_at", startOfDay(day).toISOString()).order("start_at");
       if (error) throw error;
@@ -77,6 +80,7 @@ function Dashboard() {
         title={me?.role === "admin" ? "관리자 대시보드" : "대시보드"}
         desc={`${format(now, "yyyy년 M월 d일 EEEE", { locale: ko })} · ${me ? ROLE_LABEL[me.role] : ""} 권한으로 볼 수 있는 예약입니다.`}
         action={<div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setScheduleOpen(true)}>+ 일정·휴무 추가</Button>
           <Button asChild><Link to="/reservations/new">+ 예약 등록</Link></Button>
         </div>}
       />
@@ -123,9 +127,9 @@ function Dashboard() {
             {leaveError && <p role="alert" className="text-sm text-destructive">휴무를 불러오지 못했습니다.</p>}
             {leaves?.length === 0 && <p className="text-sm text-muted-foreground">이 날짜에 등록된 직원 휴무가 없습니다.</p>}
             <ul className="space-y-2">
-              {leaves?.map((s) => <li key={s.id} className="rounded-md border border-red-200 bg-red-50 p-3 text-red-800">
-                <div className="font-semibold">{s.title.slice(4).trim()} · 휴무</div>
-                <p className="text-xs">{format(new Date(s.start_at), "M/d HH:mm")}–{format(new Date(s.end_at), "M/d HH:mm")}</p>
+              {leaves?.map((s) => <li key={s.id} className="rounded-md border border-red-200 bg-red-50 p-3 text-slate-900">
+                <div className="font-semibold">{scheduleName(s)} · {s.title.startsWith("[OVER TIME]") ? "OVER TIME" : "휴무"}</div>
+                <p className="text-xs">{schedulePeriod(s)}</p>
                 {s.memo && <p className="mt-1 whitespace-pre-wrap break-words text-sm">{s.memo}</p>}
               </li>)}
             </ul>
@@ -147,6 +151,7 @@ function Dashboard() {
           </ul>
         </Panel>
       </div>
+      {scheduleOpen && <ScheduleDialog defaultDate={day} onClose={() => setScheduleOpen(false)} />}
       <ReservationDialog res={sel} onClose={() => setSel(null)} />
     </div>
   );

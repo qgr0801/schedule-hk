@@ -29,6 +29,7 @@ import {
 } from "@/lib/app";
 import { cn } from "@/lib/utils";
 import { useSwipe } from "@/hooks/use-swipe";
+import { isStaffNotice, scheduleName, schedulePeriod } from "@/lib/schedules";
 import { ScheduleDialog } from "@/components/ScheduleDialog";
 import { displayQuery, useCardLookups, type ColorMode } from "@/lib/display";
 
@@ -51,6 +52,7 @@ function CalendarPage() {
   const [newSlot, setNewSlot] = useState<{ date: Date; section: number | null; minutes: number } | null>(null);
   const [scheduleDate, setScheduleDate] = useState<Date | null>(null);
   const [schView, setSchView] = useState<Schedule | null>(null);
+  const [schEdit, setSchEdit] = useState<Schedule | null>(null);
   const [secOpen, setSecOpen] = useState(false);
   const [staff, setStaff] = useState("");
   const [sectionF, setSectionF] = useState("");
@@ -109,14 +111,24 @@ function CalendarPage() {
       .filter((r) => !sectionF || String(r.section ?? "") === sectionF)
       .filter((r) => !catF || r.customer?.category_id === catF || !!r.customer?.customer_category_tags.some((t) => t.category_id === catF))
       .map((r) => ({ kind: "res" as const, r })),
-    ...(sectionF || catF ? [] : (data?.sch ?? []).filter((s) => !s.title.startsWith("[휴무]") && (!staff || s.owner_id === staff)).map((s) => ({ kind: "sch" as const, s }))),
+    ...(sectionF || catF ? [] : (data?.sch ?? []).filter((s) => !isStaffNotice(s) && (!staff || s.owner_id === staff)).map((s) => ({ kind: "sch" as const, s }))),
   ];
   const start = (i: Item) => new Date(i.kind === "res" ? i.r.start_at : i.s.start_at);
-  const dayItems = (d: Date) => items.filter((i) => isSameDay(start(i), d)).sort((a, b) => +start(a) - +start(b));
+  const dayItems = (d: Date): Item[] => [
+    ...items.filter((i) => isSameDay(start(i), d)),
+    ...leavesOn(d).map((s): Item => {
+      const start = startOfDay(d);
+      start.setHours(9);
+      const end = new Date(start);
+      end.setMinutes(30);
+      return { kind: "sch", s: { ...s, start_at: start.toISOString(), end_at: end.toISOString() } };
+    }),
+  ].sort((a, b) => +start(a) - +start(b));
+  const openSchedule = (s: Schedule) => setSchView(data?.sch.find((original) => original.id === s.id) ?? s);
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "";
   const step = (n: number) => setCursor(view === "month" ? addMonths(cursor, n) : view === "week" ? addWeeks(cursor, n) : addDays(cursor, n));
   const swipe = useSwipe(() => step(-1), () => step(1));
-  const leavesOn = (date: Date) => (data?.sch ?? []).filter((s) => s.title.startsWith("[휴무]") && new Date(s.start_at) <= endOfDay(date) && new Date(s.end_at) > startOfDay(date));
+  const leavesOn = (date: Date) => (data?.sch ?? []).filter((s) => isStaffNotice(s) && new Date(s.start_at) <= endOfDay(date) && new Date(s.end_at) > startOfDay(date));
   const days = eachDayOfInterval({ start: range.from, end: range.to });
   const title =
     view === "month" ? format(cursor, "yyyy년 M월") : view === "week" ? `${format(range.from, "M.d")} – ${format(range.to, "M.d")}` : format(cursor, "M월 d일 (EEE)", { locale: ko });
@@ -247,13 +259,13 @@ function CalendarPage() {
         )}
       </div>
 
-      {(data?.sch ?? []).some((s) => s.title.startsWith("[휴무]")) && (
+      {(data?.sch ?? []).some((s) => isStaffNotice(s)) && (
         <Panel className="mb-3 py-3">
           <h2 className="mb-2 text-sm font-semibold">직원 휴무</h2>
           <div className="flex flex-wrap gap-2">
-            {(data?.sch ?? []).filter((s) => s.title.startsWith("[휴무]")).map((s) => (
-              <button key={s.id} className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-800" onClick={() => setSchView(s)}>
-                {s.title.slice(4).trim()} · {format(new Date(s.start_at), "M/d HH:mm")}–{format(new Date(s.end_at), "M/d HH:mm")}
+            {(data?.sch ?? []).filter((s) => isStaffNotice(s)).map((s) => (
+              <button key={s.id} className="rounded-md bg-red-100 px-3 py-2 text-sm text-slate-900" onClick={() => setSchView(s)}>
+                {scheduleName(s)} · {schedulePeriod(s)}
               </button>
             ))}
           </div>
@@ -272,15 +284,15 @@ function CalendarPage() {
               return (
                 <div key={d.toISOString()} className={cn("min-h-20 border-b border-r p-1 text-left align-top sm:min-h-28", !isSameMonth(d, cursor) && "bg-muted/60 text-muted-foreground")}>
                   <button type="button" onClick={() => { setCursor(d); setView("day"); }} className={cn("mb-1 text-xs", isSameDay(d, new Date()) && "inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground")}>{format(d, "d")}</button>
-                  {leavesOn(d).map((s) => <button key={s.id} className="mb-1 block w-full truncate rounded bg-red-100 px-1 py-1 text-left text-xs font-semibold text-red-800" onClick={() => setSchView(s)}>{s.title.slice(4).trim()} 휴무</button>)}
+                  {leavesOn(d).map((s) => <button key={s.id} className="mb-1 block w-full truncate rounded border border-red-200 bg-red-50 px-1 text-left text-xs text-slate-900 sm:hidden" onClick={() => openSchedule(s)}>{scheduleName(s)}</button>)}
                   <div className="hidden space-y-0.5 sm:block">
                     {its.slice(0, 3).map((i, k) =>
                       i.kind === "res" ? (
                         <ReservationCard key={k} r={i.r} view="month" name={name} compact onClick={(action) => openReservation(i.r, action)} />
                       ) : (
-                        <div key={k} className="truncate rounded bg-accent px-1 text-[11px] text-accent-foreground">
-                          {format(start(i), "HH:mm")} {i.s.title}
-                        </div>
+                        <button key={k} onClick={() => openSchedule(i.s)} className={cn("block w-full truncate rounded px-1 text-left text-[11px]", isStaffNotice(i.s) ? "border border-red-200 bg-red-50 text-slate-900" : "bg-accent text-accent-foreground")}>
+                          {isStaffNotice(i.s) ? scheduleName(i.s) : `${format(start(i), "HH:mm")} ${i.s.title}`}
+                        </button>
                       ),
                     )}
                     {its.length > 3 && <div className="text-[11px] text-muted-foreground">+{its.length - 3}건</div>}
@@ -307,11 +319,10 @@ function CalendarPage() {
                 sectionFor: (r) => r.section,
                 droppable: true,
                 items: dayItems(d),
-                leaves: leavesOn(d),
                 highlight: isSameDay(d, new Date()),
               }))}
               firstH={firstH} lastH={lastH} step={slotStep} view="week" colMinWidth={130} name={name}
-              canDrag={canDrag} conflict={conflict} onRes={openReservation} onSch={setSchView} onDrop={onDrop}
+              canDrag={canDrag} conflict={conflict} onRes={openReservation} onSch={openSchedule} onDrop={onDrop}
               onEmpty={(c, m) => newAt(c.date, null, m)}
               colLabelText={(c) => format(c.date, "M월 d일")}
             />
@@ -327,7 +338,7 @@ function CalendarPage() {
           isAdmin={me?.role === "admin"}
           name={name}
           onRes={openReservation}
-          onSch={setSchView}
+          onSch={openSchedule}
           onSettings={() => setSecOpen(true)}
           sectionFilter={sectionF ? Number(sectionF) : null}
           grid={{ firstH, lastH, step: slotStep, canDrag, conflict, onDrop, onEmpty: (sec, m) => newAt(cursor, sec, m) }}
@@ -378,16 +389,19 @@ function CalendarPage() {
           </div>
         </DialogContent>
       </Dialog>}
+      {schEdit && <ScheduleDialog existing={schEdit} defaultDate={new Date(schEdit.start_at)} onClose={() => setSchEdit(null)} />}
       {schOpen && <ScheduleDialog defaultDate={scheduleDate ?? cursor} onClose={() => setSchOpen(false)} />}
       {secOpen && <SectionSettingsDialog onClose={() => setSecOpen(false)} />}
       {schView && (
         <Dialog open onOpenChange={(o) => !o && setSchView(null)}>
           <DialogContent>
             <DialogHeader><DialogTitle>{schView.title}</DialogTitle></DialogHeader>
-            <p className="text-sm">{format(new Date(schView.start_at), "M월 d일 HH:mm", { locale: ko })} – {format(new Date(schView.end_at), "HH:mm")}</p>
+            <p className="text-sm">{schedulePeriod(schView)}</p>
             <p className="text-sm text-muted-foreground">작성자 {name(schView.owner_id)} · {VIS_LABEL[schView.visibility]}</p>
             {schView.memo && <p className="whitespace-pre-wrap text-sm">{schView.memo}</p>}
             {(schView.owner_id === me?.id || me?.role === "admin") && (
+              <div className="flex gap-2">
+              <Button size="sm" variant="outline" onClick={() => { setSchEdit(schView); setSchView(null); }}>일정 수정</Button>
               <Button variant="destructive" size="sm" className="w-fit" onClick={async () => {
                 const { error } = await supabase.from("schedules").delete().eq("id", schView.id);
                 if (error) { toast.error(dbErrorMessage(error)); return; }
@@ -396,6 +410,7 @@ function CalendarPage() {
                 setSchView(null);
                 toast.success("일정이 삭제되었습니다.");
               }}>일정 삭제</Button>
+              </div>
             )}
           </DialogContent>
         </Dialog>

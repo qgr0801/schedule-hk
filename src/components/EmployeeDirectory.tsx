@@ -11,21 +11,24 @@ export function EmployeeDirectory() {
   const qc = useQueryClient();
   const { data, isPending, error } = useQuery(employeesQuery);
   const [name, setName] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [editName, setEditName] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function save(id?: string, active?: boolean) {
+  async function save(id?: string, active?: boolean, renamed?: string) {
     if (busy) return;
-    const nextName = id ? data?.find((e) => e.id === id)?.name : name.trim();
+    const nextName = renamed !== undefined ? renamed.trim() : id ? data?.find((e) => e.id === id)?.name : name.trim();
     if (!nextName) { toast.error("직원 이름을 입력해 주세요."); return; }
     setBusy(true);
     try {
       const result = id
-        ? await supabase.from("employees").update({ is_active: active === true }).eq("id", id).select("id").single()
+        ? await supabase.from("employees").update(renamed !== undefined ? { name: nextName } : { is_active: active === true }).eq("id", id).select("id").single()
         : await supabase.from("employees").insert({ name: nextName }).select("id").single();
       if (result.error) throw result.error;
       if (!id) setName("");
+      setEditing(null);
       await qc.invalidateQueries({ queryKey: employeesQuery.queryKey });
-      toast.success(id ? "직원 사용 상태를 변경했습니다." : "직원을 등록했습니다.");
+      toast.success(renamed !== undefined ? "직원 이름을 수정했습니다." : id ? "직원 사용 상태를 변경했습니다." : "직원을 등록했습니다.");
     } catch (err) {
       toast.error(dbErrorMessage(err));
     } finally {
@@ -46,7 +49,12 @@ export function EmployeeDirectory() {
       <ul className="divide-y">
         {data?.map((employee) => (
           <li key={employee.id} className="flex items-center justify-between gap-2 py-2">
-            <span className={employee.is_active ? "" : "text-muted-foreground"}>{employee.name}{!employee.is_active && " · 사용 중지"}</span>
+            {editing === employee.id ? <div className="flex flex-wrap gap-2">
+              <Input aria-label="직원 이름 수정" value={editName} maxLength={50} onChange={(e) => setEditName(e.target.value)} />
+              <Button size="sm" disabled={busy || !editName.trim()} onClick={() => save(employee.id, undefined, editName)}>수정 저장</Button>
+              <Button size="sm" variant="outline" onClick={() => setEditing(null)}>취소</Button>
+            </div> : <span className={employee.is_active ? "" : "text-muted-foreground"}>{employee.name}{!employee.is_active && " · 사용 중지"}</span>}
+            <Button size="sm" variant="outline" disabled={busy} onClick={() => { setEditing(employee.id); setEditName(employee.name); }}>직원 수정</Button>
             <Button size="sm" variant="outline" disabled={busy} onClick={() => save(employee.id, !employee.is_active)}>{employee.is_active ? "사용 중지" : "다시 사용"}</Button>
           </li>
         ))}
