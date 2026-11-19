@@ -182,7 +182,7 @@ export function TimeGrid({
   return (
     <div className="min-w-fit select-none">
       <div className="sticky top-0 z-20 grid border-b bg-card" style={gridStyle}>
-        <div className="border-r py-2 text-center text-xs text-muted-foreground">시간</div>
+        <div className="sticky left-0 z-30 border-r bg-card py-2 text-center text-xs text-muted-foreground">시간</div>
         {cols.map((c) => (
           <div key={c.key} className={cn("truncate border-r px-2 py-2 text-center text-sm font-semibold text-primary last:border-r-0", c.highlight && "bg-accent")}>
             {c.label}
@@ -190,7 +190,7 @@ export function TimeGrid({
         ))}
       </div>
       <div className="grid" style={gridStyle}>
-        <div className="relative border-r" style={{ height }}>
+        <div className="sticky left-0 z-10 border-r bg-card" style={{ height }}>
           {HOURS.map((h) => (
             <div key={h} className="absolute inset-x-0 px-1 pt-1 text-center text-xs text-muted-foreground" style={{ top: (h - firstH) * HOUR_PX }}>
               {String(h).padStart(2, "0")}:00

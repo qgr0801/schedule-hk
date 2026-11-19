@@ -1,12 +1,13 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { endOfDay, endOfWeek, format, startOfDay, startOfWeek } from "date-fns";
+import { addDays, endOfDay, endOfWeek, format, isSameDay, startOfDay, startOfWeek } from "date-fns";
 import { ko } from "date-fns/locale";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel, StatusBadge } from "@/components/PageHeader";
 import { ReservationDialog } from "@/components/ReservationDialog";
 import { Button } from "@/components/ui/button";
+import { useSwipe } from "@/hooks/use-swipe";
 import { meQuery, profilesQuery, ROLE_LABEL, type Reservation } from "@/lib/app";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
@@ -19,6 +20,18 @@ function Dashboard() {
   const { data: profiles } = useQuery(profilesQuery);
   const [sel, setSel] = useState<Reservation | null>(null);
   const now = new Date();
+  const [day, setDay] = useState(startOfDay(now));
+  const swipe = useSwipe(() => setDay((d) => addDays(d, -1)), () => setDay((d) => addDays(d, 1)));
+  const { data: dayReservations, isPending: dayLoading, error: dayError } = useQuery({
+    queryKey: ["reservations", "dashboard-day", day.toISOString()],
+    queryFn: async () => {
+      const { data, error } = await supabase.from("reservations").select("*")
+        .gte("start_at", startOfDay(day).toISOString())
+        .lte("start_at", endOfDay(day).toISOString()).order("start_at");
+      if (error) throw error;
+      return data;
+    },
+  });
   const { data: week } = useQuery({
     queryKey: ["reservations", "week"],
     queryFn: async () => {
@@ -63,11 +76,18 @@ function Dashboard() {
         ))}
       </div>
       <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <Panel className="lg:col-span-2">
-          <h2 className="mb-4 font-semibold text-primary">오늘 일정</h2>
-          {today.length === 0 && <p className="text-sm text-muted-foreground">오늘 예약이 없습니다.</p>}
+        <Panel className="min-w-0 lg:col-span-2">
+          <div className="touch-pan-y" {...swipe}>
+          <div className="mb-4 flex items-center justify-between gap-2">
+            <Button variant="outline" size="sm" aria-label="이전 날짜" onClick={() => setDay(addDays(day, -1))}>‹</Button>
+            <h2 className="font-semibold text-primary">{isSameDay(day, now) ? "오늘 일정" : format(day, "M월 d일 (EEE)", { locale: ko })}</h2>
+            <Button variant="outline" size="sm" aria-label="다음 날짜" onClick={() => setDay(addDays(day, 1))}>›</Button>
+          </div>
+          {dayLoading && <p className="py-6 text-sm text-muted-foreground">일정을 불러오는 중입니다.</p>}
+          {dayError && <p role="alert" className="py-6 text-sm text-destructive">일정을 불러오지 못했습니다.</p>}
+          {!dayLoading && !dayError && dayReservations?.length === 0 && <p className="py-6 text-sm text-muted-foreground">예약이 없습니다.</p>}
           <ul className="divide-y">
-            {today.map((r) => (
+            {dayReservations?.map((r) => (
               <li key={r.id}>
                 <button onClick={() => setSel(r)} className="flex w-full items-center gap-4 py-3 text-left hover:bg-muted">
                   <span className="w-24 text-sm font-semibold text-primary">
@@ -82,6 +102,7 @@ function Dashboard() {
               </li>
             ))}
           </ul>
+          </div>
         </Panel>
         <Panel>
           <h2 className="mb-4 font-semibold text-primary">직원별 이번 주 예약</h2>

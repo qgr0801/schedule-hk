@@ -6,7 +6,7 @@ import {
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { CalendarDays, ChevronLeft, ChevronRight, Lock, Users, Globe, Settings2 } from "lucide-react";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel } from "@/components/PageHeader";
@@ -42,6 +42,8 @@ type Item = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
 function CalendarPage() {
   const [view, setView] = useState<View>("week");
   const [cursor, setCursor] = useState(new Date());
+  const [startFromSelected, setStartFromSelected] = useState(false);
+  const weekScroll = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState<{ reservation: ResWithCustomer; action?: "cancelled" | "no_show" | undefined } | null>(null);
   const openReservation = (reservation: ResWithCustomer, action?: "cancelled" | "no_show") => setSel({ reservation, action });
   const [schOpen, setSchOpen] = useState(false);
@@ -66,7 +68,7 @@ function CalendarPage() {
     view === "month"
       ? { from: startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 }), to: endOfWeek(endOfMonth(cursor), { weekStartsOn: 1 }) }
       : view === "week"
-        ? { from: startOfWeek(cursor, { weekStartsOn: 1 }), to: endOfWeek(cursor, { weekStartsOn: 1 }) }
+        ? { from: startFromSelected ? startOfDay(cursor) : startOfWeek(cursor, { weekStartsOn: 1 }), to: startFromSelected ? endOfDay(addDays(cursor, 6)) : endOfWeek(cursor, { weekStartsOn: 1 }) }
         : { from: startOfDay(cursor), to: endOfDay(cursor) };
 
   const { data } = useQuery({
@@ -74,7 +76,7 @@ function CalendarPage() {
     queryFn: async () => {
       const [r, s, sh] = await Promise.all([
         supabase.from("reservations").select("*, customer:customers(customer_no, category_id, customer_category_tags(category_id))").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
-        supabase.from("schedules").select("*").gte("start_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
+        supabase.from("schedules").select("*").gt("end_at", range.from.toISOString()).lte("start_at", range.to.toISOString()).order("start_at"),
         supabase.rpc("calendar_reservations", { _from: range.from.toISOString(), _to: range.to.toISOString() }),
       ]);
       if (sh.error) throw sh.error;
@@ -104,7 +106,7 @@ function CalendarPage() {
       .filter((r) => !sectionF || String(r.section ?? "") === sectionF)
       .filter((r) => !catF || r.customer?.category_id === catF || !!r.customer?.customer_category_tags.some((t) => t.category_id === catF))
       .map((r) => ({ kind: "res" as const, r })),
-    ...(sectionF || catF ? [] : (data?.sch ?? []).filter((s) => !staff || s.owner_id === staff).map((s) => ({ kind: "sch" as const, s }))),
+    ...(sectionF || catF ? [] : (data?.sch ?? []).filter((s) => !s.title.startsWith("[휴무]") && (!staff || s.owner_id === staff)).map((s) => ({ kind: "sch" as const, s }))),
   ];
   const start = (i: Item) => new Date(i.kind === "res" ? i.r.start_at : i.s.start_at);
   const dayItems = (d: Date) => items.filter((i) => isSameDay(start(i), d)).sort((a, b) => +start(a) - +start(b));
@@ -201,7 +203,7 @@ function CalendarPage() {
           <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" onClick={() => step(-1)} aria-label="이전"><ChevronLeft /></Button>
           <span className="min-w-0 flex-1 truncate text-center font-semibold text-primary sm:min-w-32 sm:flex-none">{title}</span>
           <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
-          <Button size="sm" variant="outline" className="h-10 shrink-0 sm:h-9" onClick={() => setCursor(new Date())}>오늘</Button>
+          <Button size="sm" variant="outline" className="h-10 shrink-0 sm:h-9" onClick={() => { setCursor(new Date()); setStartFromSelected(true); weekScroll.current?.scrollTo({ left: 0 }); }}>오늘</Button>
           <label className="relative flex h-10 w-11 shrink-0 items-center justify-center rounded-md border border-input bg-background sm:h-9 sm:w-auto sm:border-0 sm:bg-transparent">
             <CalendarDays className="h-5 w-5 text-primary sm:hidden" />
             <input
@@ -244,6 +246,19 @@ function CalendarPage() {
         )}
       </div>
 
+      {(data?.sch ?? []).some((s) => s.title.startsWith("[휴무]")) && (
+        <Panel className="mb-3 py-3">
+          <h2 className="mb-2 text-sm font-semibold">직원 휴무</h2>
+          <div className="flex flex-wrap gap-2">
+            {(data?.sch ?? []).filter((s) => s.title.startsWith("[휴무]")).map((s) => (
+              <button key={s.id} className="rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-950" onClick={() => setSchView(s)}>
+                {s.title.slice(4).trim()} · {format(new Date(s.start_at), "M/d")}–{format(addDays(new Date(s.end_at), -1), "M/d")}
+              </button>
+            ))}
+          </div>
+        </Panel>
+      )}
+
       {view === "month" && (
         <div {...swipe}>
         <Panel className="p-0">
@@ -281,6 +296,7 @@ function CalendarPage() {
         <div className="space-y-2">
           <p className="text-xs text-muted-foreground">수정할 수 있는 예약은 끌어서 다른 날짜·시간으로 옮기고, 아래 가장자리를 끌어 길이를 바꿀 수 있습니다{me?.role === "admin" ? " (관리자는 모든 예약)" : ""}. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
           <Panel className="max-h-[75vh] overflow-auto p-0">
+            <div ref={weekScroll} className="max-h-[75vh] overflow-auto">
             <TimeGrid
               cols={days.map((d): GridCol => ({
                 key: d.toISOString(),
@@ -296,6 +312,7 @@ function CalendarPage() {
               onEmpty={(c, m) => newAt(c.date, null, m)}
               colLabelText={(c) => format(c.date, "M월 d일")}
             />
+            </div>
           </Panel>
         </div>
       )}
@@ -369,6 +386,10 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
   const [title, setTitle] = useState("");
+  const [leave, setLeave] = useState(false);
+  const [leaveStaff, setLeaveStaff] = useState(me?.id ?? "");
+  const [lastDate, setLastDate] = useState(format(defaultDate, "yyyy-MM-dd"));
+  const [busy, setBusy] = useState(false);
   const [memo, setMemo] = useState("");
   const [date, setDate] = useState(format(defaultDate, "yyyy-MM-dd"));
   const [st, setSt] = useState("09:00");
@@ -377,14 +398,21 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
   const [shared, setShared] = useState<string[]>([]);
 
   async function save() {
-    if (!title.trim()) { toast.error("제목을 입력해 주세요."); return; }
+    const staffName = profiles?.find((p) => p.id === (leaveStaff || me?.id))?.full_name;
+    if (leave && !staffName) { toast.error("직원을 선택해 주세요."); return; }
+    if (!leave && !title.trim()) { toast.error("제목을 입력해 주세요."); return; }
+    const start = new Date(`${date}T${leave ? "00:00" : st}`);
+    const end = leave ? addDays(new Date(`${lastDate}T00:00`), 1) : new Date(`${date}T${en}`);
+    if (!(end > start)) { toast.error("종료 날짜와 시간을 확인해 주세요."); return; }
+    setBusy(true);
     const { data, error } = await supabase
       .from("schedules")
-      .insert({ title: title.trim(), memo: memo || null, start_at: new Date(`${date}T${st}`).toISOString(), end_at: new Date(`${date}T${en}`).toISOString(), visibility: vis })
+      .insert({ title: leave ? `[휴무] ${staffName}` : title.trim(), memo: memo || null, start_at: start.toISOString(), end_at: end.toISOString(), visibility: leave ? "public" : vis })
       .select("id")
       .single();
+    setBusy(false);
     if (error) { toast.error(dbErrorMessage(error)); return; }
-    if (vis === "selected" && shared.length) {
+    if (!leave && vis === "selected" && shared.length) {
       const { error: e2 } = await supabase.from("schedule_shares").insert(shared.map((u) => ({ schedule_id: data.id, user_id: u })));
       if (e2) { toast.error(dbErrorMessage(e2)); return; }
     }
@@ -397,16 +425,26 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader><DialogTitle>일반 일정 추가</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>일정 · 직원 휴무 추가</DialogTitle></DialogHeader>
         <div className="space-y-3">
-          <div className="space-y-1"><Label>제목</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 원내 교육" /></div>
+          <label className="flex items-center gap-2"><Checkbox checked={leave} onCheckedChange={(v) => setLeave(v === true)} />직원 휴무</label>
+          {leave && <div className="space-y-2">
+            <Label htmlFor="leave-staff">휴무 직원</Label>
+            <select id="leave-staff" className="h-10 w-full rounded-md border bg-background px-3" value={leaveStaff || me?.id || ""} onChange={(e) => setLeaveStaff(e.target.value)}>
+              {profiles?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+            </select>
+            <Label htmlFor="leave-end">휴무 마지막 날짜</Label>
+            <Input id="leave-end" type="date" min={date} value={lastDate} onChange={(e) => setLastDate(e.target.value)} />
+            <p className="text-xs text-muted-foreground">선택한 기간의 종일 휴무가 모든 직원의 캘린더에 표시됩니다.</p>
+          </div>}
+          {!leave && <div className="space-y-1"><Label>제목</Label><Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="예: 원내 교육" /></div>}
           <div className="grid grid-cols-3 gap-2">
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="col-span-3 sm:col-span-1" />
-            <Input type="time" value={st} onChange={(e) => setSt(e.target.value)} />
-            <Input type="time" value={en} onChange={(e) => setEn(e.target.value)} />
+            <Input aria-label={leave ? "휴무 시작 날짜" : "일정 날짜"} type="date" value={date} onChange={(e) => { setDate(e.target.value); if (e.target.value > lastDate) setLastDate(e.target.value); }} className="col-span-3 sm:col-span-1" />
+            {!leave && <Input type="time" value={st} onChange={(e) => setSt(e.target.value)} />}
+            {!leave && <Input type="time" value={en} onChange={(e) => setEn(e.target.value)} />}
           </div>
           <div className="space-y-1"><Label>메모</Label><Input value={memo} onChange={(e) => setMemo(e.target.value)} /></div>
-          <div className="space-y-1">
+          {!leave && <div className="space-y-1">
             <Label>공개 범위</Label>
             <div className="grid grid-cols-3 gap-2">
               {(Object.keys(VIS_LABEL) as Visibility[]).map((v) => {
@@ -419,7 +457,8 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
               })}
             </div>
           </div>
-          {vis === "selected" && (
+          }
+          {!leave && vis === "selected" && (
             <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg bg-muted p-3">
               {profiles?.filter((p) => p.id !== me?.id).map((p) => (
                 <label key={p.id} className="flex items-center gap-2 text-sm">
@@ -429,7 +468,7 @@ function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; onClose: 
             </div>
           )}
           <p className="text-xs text-muted-foreground">관리자는 공개 범위와 관계없이 모든 일정을 볼 수 있습니다.</p>
-          <Button className="w-full" onClick={save}>저장</Button>
+          <Button className="w-full" disabled={busy} onClick={save}>저장</Button>
         </div>
       </DialogContent>
     </Dialog>
