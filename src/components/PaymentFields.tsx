@@ -12,21 +12,20 @@ export function PaymentFields({ value, onChange, disabled }: { value: PaymentDra
   const productInputs = <div className="space-y-2">
     {productsError && <p role="alert" className="text-xs text-destructive">제품 목록을 불러오지 못했습니다.</p>}
     {(value.sales.length ? value.sales : [{ product_id: "", quantity: 1, unit_price: 0 }]).map((sale, index) => <div key={index} className="space-y-1 rounded border p-2">
-      <select aria-label={`예약 판매 제품 ${index + 1}`} disabled={disabled} className="h-9 w-full rounded border bg-background px-2 text-sm" value={sale.product_id} onChange={(e) => {
+      <div className="flex items-end gap-2"><label className="min-w-0 flex-1 text-xs">제품 선택<select aria-label={`예약 판매 제품 ${index + 1}`} disabled={disabled} className="h-9 w-full min-w-0 rounded border bg-background px-2 text-sm" value={sale.product_id} onChange={(e) => {
         if (!e.target.value) { onChange?.(withReservationSales(value, value.sales.filter((_, i) => i !== index))); return; }
         const p = products?.find((p) => p.id === e.target.value);
         const next = { product_id: e.target.value, quantity: sale.quantity, name: p?.name ?? "", unit_price: p?.price ?? 0 };
         onChange?.(withReservationSales(value, value.sales.length ? value.sales.map((s, i) => i === index ? next : s) : [next]));
-      }}><option value="">▼ 제품 선택</option>{sale.product_id && products && !products.some(p=>p.id===sale.product_id) && <option value={sale.product_id}>기존 제품 (삭제됨)</option>}{products?.filter((p) => p.is_active || p.id === sale.product_id).map((p) => <option value={p.id} key={p.id}>{p.name} · 재고 {p.stock}{p.unit}</option>)}</select>
+      }}><option value="">▼ 제품 선택</option>{sale.product_id && products && !products.some(p=>p.id===sale.product_id) && <option value={sale.product_id}>기존 제품 (삭제됨)</option>}{products?.filter((p) => p.is_active || p.id === sale.product_id).map((p) => <option value={p.id} key={p.id}>{p.name} · 재고 {p.stock}{p.unit}</option>)}</select></label><label className="w-20 shrink-0 text-xs">판매 수량<Input aria-label={`예약 판매 수량 ${index + 1}`} type="number" inputMode="decimal" min="0.001" max={100000} step="0.001" className="h-9 w-full" value={sale.quantity} disabled={disabled} onChange={(e) => onChange?.(withReservationSales(value, value.sales.length ? value.sales.map((s, i) => i === index ? { ...s, quantity: Number(e.target.value) } : s) : [{ ...sale, quantity: Number(e.target.value) }]))} /></label></div>
       {!sale.product_id && value.sales.length > 0 && <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onChange?.(withReservationSales(value, value.sales.filter((_, i) => i !== index)))}>삭제</Button>}
       <div className="flex flex-wrap items-end gap-1">
-        <label className="text-xs">판매 수량<Input aria-label={`예약 판매 수량 ${index + 1}`} type="number" inputMode="decimal" min="0.001" max={100000} step="0.001" className="h-9 w-20" value={sale.quantity} disabled={disabled || !sale.product_id} onChange={(e) => onChange?.(withReservationSales(value, value.sales.map((s, i) => i === index ? { ...s, quantity: Number(e.target.value) } : s)))} /></label>
         {sale.product_id && <><label className="text-xs">판매단가(원)<Input aria-label={`예약 판매단가 ${index + 1}`} type="number" inputMode="decimal" min={0} max={999999999999} step="0.01" className="h-9 w-28" value={sale.unit_price ?? 0} disabled={disabled} onChange={(e) => onChange?.(withReservationSales(value, value.sales.map((s, i) => i === index ? { ...s, unit_price: Number(e.target.value) } : s)))} /></label>
         <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onChange?.(withReservationSales(value, value.sales.filter((_, i) => i !== index)))}>삭제</Button>
         </>}
       </div>
     </div>)}
-    {value.sales.length > 0 && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange?.({ ...value, sales: [...value.sales, { product_id: "", quantity: 1 }] })}>+ 제품</Button>}
+    <div className="flex items-center gap-2"><Button type="button" variant="outline" size="sm" disabled={disabled || !value.sales.length || value.sales.length >= 5 || value.sales.some(s=>!s.product_id)} onClick={() => { if(value.sales.length < 5) onChange?.({ ...value, sales: [...value.sales, { product_id: "", quantity: 1 }] }); }}>+ 제품 추가</Button><span className="text-xs text-muted-foreground">{Math.max(1,value.sales.length)} / 5종류</span></div>
     <Input aria-label="제품 내용" placeholder="제품 메모 (선택)" maxLength={300} disabled={disabled} value={value.rows.find((r) => r.kind === "product")?.description ?? ""} onChange={(e) => onChange?.({ ...value, rows: value.rows.map((r) => r.kind === "product" ? { ...r, description: e.target.value } : r) })} />
   </div>;
   return (
