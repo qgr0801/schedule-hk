@@ -6,8 +6,9 @@ export function withReservationSales(value: PaymentDraft, sales: ProductSale[]):
     if (r.kind !== "product") return r;
     const changed = { ...r, cost: r.cost === 0 || r.cost === previous ? next : r.cost };
     const noForeign = !r.jpy && !r.usd && !r.cny;
-    if (noForeign && !r.card && (r.krw === 0 || r.krw === previous)) changed.krw = next;
-    else if (noForeign && !r.krw && r.card === previous) changed.card = next;
+    if (noForeign && !r.bank && !r.card && (r.krw === 0 || r.krw === previous)) changed.krw = next;
+    else if (noForeign && !r.bank && !r.krw && r.card === previous) changed.card = next;
+    else if (noForeign && !r.card && !r.krw && r.bank === previous) changed.bank = next;
     return changed;
   }) };
 }

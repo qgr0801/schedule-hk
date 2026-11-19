@@ -232,6 +232,20 @@
       "when": 1792672700306,
       "tag": "0032_product_routes_catalog_management",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1792672700307,
+      "tag": "0033_booking_routes_bank_payments",
+      "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1792672700308,
+      "tag": "0034_admin_route_settlements",
+      "breakpoints": true
     }
   ]
 }

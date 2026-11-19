@@ -156,7 +156,7 @@ export function ProductInventory() {
         <label className="text-sm">판매일<Input type="date" aria-label="제품 판매일" required disabled={busy} value={saleDate} onChange={(e) => setSaleDate(e.target.value)} /></label>
         <label className="text-sm">제품<select aria-label="판매 제품" className="h-10 w-full rounded border bg-background px-2" required disabled={busy} value={saleProduct} onChange={(e) => { setSaleProduct(e.target.value); setSalePrice(""); }}><option value="">제품 선택</option>{data?.filter((p) => p.is_active).map((p) => <option key={p.id} value={p.id}>{routeName(p.route_id)} · {p.name} · 재고 {p.stock}{p.unit}</option>)}</select></label>
         <label className="text-sm">판매 수량<Input aria-label="판매 수량" type="number" required min="0.001" max={100000} step="0.001" disabled={busy} value={saleQuantity} onChange={(e) => setSaleQuantity(e.target.value)} /></label>
-        <label className="text-sm">결제 방법<select aria-label="제품 결제 방법" className="h-10 w-full rounded border bg-background px-2" disabled={busy} value={saleMethod} onChange={(e) => setSaleMethod(e.target.value)}><option value="krw">원 (현금)</option><option value="card">카드 (원)</option></select></label>
+        <label className="text-sm">결제 방법<select aria-label="제품 결제 방법" className="h-10 w-full rounded border bg-background px-2" disabled={busy} value={saleMethod} onChange={(e) => setSaleMethod(e.target.value)}><option value="krw">원 (현금)</option><option value="card">카드 (원)</option><option value="bank">계좌 (원)</option></select></label>
       </div>
       <label className="block text-sm">판매단가(원)<Input aria-label="예약 외 판매단가" type="number" min={0} max={999999999999} step="0.01" placeholder={String(selected?.price ?? 0)} value={salePrice} onChange={(e) => setSalePrice(e.target.value)} /></label>
       <p className="text-sm font-semibold">판매금액: {((salePrice !== "" ? Number(salePrice) : selected?.price ?? 0) * (Number(saleQuantity) || 0)).toLocaleString("ko-KR")}원</p>
@@ -168,7 +168,7 @@ export function ProductInventory() {
     </form></details>
     <details className="space-y-2 rounded border p-3"><summary className="cursor-pointer font-semibold">예약 외 판매 내역</summary>
       {sales.error && <p role="alert">판매 내역을 불러오지 못했습니다.</p>}{sales.isPending && <p>불러오는 중입니다.</p>}
-      {sales.data?.map((s) => <div className="rounded border p-2 text-sm" key={s.id}>{s.paid_on} · {s.product_name} · {s.quantity}개 · {(s.quantity * Number(s.unit_price)).toLocaleString("ko-KR")}원 · {s.method === "card" ? "카드" : "현금"}{s.memo && <p>{s.memo}</p>}</div>)}
+      {sales.data?.map((s) => <div className="rounded border p-2 text-sm" key={s.id}>{s.paid_on} · {s.product_name} · {s.quantity}개 · {(s.quantity * Number(s.unit_price)).toLocaleString("ko-KR")}원 · {s.method === "card" ? "카드" : s.method === "bank" ? "계좌" : "현금"}{s.memo && <p>{s.memo}</p>}</div>)}
       {sales.data?.length === 0 && <p className="text-sm">등록된 판매가 없습니다.</p>}
       <div className="flex gap-2"><Button variant="outline" disabled={salesPage === 0} onClick={() => setSalesPage(salesPage - 1)}>이전</Button><Button variant="outline" disabled={sales.data?.length !== 30} onClick={() => setSalesPage(salesPage + 1)}>다음</Button></div>
     </details>

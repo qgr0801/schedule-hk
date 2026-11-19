@@ -1,3 +1,4 @@
+import { BookingActivityReport } from "@/components/BookingActivityReport";
 import { ProductInventory } from "@/components/ProductInventory";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute } from "@tanstack/react-router";
@@ -14,7 +15,7 @@ import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
   head: () => ({ meta: [{ title: "WORK | Schedule HK" }] }),
-  validateSearch: (search: Record<string, unknown>) => ({ tab: search["tab"] === "products" ? "products" : "time" }),
+  validateSearch: (search: Record<string, unknown>) => ({ tab: search["tab"] === "products" ? "products" : search["tab"] === "admin" ? "admin" : "time" }),
   component: Work,
 });
 function Work() {
@@ -23,9 +24,10 @@ function Work() {
   const { data: me } = useQuery(meQuery);
   if (me?.role !== "admin" && me?.role !== "internal") return <p>WORK 열람 권한이 없습니다.</p>;
   return <div className="space-y-4"><PageHeader title="WORK" />
-    <Tabs value={tab} onValueChange={(value) => navigate({ search: { tab: value } })}>
-      <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="time">TIME</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger></TabsList>
+    <Tabs value={tab === "admin" && me?.role !== "admin" ? "time" : tab} onValueChange={(value) => navigate({ search: { tab: value } })}>
+      <TabsList className={`grid w-full ${me?.role === "admin" ? "grid-cols-3" : "grid-cols-2"}`}><TabsTrigger value="time">TIME</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger>{me?.role === "admin" && <TabsTrigger value="admin">ADMIN</TabsTrigger>}</TabsList>
       <TabsContent value="time"><Attendance /></TabsContent>
+      {me?.role === "admin" && <TabsContent value="admin"><Panel><BookingActivityReport /></Panel></TabsContent>}
       <TabsContent value="products"><Panel><ProductInventory /></Panel></TabsContent>
     </Tabs>
   </div>;

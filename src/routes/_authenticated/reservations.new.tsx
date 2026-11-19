@@ -1,3 +1,4 @@
+import { BookingRouteField } from "@/components/BookingRoutes";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
@@ -63,6 +64,7 @@ function ReservationForm() {
   const [busy, setBusy] = useState(false);
   const [reservationKey] = useState(() => id ?? crypto.randomUUID());
   const [serviceDetail, setServiceDetail] = useState("");
+  const [bookingRouteId, setBookingRouteId] = useState("");
   const [detailKind, setDetailKind] = useState<"service" | "care">("service");
   const [paymentOverride, setPaymentOverride] = useState<PaymentDraft | null>(null);
   const canBill = me?.role === "admin" || me?.role === "internal";
@@ -101,6 +103,7 @@ function ReservationForm() {
       setStaffId(data.staff_id ?? data.created_by);
       setCreatorId(data.created_by);
       setPublicService(data.public_service);
+      setBookingRouteId(data.booking_route_id ?? "");
       const s = toLocalInput(data.start_at);
       setF({
         customer_name: data.customer_name, customer_phone: data.customer_phone ?? "", service: data.service,
@@ -196,7 +199,7 @@ function ReservationForm() {
     setBusy(true);
     const cid = await saveCustomer(parsed.data.customer_name, parsed.data.customer_phone || null);
     if (!cid) { setBusy(false); return; }
-    Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicServiceValue, service_detail: serviceDetail.trim() });
+    Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicServiceValue, service_detail: serviceDetail.trim(), ...(canBill ? { booking_route_id: bookingRouteId || null } : {}) });
     const { error } = canBill
       ? await supabase.rpc("save_reservation_payment", { _id: reservationKey, _reservation: payload as unknown as Json, _payment: hasPayment(payment) ? payment as unknown as Json : null })
       : id
@@ -271,6 +274,7 @@ function ReservationForm() {
               {profiles?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
             </select>
           </div>
+          {canBill && <BookingRouteField value={bookingRouteId} onChange={setBookingRouteId} disabled={busy} />}
           <div className="space-y-2 sm:col-span-2">
             <Label>보조 태그</Label>
             <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg bg-muted p-3">

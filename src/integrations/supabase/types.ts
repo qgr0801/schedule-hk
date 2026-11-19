@@ -14,6 +14,13 @@ export type Database = {
   }
   public: {
     Tables: {
+      booking_routes: {
+        Row: { id: string; name: string; is_active: boolean; created_at: string }
+        Insert: { id?: string; name: string; is_active?: boolean; created_at?: string }
+        Update: { id?: string; name?: string; is_active?: boolean; created_at?: string }
+        Relationships: []
+      }
+
       product_routes: {
         Row: { id: string; name: string; sort_order: number; deleted_at: string | null; created_at: string }
         Insert: never
@@ -412,6 +419,7 @@ export type Database = {
           section: number | null
           service_detail: string
           service: string
+          booking_route_id: string | null
           staff_id: string | null
           start_at: string
           status: Database["public"]["Enums"]["reservation_status"]
@@ -434,6 +442,7 @@ export type Database = {
           section?: number | null
           service_detail?: string
           service: string
+          booking_route_id?: string | null
           staff_id?: string | null
           start_at: string
           status?: Database["public"]["Enums"]["reservation_status"]
@@ -456,6 +465,7 @@ export type Database = {
           section?: number | null
           service_detail?: string
           service?: string
+          booking_route_id?: string | null
           staff_id?: string | null
           start_at?: string
           status?: Database["public"]["Enums"]["reservation_status"]
@@ -705,6 +715,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      route_settlement_summary: { Args: { _from: string; _to: string; _route?: string; _staff?: string; _customer?: string }; Returns: { route_id: string | null; route_name: string; kind: string; settlement_count: number; customer_count: number; cost: number; card: number; bank: number; krw: number; jpy: number; usd: number; cny: number }[] }
+
+      save_booking_route: { Args: { _id: string; _name: string; _active?: boolean }; Returns: string }
+      payment_summary_v2: { Args: { _customer?: string; _from?: string; _to?: string; _product_only?: boolean }; Returns: { kind: string; cost: number; card: number; bank: number; krw: number; jpy: number; usd: number; cny: number }[] }
+      booking_activity_report: { Args: { _from: string; _to: string; _route?: string; _staff?: string; _customer?: string; _offset?: number }; Returns: { reservation_id: string; start_at: string; customer_name: string; staff_name: string; route_name: string; service_content: string; care_content: string; paid_on: string | null; payment_rows: Json; payment_memo: string; status: string }[] }
+
       save_inventory_route: { Args: { _id: string; _name: string }; Returns: string }
       delete_inventory_route: { Args: { _id: string }; Returns: undefined }
       register_routed_product: { Args: { _id: string; _name: string; _price: number; _stock: number; _unit: string; _route?: string; _stock_confirmed?: boolean }; Returns: string }

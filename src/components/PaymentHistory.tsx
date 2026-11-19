@@ -51,7 +51,7 @@ export function PaymentHistory({ customerId, reservationId, global = false }: { 
     queryKey: ["payment-summary", me?.role, customerId, fromText, toText],
     enabled: !!allowed && !reservationId && validDate,
     queryFn: async () => {
-      const { data, error } = await supabase.rpc(me?.role === "admin" ? "payment_summary" : "product_payment_summary", { ...(customerId ? { _customer: customerId } : {}), ...(fromText ? { _from: fromText } : {}), ...(toText ? { _to: toText } : {}) });
+      const { data, error } = await supabase.rpc("payment_summary_v2", { _product_only: me?.role !== "admin", ...(customerId ? { _customer: customerId } : {}), ...(fromText ? { _from: fromText } : {}), ...(toText ? { _to: toText } : {}) });
       if (error) throw error;
       return data;
     },
@@ -82,7 +82,7 @@ export function PaymentHistory({ customerId, reservationId, global = false }: { 
       {!reservationId && <Button asChild size="sm" variant="outline" className="mt-2"><Link to="/reservations/new" search={{ id: entry.reservation_id }}>연결된 예약·계산 수정</Link></Button>}
     </details>)}
     {!reservationId && workSales.error && <p role="alert">WORK 제품판매 내역을 불러오지 못했습니다.</p>}
-    {!reservationId && workSales.data?.map((sale) => <div key={sale.id} className="rounded border p-3 text-sm">{sale.paid_on} · WORK 제품판매 · {sale.product_name} {sale.quantity}개 · {(sale.quantity * Number(sale.unit_price)).toLocaleString("ko-KR")}원 · {sale.method === "card" ? "카드" : "현금"}{sale.memo && <p>{sale.memo}</p>}</div>)}
+    {!reservationId && workSales.data?.map((sale) => <div key={sale.id} className="rounded border p-3 text-sm">{sale.paid_on} · WORK 제품판매 · {sale.product_name} {sale.quantity}개 · {(sale.quantity * Number(sale.unit_price)).toLocaleString("ko-KR")}원 · {sale.method === "card" ? "카드" : sale.method === "bank" ? "계좌" : "현금"}{sale.memo && <p>{sale.memo}</p>}</div>)}
     {!reservationId && <div className="flex gap-2"><Button type="button" variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button><Button type="button" variant="outline" disabled={entries.data?.length !== 20 && workSales.data?.length !== 20} onClick={() => setPage(page + 1)}>다음</Button></div>}
   </section>;
 }
