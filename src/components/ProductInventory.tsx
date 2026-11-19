@@ -45,6 +45,8 @@ export function ProductInventory() {
     if (error) throw error; return data;
   } });
   const { data, error, isPending } = useQuery(productsQuery);
+  const [productId, setProductId] = useState(() => crypto.randomUUID());
+  const [initialStock, setInitialStock] = useState("0");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [busy, setBusy] = useState(false);
@@ -62,7 +64,7 @@ export function ProductInventory() {
       await qc.invalidateQueries({ queryKey: ["stock-movements"] });
       await qc.invalidateQueries({ queryKey: ["product-overview"] });
       toast.success("제품 정보를 저장했습니다.");
-      setName(""); setPrice(""); setAdjustment(null); setQuantity("");
+      setName(""); setPrice(""); setInitialStock("0"); setProductId(crypto.randomUUID()); setAdjustment(null); setQuantity("");
     } catch (err) { toast.error(dbErrorMessage(err)); }
     finally { setBusy(false); }
   }
@@ -94,10 +96,12 @@ export function ProductInventory() {
       {[["입고·증가 수량", `${overview.data?.reduce((sum, r) => sum + Number(r.received), 0) ?? 0}개`], ["판매 수량", `${overview.data?.reduce((sum, r) => sum + Number(r.sold), 0) ?? 0}개`], ["제품 판매금액", `${(overview.data?.reduce((sum, r) => sum + Number(r.sales_amount), 0) ?? 0).toLocaleString("ko-KR")}원`], ["재고 부족 제품", `${data?.filter((p) => p.is_active && p.stock <= 3).length ?? 0}종`]].map(([label, value]) => <div key={label} className="rounded-lg bg-muted p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{(label === "재고 부족 제품" ? !data : overview.isPending || !validReport || overview.error) ? "—" : value}</p></div>)}
     </div>
     <p className="text-xs text-muted-foreground">입고·증가는 등록일(한국 시간), 판매는 판매일 기준입니다. 현재 재고는 조회 기간과 관계없는 최신 수량이며, 3개 이하는 부족으로 표시합니다. 판매금액은 제품별 등록 판매가 기준입니다.</p>
-    {admin && <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.from("products").insert({ name: name.trim(), price: Number(price) || 0 })); }}>
-      <Input aria-label="새 제품명" placeholder="제품명" maxLength={100} className="flex-1" value={name} onChange={(e) => setName(e.target.value)} required />
-      <Input aria-label="제품 판매가" placeholder="판매가(원)" className="w-36" type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
-      <Button disabled={busy || !name.trim()}>제품 등록</Button>
+    <p className="text-sm font-semibold">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 30종</p>
+    {admin && <form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("create_product_with_stock", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock) })); }}>
+      <label className="min-w-40 flex-1 text-sm">제품명<Input aria-label="새 제품명" placeholder="제품명" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} required /></label>
+      <label className="text-sm">판매가(원)<Input aria-label="제품 판매가" placeholder="판매가(원)" className="w-36" type="number" min={0} max={999999999999} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} /></label>
+      <label className="text-sm">현재 보유 수량<Input aria-label="현재 보유 수량" className="w-36" type="number" min={0} max={100000000} step={1} required value={initialStock} onChange={(e) => setInitialStock(e.target.value)} /></label>
+      <Button disabled={busy || !name.trim() || (data?.filter((p) => p.is_active).length ?? 30) >= 30}>제품 · 초기 재고 등록</Button>
     </form>}
     {isPending && <p>제품을 불러오는 중입니다.</p>}
     {error && <p role="alert">제품 목록을 불러오지 못했습니다.</p>}
