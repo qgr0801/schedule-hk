@@ -229,7 +229,7 @@ function VisitHistory({ customerId }: { customerId: string }) {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reservations")
-        .select("id, start_at, public_service, service, status")
+        .select("id, start_at, public_service, service, service_detail, status")
         .eq("customer_id", customerId)
         .order("start_at", { ascending: false })
         .limit(100);
@@ -243,8 +243,8 @@ function VisitHistory({ customerId }: { customerId: string }) {
       <h4 className="mb-2 text-sm font-semibold text-primary">재방문 내역 {data && `(예약 ${data.length}건 · 시술 완료 ${done}회)`}</h4>
       <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
         {data?.map((v) => (
-          <li key={v.id} className="flex items-center justify-between gap-2 rounded-md bg-muted px-3 py-2">
-            <Link className="min-w-0 truncate underline" to="/reservations/new" search={{ id: v.id }}>{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.service}</Link>
+          <li key={v.id} className="flex items-start justify-between gap-2 rounded-md bg-muted px-3 py-2">
+            <Link className="min-w-0 flex-1 break-words underline" to="/reservations/new" search={{ id: v.id }}><span className="block">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.service}</span>{v.service_detail && <span className="mt-1 block whitespace-pre-wrap break-words font-medium">{v.service_detail}</span>}</Link>
             <StatusBadge status={v.status} />
           </li>
         ))}
