@@ -1,3 +1,5 @@
+import { ProductInventory } from "@/components/ProductInventory";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -11,9 +13,23 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/_authenticated/attendance")({
-  head: () => ({ meta: [{ title: "프리랜서 출근부 | Schedule HK" }] }),
-  component: Attendance,
+  head: () => ({ meta: [{ title: "WORK | Schedule HK" }] }),
+  validateSearch: (search: Record<string, unknown>) => ({ tab: search["tab"] === "products" ? "products" : "time" }),
+  component: Work,
 });
+function Work() {
+  const { tab } = Route.useSearch();
+  const navigate = Route.useNavigate();
+  const { data: me } = useQuery(meQuery);
+  if (me?.role !== "admin" && me?.role !== "internal") return <p>WORK 열람 권한이 없습니다.</p>;
+  return <div className="space-y-4"><PageHeader title="WORK" />
+    <Tabs value={tab} onValueChange={(value) => navigate({ search: { tab: value } })}>
+      <TabsList className="grid w-full grid-cols-2"><TabsTrigger value="time">TIME</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger></TabsList>
+      <TabsContent value="time"><Attendance /></TabsContent>
+      <TabsContent value="products"><Panel><ProductInventory /></Panel></TabsContent>
+    </Tabs>
+  </div>;
+}
 const hours = (minutes: number) => `${Math.floor(minutes / 60)}시간 ${Math.round(minutes % 60)}분`;
 
 function Attendance() {
@@ -28,8 +44,12 @@ function Attendance() {
   const [page, setPage] = useState(0);
   const [id, setId] = useState<string>(() => crypto.randomUUID());
   const [employee, setEmployee] = useState("");
-  const [start, setStart] = useState("");
-  const [end, setEnd] = useState("");
+  const [workDate, setWorkDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [endDate, setEndDate] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [startTime, setStartTime] = useState("");
+  const [endTime, setEndTime] = useState("");
+  const start = workDate && startTime ? `${workDate}T${startTime}` : "";
+  const end = endDate && endTime ? `${endDate}T${endTime}` : "";
   const [memo, setMemo] = useState("");
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -56,7 +76,7 @@ function Attendance() {
       return data;
     },
   });
-  const reset = () => { setId(crypto.randomUUID()); setEmployee(""); setStart(""); setEnd(""); setMemo(""); setEditing(false); };
+  const reset = () => { setId(crypto.randomUUID()); setEmployee(""); setWorkDate(format(new Date(), "yyyy-MM-dd")); setEndDate(format(new Date(), "yyyy-MM-dd")); setStartTime(""); setEndTime(""); setMemo(""); setEditing(false); };
   async function save(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !canEdit) return;
@@ -75,17 +95,21 @@ function Attendance() {
   }
   if (!canView) return <p>출근부 열람 권한이 없습니다.</p>;
   return <div className="space-y-4">
-    <PageHeader title="프리랜서 출근부" />
+    <h2 className="text-lg font-semibold">프리랜서 출근부</h2>
     {canEdit && <Panel>
       <form onSubmit={save} className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm">직원명<select aria-label="출근부 직원" className="h-10 w-full rounded border bg-background px-2" required value={employee} onChange={(e) => setEmployee(e.target.value)}>
           <option value="">직원 선택</option>{employees?.filter((p) => p.is_active || p.id === employee).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select></label>
         <div className="self-end text-sm">{start && end && new Date(end) > new Date(start) ? hours((+new Date(end) - +new Date(start)) / 60000) : "시작·종료 일시를 입력하세요."}</div>
-        <label className="space-y-1 text-sm">시작<Input aria-label="출근 시작" type="datetime-local" step={60} required value={start} onChange={(e) => setStart(e.target.value)} /></label>
-        <label className="space-y-1 text-sm">종료<Input aria-label="출근 종료" type="datetime-local" step={60} required value={end} onChange={(e) => setEnd(e.target.value)} /></label>
+        <label className="space-y-1 text-sm">근무 날짜<Input aria-label="근무 날짜" type="date" required value={workDate} onChange={(e) => { setWorkDate(e.target.value); setEndDate(e.target.value); }} /></label>
+        <div className="grid grid-cols-2 gap-3">
+          <label className="space-y-1 text-sm">시작 (시:분)<Input aria-label="출근 시작 시간" type="time" step={60} required value={startTime} onChange={(e) => setStartTime(e.target.value)} /></label>
+          <label className="space-y-1 text-sm">종료 (시:분)<Input aria-label="출근 종료 시간" type="time" step={60} required value={endTime} onChange={(e) => setEndTime(e.target.value)} /></label>
+        </div>
+        <details className="sm:col-span-2" open={endDate !== workDate || undefined}><summary className="cursor-pointer text-sm">날짜를 넘겨 근무한 경우 종료 날짜 변경</summary><label className="space-y-1 text-sm">종료 날짜<Input aria-label="근무 종료 날짜" type="date" required min={workDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label></details>
         <Input aria-label="출근부 메모" placeholder="메모" maxLength={500} value={memo} onChange={(e) => setMemo(e.target.value)} />
-        <div className="flex gap-2"><Button disabled={busy}>{editing ? "수정 저장" : "출근 기록 등록"}</Button>{editing && <Button type="button" variant="outline" disabled={busy} onClick={reset}>취소</Button>}</div>
+        <div className="flex gap-2"><Button disabled={busy}>{editing ? "수정 저장" : "등록"}</Button>{editing && <Button type="button" variant="outline" disabled={busy} onClick={reset}>취소</Button>}</div>
       </form>
     </Panel>}
     <Panel className="space-y-3">
@@ -104,7 +128,7 @@ function Attendance() {
       <p className="text-xs text-muted-foreground">조회 기간에 해당하는 시간만 합산합니다.</p>
       <div className="overflow-x-auto"><table className="w-full min-w-[600px] text-sm">
         <thead><tr><th>직원명</th><th>시작</th><th>종료</th><th>합계(시·분)</th><th>메모</th>{canEdit && <th>수정</th>}</tr></thead>
-        <tbody>{list.data?.map((r) => <tr key={r.id} className="border-b"><td className="py-3">{employees?.find((p) => p.id === r.employee_id)?.name}</td><td>{format(new Date(r.start_at), "yyyy.MM.dd HH:mm")}</td><td>{format(new Date(r.end_at), "yyyy.MM.dd HH:mm")}</td><td>{hours((+new Date(r.end_at) - +new Date(r.start_at)) / 60000)}</td><td>{r.memo}</td>{canEdit && <td><Button size="sm" variant="outline" onClick={() => { setEditing(true); setId(r.id); setEmployee(r.employee_id); setStart(format(new Date(r.start_at), "yyyy-MM-dd'T'HH:mm")); setEnd(format(new Date(r.end_at), "yyyy-MM-dd'T'HH:mm")); setMemo(r.memo); }}>수정</Button></td>}</tr>)}</tbody>
+        <tbody>{list.data?.map((r) => <tr key={r.id} className="border-b"><td className="py-3">{employees?.find((p) => p.id === r.employee_id)?.name}</td><td>{format(new Date(r.start_at), "yyyy.MM.dd HH:mm")}</td><td>{format(new Date(r.end_at), "yyyy.MM.dd HH:mm")}</td><td>{hours((+new Date(r.end_at) - +new Date(r.start_at)) / 60000)}</td><td>{r.memo}</td>{canEdit && <td><Button size="sm" variant="outline" onClick={() => { setEditing(true); setId(r.id); setEmployee(r.employee_id); setWorkDate(format(new Date(r.start_at), "yyyy-MM-dd")); setEndDate(format(new Date(r.end_at), "yyyy-MM-dd")); setStartTime(format(new Date(r.start_at), "HH:mm")); setEndTime(format(new Date(r.end_at), "HH:mm")); setMemo(r.memo); }}>수정</Button></td>}</tr>)}</tbody>
       </table></div>
       {list.data?.length === 0 && <p className="text-sm">해당 기간의 출근 기록이 없습니다.</p>}
       <div className="flex gap-2"><Button variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button><Button variant="outline" disabled={list.data?.length !== 30} onClick={() => setPage(page + 1)}>다음</Button></div>

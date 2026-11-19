@@ -14,6 +14,13 @@ export type Database = {
   }
   public: {
     Tables: {
+      work_product_sales: {
+        Row: { id: string; product_id: string; customer_id: string | null; product_name: string; quantity: number; unit_price: number; paid_on: string; method: string; memo: string; created_by: string; created_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+
       freelancer_attendance: {
         Row: { id: string; employee_id: string; start_at: string; end_at: string; memo: string; created_by: string }
         Insert: { id?: string; employee_id: string; start_at: string; end_at: string; memo?: string }
@@ -685,6 +692,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      record_work_product_sale: { Args: { _id: string; _product: string; _quantity: number; _paid_on: string; _method: string; _memo?: string; _customer?: string }; Returns: string }
+
       attendance_summary: { Args: { _from: string; _to: string; _employee?: string }; Returns: { employee_id: string; minutes: number }[] }
       save_reservation_payment: { Args: { _id: string; _reservation: Json; _payment: Json }; Returns: string }
       adjust_product_stock: { Args: { _event: string; _product: string; _quantity: number; _reason: string }; Returns: undefined }

@@ -21,7 +21,7 @@ const NAV = [
   { key: "calendar", to: "/calendar", label: "캘린더", icon: CalendarDays },
   { key: "reservation_new", to: "/reservations/new", label: "예약 등록", icon: PlusCircle },
   { key: "my_reservations", to: "/my-reservations", label: "내 예약", icon: ListChecks },
-  { key: "attendance", to: "/attendance", label: "프리랜서 출근부", icon: ClipboardList },
+  { key: "attendance", to: "/attendance", label: "WORK", icon: ClipboardList },
   { key: "customers", to: "/customers", label: "고객 관리", icon: Contact },
   { key: "admin_reservations", to: "/admin/reservations", label: "전체 예약", icon: ClipboardList },
   { key: "admin_staff", to: "/admin/staff", label: "직원 권한", icon: Users },

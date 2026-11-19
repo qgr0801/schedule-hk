@@ -154,9 +154,9 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader><DialogTitle>{customer ? "고객 정보" : "고객 등록"}</DialogTitle></DialogHeader>
-        <fieldset disabled={!canEdit} className="space-y-3">
+        {customer ? <CustomerRecords customerId={customer.id} basicInfo={<>        <fieldset disabled={!canEdit} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1"><Label>고객명 *</Label><Input value={name} maxLength={50} onChange={(e) => setName(e.target.value)} placeholder="예: 김가상" /></div>
             <div className="space-y-1"><Label>연락처</Label><Input value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></div>
@@ -186,7 +186,37 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
         ) : (
           <p className="text-xs text-muted-foreground">다른 직원이 등록한 고객은 등록자나 관리자만 수정할 수 있습니다.</p>
         )}
-        {customer && <CustomerRecords customerId={customer.id}><VisitHistory customerId={customer.id} /></CustomerRecords>}
+</>}><VisitHistory customerId={customer.id} /></CustomerRecords> : <>        <fieldset disabled={!canEdit} className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-1"><Label>고객명 *</Label><Input value={name} maxLength={50} onChange={(e) => setName(e.target.value)} placeholder="예: 김가상" /></div>
+            <div className="space-y-1"><Label>연락처</Label><Input value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></div>
+          </div>
+          <div className="space-y-1">
+            <Label>기본 구분</Label>
+            <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="">선택 안 함</option>
+              {categories?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+          </div>
+          <div className="space-y-1">
+            <Label>보조 태그 (여러 개 선택 가능)</Label>
+            <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg bg-muted p-3">
+              {categories?.filter((c) => c.id !== categoryId).map((c) => (
+                <label key={c.id} className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={tags.includes(c.id)} onCheckedChange={(v) => setTags(v ? [...tags, c.id] : tags.filter((t) => t !== c.id))} />
+                  <CategoryBadge cat={c} small />
+                </label>
+              ))}
+            </div>
+          </div>
+          <div className="space-y-1"><Label>메모</Label><Textarea value={memo} maxLength={500} onChange={(e) => setMemo(e.target.value)} /></div>
+        </fieldset>
+        {canEdit ? (
+          <Button className="h-11 w-full" disabled={busy} onClick={save}>저장</Button>
+        ) : (
+          <p className="text-xs text-muted-foreground">다른 직원이 등록한 고객은 등록자나 관리자만 수정할 수 있습니다.</p>
+        )}
+</>}
       </DialogContent>
     </Dialog>
   );

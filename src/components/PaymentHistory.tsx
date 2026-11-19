@@ -36,6 +36,17 @@ export function PaymentHistory({ customerId, reservationId, global = false }: { 
       return data;
     },
   });
+  const workSales = useQuery({
+    queryKey: ["work-sales", "payments", customerId, fromText, toText, page], enabled: !!allowed && !reservationId && validDate,
+    queryFn: async () => {
+      let q = supabase.from("work_product_sales").select("*").order("paid_on", { ascending: false }).order("id");
+      if (customerId) q = q.eq("customer_id", customerId);
+      if (fromText) q = q.gte("paid_on", fromText);
+      if (toText) q = q.lte("paid_on", toText);
+      const { data, error } = await q.range(page * 20, page * 20 + 19);
+      if (error) throw error; return data;
+    },
+  });
   const summary = useQuery({
     queryKey: ["payment-summary", me?.role, customerId, fromText, toText],
     enabled: !!allowed && !reservationId && validDate,
@@ -64,12 +75,14 @@ export function PaymentHistory({ customerId, reservationId, global = false }: { 
     </div>}
     {entries.isPending && <p>계산 내역을 불러오는 중입니다.</p>}
     {entries.error && <p role="alert" className="text-sm text-destructive">계산 내역을 불러오지 못했습니다.</p>}
-    {entries.data?.length === 0 && <p className="text-sm text-muted-foreground">등록된 계산 내역이 없습니다.</p>}
+    {entries.data?.length === 0 && (reservationId || workSales.data?.length === 0) && <p className="text-sm text-muted-foreground">등록된 계산 내역이 없습니다.</p>}
     {entries.data?.map((entry) => <details key={entry.reservation_id} className="rounded border p-3">
       <summary className="cursor-pointer text-sm font-medium">{entry.paid_on} · 계산 내역</summary>
       <PaymentFields value={paymentDraft(entry)} />
       {!reservationId && <Button asChild size="sm" variant="outline" className="mt-2"><Link to="/reservations/new" search={{ id: entry.reservation_id }}>연결된 예약·계산 수정</Link></Button>}
     </details>)}
-    {!reservationId && <div className="flex gap-2"><Button type="button" variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button><Button type="button" variant="outline" disabled={entries.data?.length !== 20} onClick={() => setPage(page + 1)}>다음</Button></div>}
+    {!reservationId && workSales.error && <p role="alert">WORK 제품판매 내역을 불러오지 못했습니다.</p>}
+    {!reservationId && workSales.data?.map((sale) => <div key={sale.id} className="rounded border p-3 text-sm">{sale.paid_on} · WORK 제품판매 · {sale.product_name} {sale.quantity}개 · {(sale.quantity * Number(sale.unit_price)).toLocaleString("ko-KR")}원 · {sale.method === "card" ? "카드" : "현금"}{sale.memo && <p>{sale.memo}</p>}</div>)}
+    {!reservationId && <div className="flex gap-2"><Button type="button" variant="outline" disabled={page === 0} onClick={() => setPage(page - 1)}>이전</Button><Button type="button" variant="outline" disabled={entries.data?.length !== 20 && workSales.data?.length !== 20} onClick={() => setPage(page + 1)}>다음</Button></div>}
   </section>;
 }
