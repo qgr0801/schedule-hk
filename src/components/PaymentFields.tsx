@@ -17,7 +17,7 @@ export function PaymentFields({ value, onChange, disabled }: { value: PaymentDra
         const p = products?.find((p) => p.id === e.target.value);
         const next = { product_id: e.target.value, quantity: sale.quantity, name: p?.name ?? "", unit_price: p?.price ?? 0 };
         onChange?.(withReservationSales(value, value.sales.length ? value.sales.map((s, i) => i === index ? next : s) : [next]));
-      }}><option value="">▼ 제품 선택</option>{products?.filter((p) => p.is_active || p.id === sale.product_id).map((p) => <option value={p.id} key={p.id}>{p.name} · 재고 {p.stock}{p.unit}</option>)}</select>
+      }}><option value="">▼ 제품 선택</option>{sale.product_id && products && !products.some(p=>p.id===sale.product_id) && <option value={sale.product_id}>기존 제품 (삭제됨)</option>}{products?.filter((p) => p.is_active || p.id === sale.product_id).map((p) => <option value={p.id} key={p.id}>{p.name} · 재고 {p.stock}{p.unit}</option>)}</select>
       {!sale.product_id && value.sales.length > 0 && <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onChange?.(withReservationSales(value, value.sales.filter((_, i) => i !== index)))}>삭제</Button>}
       {sale.product_id && <div className="flex flex-wrap items-end gap-1">
         <label className="text-xs">수량<Input aria-label={`예약 판매 수량 ${index + 1}`} type="number" inputMode="decimal" min="0.001" max={100000} step="0.001" className="h-9 w-20" value={sale.quantity} disabled={disabled} onChange={(e) => onChange?.(withReservationSales(value, value.sales.map((s, i) => i === index ? { ...s, quantity: Number(e.target.value) } : s)))} /></label>

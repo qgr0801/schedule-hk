@@ -225,6 +225,13 @@
       "when": 1792672700305,
       "tag": "0031_product_limit_sixty",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1792672700306,
+      "tag": "0032_product_routes_catalog_management",
+      "breakpoints": true
     }
   ]
 }

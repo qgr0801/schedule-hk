@@ -14,6 +14,19 @@ export type Database = {
   }
   public: {
     Tables: {
+      product_routes: {
+        Row: { id: string; name: string; sort_order: number; deleted_at: string | null; created_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+      product_catalog_history: {
+        Row: { id: string; product_id: string; action: string; request: Json; old_data: Json; new_data: Json; changed_by: string; changed_at: string }
+        Insert: never
+        Update: never
+        Relationships: []
+      }
+
       work_product_sales: {
         Row: { id: string; product_id: string; customer_id: string | null; product_name: string; quantity: number; unit_price: number; paid_on: string; method: string; memo: string; created_by: string; created_at: string }
         Insert: never
@@ -28,7 +41,7 @@ export type Database = {
         Relationships: []
       }
       products: {
-        Row: { id: string; name: string; price: number; stock: number; is_active: boolean; unit: string }
+        Row: { id: string; name: string; price: number; stock: number; is_active: boolean; unit: string; route_id: string | null; deleted_at: string | null; stock_confirmed: boolean; import_key: string | null }
         Insert: { name: string; price?: number }
         Update: { name?: string; price?: number; is_active?: boolean; unit?: string }
         Relationships: []
@@ -692,6 +705,12 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      save_inventory_route: { Args: { _id: string; _name: string }; Returns: string }
+      delete_inventory_route: { Args: { _id: string }; Returns: undefined }
+      register_routed_product: { Args: { _id: string; _name: string; _price: number; _stock: number; _unit: string; _route?: string; _stock_confirmed?: boolean }; Returns: string }
+      edit_inventory_product: { Args: { _id: string; _event: string; _name: string; _price: number; _unit: string; _route?: string; _initial_stock?: number }; Returns: string }
+      set_inventory_product_deleted: { Args: { _id: string; _event: string; _deleted: boolean }; Returns: string }
+
       product_sales_report: { Args: { _from: string; _to: string; _offset?: number }; Returns: { sale_key: string; paid_on: string; customer_name: string; product_name: string; quantity: number; unit: string; unit_price: number; sales_amount: number; reservation_id: string | null; source: string; total_count: number; total_amount: number }[] }
 
       create_product_with_stock: { Args: { _id: string; _name: string; _price: number; _stock: number }; Returns: string }
