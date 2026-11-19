@@ -27,8 +27,8 @@ export function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; on
   const [busy, setBusy] = useState(false);
   const [memo, setMemo] = useState("");
   const [date, setDate] = useState(format(defaultDate, "yyyy-MM-dd"));
-  const [st, setSt] = useState("09:00");
-  const [en, setEn] = useState("10:00");
+  const [st, setSt] = useState(format(defaultDate, "HH:mm") === "00:00" ? "09:00" : format(defaultDate, "HH:mm"));
+  const [en, setEn] = useState(format(defaultDate, "HH:mm") === "00:00" ? "10:00" : format(new Date(defaultDate.getTime() + 60 * 60 * 1000), "HH:mm"));
   const [vis, setVis] = useState<Visibility>("private");
   const [shared, setShared] = useState<string[]>([]);
 
@@ -53,6 +53,7 @@ export function ScheduleDialog({ defaultDate, onClose }: { defaultDate: Date; on
     }
     toast.success("일정이 등록되었습니다.");
     qc.invalidateQueries({ queryKey: ["calendar"] });
+    qc.invalidateQueries({ queryKey: ["dashboard-leaves"] });
     onClose();
   }
 

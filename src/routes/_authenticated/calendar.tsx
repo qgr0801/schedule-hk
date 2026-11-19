@@ -48,6 +48,8 @@ function CalendarPage() {
   const [sel, setSel] = useState<{ reservation: ResWithCustomer; action?: "cancelled" | "no_show" | undefined } | null>(null);
   const openReservation = (reservation: ResWithCustomer, action?: "cancelled" | "no_show") => setSel({ reservation, action });
   const [schOpen, setSchOpen] = useState(false);
+  const [newSlot, setNewSlot] = useState<{ date: Date; section: number | null; minutes: number } | null>(null);
+  const [scheduleDate, setScheduleDate] = useState<Date | null>(null);
   const [schView, setSchView] = useState<Schedule | null>(null);
   const [secOpen, setSecOpen] = useState(false);
   const [staff, setStaff] = useState("");
@@ -114,6 +116,7 @@ function CalendarPage() {
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "";
   const step = (n: number) => setCursor(view === "month" ? addMonths(cursor, n) : view === "week" ? addWeeks(cursor, n) : addDays(cursor, n));
   const swipe = useSwipe(() => step(-1), () => step(1));
+  const leavesOn = (date: Date) => (data?.sch ?? []).filter((s) => s.title.startsWith("[휴무]") && new Date(s.start_at) <= endOfDay(date) && new Date(s.end_at) > startOfDay(date));
   const days = eachDayOfInterval({ start: range.from, end: range.to });
   const title =
     view === "month" ? format(cursor, "yyyy년 M월") : view === "week" ? `${format(range.from, "M.d")} – ${format(range.to, "M.d")}` : format(cursor, "M월 d일 (EEE)", { locale: ko });
@@ -172,10 +175,7 @@ function CalendarPage() {
   const lastH = Math.max(20, ...allItems.filter((i) => isDayInRange(i)).map((i) => { const e = new Date(i.kind === "res" ? i.r.end_at : i.s.end_at); return Math.min(23, e.getHours() - (e.getMinutes() === 0 ? 1 : 0)); }));
   function isDayInRange(i: Item) { return view === "day" ? isSameDay(start(i), cursor) : true; }
   function newAt(d: Date, section: number | null, minutes: number) {
-    navigate({
-      to: "/reservations/new",
-      search: { date: format(d, "yyyy-MM-dd"), start: `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`, section: section || undefined },
-    });
+    setNewSlot({ date: d, section, minutes });
   }
   const mode = L.display(view).color_mode;
   async function setMode(m: ColorMode) {
@@ -190,7 +190,7 @@ function CalendarPage() {
       <PageHeader
         title="캘린더"
         desc="카드 배경은 예약 상태, 왼쪽 띠는 담당자, 작은 배지는 고객 구분입니다."
-        action={<Button variant="outline" onClick={() => setSchOpen(true)}>+ 일정 추가</Button>}
+        action={<Button variant="outline" onClick={() => { setScheduleDate(null); setSchOpen(true); }}>+ 일정 추가</Button>}
       />
       <div className="mb-4 flex flex-wrap items-center gap-2" {...swipe}>
         <div className="flex w-full rounded-lg bg-background p-1 shadow-card sm:w-auto">
@@ -252,7 +252,7 @@ function CalendarPage() {
           <h2 className="mb-2 text-sm font-semibold">직원 휴무</h2>
           <div className="flex flex-wrap gap-2">
             {(data?.sch ?? []).filter((s) => s.title.startsWith("[휴무]")).map((s) => (
-              <button key={s.id} className="rounded-md bg-amber-100 px-3 py-2 text-sm text-amber-950" onClick={() => setSchView(s)}>
+              <button key={s.id} className="rounded-md bg-red-100 px-3 py-2 text-sm text-red-800" onClick={() => setSchView(s)}>
                 {s.title.slice(4).trim()} · {format(new Date(s.start_at), "M/d")}–{format(addDays(new Date(s.end_at), -1), "M/d")}
               </button>
             ))}
@@ -272,6 +272,7 @@ function CalendarPage() {
               return (
                 <div key={d.toISOString()} className={cn("min-h-20 border-b border-r p-1 text-left align-top sm:min-h-28", !isSameMonth(d, cursor) && "bg-muted/60 text-muted-foreground")}>
                   <button type="button" onClick={() => { setCursor(d); setView("day"); }} className={cn("mb-1 text-xs", isSameDay(d, new Date()) && "inline-flex h-5 w-5 items-center justify-center rounded-full bg-primary text-primary-foreground")}>{format(d, "d")}</button>
+                  {leavesOn(d).map((s) => <button key={s.id} className="mb-1 block w-full truncate rounded bg-red-100 px-1 py-1 text-left text-xs font-semibold text-red-800" onClick={() => setSchView(s)}>{s.title.slice(4).trim()} 휴무</button>)}
                   <div className="hidden space-y-0.5 sm:block">
                     {its.slice(0, 3).map((i, k) =>
                       i.kind === "res" ? (
@@ -306,6 +307,7 @@ function CalendarPage() {
                 sectionFor: (r) => r.section,
                 droppable: true,
                 items: dayItems(d),
+                leaves: leavesOn(d),
                 highlight: isSameDay(d, new Date()),
               }))}
               firstH={firstH} lastH={lastH} step={slotStep} view="week" colMinWidth={130} name={name}
@@ -358,7 +360,25 @@ function CalendarPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      {schOpen && <ScheduleDialog defaultDate={cursor} onClose={() => setSchOpen(false)} />}
+      {newSlot && <Dialog open onOpenChange={(open) => { if (!open) setNewSlot(null); }}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>{format(newSlot.date, "M월 d일")} {String(Math.floor(newSlot.minutes / 60)).padStart(2, "0")}:{String(newSlot.minutes % 60).padStart(2, "0")}</DialogTitle></DialogHeader>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={() => {
+              navigate({ to: "/reservations/new", search: { date: format(newSlot.date, "yyyy-MM-dd"), start: `${String(Math.floor(newSlot.minutes / 60)).padStart(2, "0")}:${String(newSlot.minutes % 60).padStart(2, "0")}`, section: newSlot.section || undefined } });
+              setNewSlot(null);
+            }}>예약 등록</Button>
+            <Button variant="outline" onClick={() => {
+              const date = new Date(newSlot.date);
+              date.setHours(Math.floor(newSlot.minutes / 60), newSlot.minutes % 60, 0, 0);
+              setScheduleDate(date);
+              setNewSlot(null);
+              setSchOpen(true);
+            }}>+ 일정·휴무 추가</Button>
+          </div>
+        </DialogContent>
+      </Dialog>}
+      {schOpen && <ScheduleDialog defaultDate={scheduleDate ?? cursor} onClose={() => setSchOpen(false)} />}
       {secOpen && <SectionSettingsDialog onClose={() => setSecOpen(false)} />}
       {schView && (
         <Dialog open onOpenChange={(o) => !o && setSchView(null)}>
@@ -371,6 +391,8 @@ function CalendarPage() {
               <Button variant="destructive" size="sm" className="w-fit" onClick={async () => {
                 const { error } = await supabase.from("schedules").delete().eq("id", schView.id);
                 if (error) { toast.error(dbErrorMessage(error)); return; }
+                qc.invalidateQueries({ queryKey: ["calendar"] });
+                qc.invalidateQueries({ queryKey: ["dashboard-leaves"] });
                 setSchView(null);
                 toast.success("일정이 삭제되었습니다.");
               }}>일정 삭제</Button>
@@ -420,7 +442,7 @@ function DayBoard({
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">빈 곳을 누르면 그 섹션·시간으로 예약을 등록합니다. 수정할 수 있는 예약은 위아래로 끌면 시간, 옆 섹션으로 끌면 섹션이 바뀝니다. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
+        <p className="text-xs text-muted-foreground">빈 곳을 누르면 예약 또는 일정·휴무 추가를 선택할 수 있습니다. 수정할 수 있는 예약은 위아래로 끌면 시간, 옆 섹션으로 끌면 섹션이 바뀝니다. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
         {isAdmin && (
           <Button size="sm" variant="outline" className="shrink-0" onClick={onSettings}>
             <Settings2 className="h-4 w-4" /> 섹션 설정 ({sections.length}개)

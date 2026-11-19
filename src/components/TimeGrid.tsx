@@ -19,6 +19,7 @@ export type GridCol = {
   droppable: boolean;
   items: GridItem[];
   highlight?: boolean;
+  leaves?: Schedule[];
 };
 export type MoveTarget = { r: ResWithCustomer; start: Date; end: Date; section: number | null; colLabel: string };
 
@@ -186,6 +187,7 @@ export function TimeGrid({
         {cols.map((c) => (
           <div key={c.key} className={cn("truncate border-r px-2 py-2 text-center text-sm font-semibold text-primary last:border-r-0", c.highlight && "bg-accent")}>
             {c.label}
+            {c.leaves?.map((s) => <button key={s.id} className="mt-1 block w-full truncate rounded bg-red-100 px-1 py-1 text-left text-xs font-semibold text-red-800" onClick={() => onSch(s)}>{s.title.slice(4).trim()} 휴무</button>)}
           </div>
         ))}
       </div>
