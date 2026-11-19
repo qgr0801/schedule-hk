@@ -14,6 +14,7 @@ import { CategoryBadge } from "@/components/ReservationCard";
 import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput } from "@/lib/app";
 import { format } from "date-fns";
 import type { Json } from "@/integrations/supabase/types";
+import { saleValidation } from "@/lib/reservation-sales";
 import { PaymentFields } from "@/components/PaymentFields";
 import { blankPayment, hasPayment, paymentDraft, type PaymentDraft } from "@/lib/payments";
 import { AlertTriangle } from "lucide-react";
@@ -171,6 +172,8 @@ function ReservationForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !me) return;
+    const salesError = canBill ? saleValidation(payment.sales) : null;
+    if (salesError) { toast.error(salesError); return; }
     if (canBill && id && (paymentQuery.isPending || paymentQuery.error)) { toast.error("계산 내역을 불러온 뒤 저장해 주세요."); return; }
     const parsed = schema.safeParse({ ...f, service: serviceValue });
     if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요"); return; }

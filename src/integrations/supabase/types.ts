@@ -28,9 +28,9 @@ export type Database = {
         Relationships: []
       }
       products: {
-        Row: { id: string; name: string; price: number; stock: number; is_active: boolean }
+        Row: { id: string; name: string; price: number; stock: number; is_active: boolean; unit: string }
         Insert: { name: string; price?: number }
-        Update: { name?: string; price?: number; is_active?: boolean }
+        Update: { name?: string; price?: number; is_active?: boolean; unit?: string }
         Relationships: []
       }
       customer_payments: {
@@ -40,7 +40,7 @@ export type Database = {
         Relationships: []
       }
       stock_movements: {
-        Row: { id: string; product_id: string; quantity: number; reason: string; reservation_id: string | null; created_at: string; created_by: string }
+        Row: { id: string; product_id: string; quantity: number; reason: string; reservation_id: string | null; created_at: string; created_by: string; movement_kind: string; effective_on: string }
         Insert: never
         Update: never
         Relationships: []
@@ -693,8 +693,15 @@ export type Database = {
     }
     Functions: {
       create_product_with_stock: { Args: { _id: string; _name: string; _price: number; _stock: number }; Returns: string }
-      product_inventory_overview: { Args: { _from: string; _to: string }; Returns: { product_id: string; received: number; sold: number; sales_amount: number }[] }
       record_work_product_sale: { Args: { _id: string; _product: string; _quantity: number; _paid_on: string; _method: string; _memo?: string; _customer?: string }; Returns: string }
+      product_inventory_overview: { Args: { _from: string; _to: string }; Returns: { product_id: string; received: number; sold: number; sales_amount: number }[] }
+
+      record_product_movement: { Args: { _event: string; _product: string; _kind: string; _quantity: number; _date: string; _reason: string }; Returns: undefined }
+      product_stock_ledger: { Args: { _product: string; _from: string; _to: string; _offset?: number }; Returns: { id: string; effective_on: string; movement_kind: string; quantity: number; reason: string; reservation_id: string | null; customer_name: string }[] }
+
+      register_inventory_product: { Args: { _id: string; _name: string; _price: number; _stock: number; _unit?: string }; Returns: string }
+      inventory_balance_report: { Args: { _from: string; _to: string }; Returns: { product_id: string; received: number; sold: number; sales_amount: number; opening_stock: number; used: number; internal_used: number; adjustment: number; closing_stock: number; notes: string }[] }
+      record_product_sale: { Args: { _id: string; _product: string; _quantity: number; _paid_on: string; _method: string; _memo?: string; _customer?: string; _unit_price?: number }; Returns: string }
 
       attendance_summary: { Args: { _from: string; _to: string; _employee?: string }; Returns: { employee_id: string; minutes: number }[] }
       save_reservation_payment: { Args: { _id: string; _reservation: Json; _payment: Json }; Returns: string }
