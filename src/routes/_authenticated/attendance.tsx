@@ -93,12 +93,12 @@ function Attendance() {
     reset();
     toast.success("시간 기록을 저장했습니다.");
   }
-  if (!canView) return <p>TIME LO 열람 권한이 없습니다.</p>;
+  if (!canView) return <p>TIME LOG 열람 권한이 없습니다.</p>;
   return <div className="space-y-4">
-    <h2 className="text-lg font-semibold">TIME LO</h2>
+    <h2 className="text-lg font-semibold">TIME LOG</h2>
     {canEdit && <Panel>
       <form onSubmit={save} className="grid gap-3 sm:grid-cols-2">
-        <label className="space-y-1 text-sm">직원명<select aria-label="TIME LO 직원" className="h-10 w-full rounded border bg-background px-2" required value={employee} onChange={(e) => setEmployee(e.target.value)}>
+        <label className="space-y-1 text-sm">직원명<select aria-label="TIME LOG 직원" className="h-10 w-full rounded border bg-background px-2" required value={employee} onChange={(e) => setEmployee(e.target.value)}>
           <option value="">직원 선택</option>{employees?.filter((p) => p.is_active || p.id === employee).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
         </select></label>
         <div className="self-end text-sm">{start && end && new Date(end) > new Date(start) ? hours((+new Date(end) - +new Date(start)) / 60000) : "시작·종료 일시를 입력하세요."}</div>
@@ -108,18 +108,18 @@ function Attendance() {
           <label className="space-y-1 text-sm">종료 (시:분)<Input aria-label="종료 시간" type="time" step={60} required value={endTime} onChange={(e) => setEndTime(e.target.value)} /></label>
         </div>
         <details className="sm:col-span-2" open={endDate !== workDate || undefined}><summary className="cursor-pointer text-sm">날짜를 넘겨 근무한 경우 종료 날짜 변경</summary><label className="space-y-1 text-sm">종료 날짜<Input aria-label="근무 종료 날짜" type="date" required min={workDate} value={endDate} onChange={(e) => setEndDate(e.target.value)} /></label></details>
-        <Input aria-label="TIME LO 메모" placeholder="메모" maxLength={500} value={memo} onChange={(e) => setMemo(e.target.value)} />
+        <Input aria-label="TIME LOG 메모" placeholder="메모" maxLength={500} value={memo} onChange={(e) => setMemo(e.target.value)} />
         <div className="flex gap-2"><Button disabled={busy}>{editing ? "수정 저장" : "등록"}</Button>{editing && <Button type="button" variant="outline" disabled={busy} onClick={reset}>취소</Button>}</div>
       </form>
     </Panel>}
     <Panel className="space-y-3">
       <div className="flex flex-wrap items-end gap-2">
-        <label className="text-sm">조회 시작일<Input type="date" aria-label="TIME LO 조회 시작일" value={from} onChange={(e) => { setFrom(e.target.value); setPage(0); }} /></label>
-        <label className="text-sm">조회 종료일<Input type="date" aria-label="TIME LO 조회 종료일" value={to} onChange={(e) => { setTo(e.target.value); setPage(0); }} /></label>
-        <select aria-label="TIME LO 직원 필터" className="h-10 rounded border bg-background px-2 text-sm" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(0); }}><option value="">전체 직원</option>{employees?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
+        <label className="text-sm">조회 시작일<Input type="date" aria-label="TIME LOG 조회 시작일" value={from} onChange={(e) => { setFrom(e.target.value); setPage(0); }} /></label>
+        <label className="text-sm">조회 종료일<Input type="date" aria-label="TIME LOG 조회 종료일" value={to} onChange={(e) => { setTo(e.target.value); setPage(0); }} /></label>
+        <select aria-label="TIME LOG 직원 필터" className="h-10 rounded border bg-background px-2 text-sm" value={filter} onChange={(e) => { setFilter(e.target.value); setPage(0); }}><option value="">전체 직원</option>{employees?.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</select>
       </div>
       {!valid && <p role="alert">조회 기간을 확인해 주세요.</p>}
-      {(list.error || summary.error) && <p role="alert">TIME LO를 불러오지 못했습니다.</p>}
+      {(list.error || summary.error) && <p role="alert">TIME LOG를 불러오지 못했습니다.</p>}
       {summary.isPending && valid && <p>근무시간을 불러오는 중입니다.</p>}
       {summary.data && <div className="rounded bg-muted p-3">
         <p className="font-semibold">조회 기간 총 근무시간 · {hours(summary.data.reduce((sum, r) => sum + Number(r.minutes), 0))}</p>
