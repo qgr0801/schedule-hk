@@ -95,7 +95,7 @@ function Attendance() {
   }
   if (!canView) return <p>출근부 열람 권한이 없습니다.</p>;
   return <div className="space-y-4">
-    <h2 className="text-lg font-semibold">프리랜서 출근부</h2>
+    <h2 className="text-lg font-semibold">출근부</h2>
     {canEdit && <Panel>
       <form onSubmit={save} className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm">직원명<select aria-label="출근부 직원" className="h-10 w-full rounded border bg-background px-2" required value={employee} onChange={(e) => setEmployee(e.target.value)}>
