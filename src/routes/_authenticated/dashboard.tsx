@@ -5,6 +5,7 @@ import { ko } from "date-fns/locale";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel, StatusBadge } from "@/components/PageHeader";
+import { ScheduleDialog } from "@/components/ScheduleDialog";
 import { ReservationDialog } from "@/components/ReservationDialog";
 import { Button } from "@/components/ui/button";
 import { useSwipe } from "@/hooks/use-swipe";
@@ -19,6 +20,7 @@ function Dashboard() {
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
   const [sel, setSel] = useState<Reservation | null>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const now = new Date();
   const [day, setDay] = useState(startOfDay(now));
   const swipe = useSwipe(() => setDay((d) => addDays(d, -1)), () => setDay((d) => addDays(d, 1)));
@@ -65,7 +67,10 @@ function Dashboard() {
       <PageHeader
         title={me?.role === "admin" ? "관리자 대시보드" : "대시보드"}
         desc={`${format(now, "yyyy년 M월 d일 EEEE", { locale: ko })} · ${me ? ROLE_LABEL[me.role] : ""} 권한으로 볼 수 있는 예약입니다.`}
-        action={<Button asChild><Link to="/reservations/new">+ 예약 등록</Link></Button>}
+        action={<div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setScheduleOpen(true)}>+ 일정·휴무 추가</Button>
+          <Button asChild><Link to="/reservations/new">+ 예약 등록</Link></Button>
+        </div>}
       />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {stats.map((s) => (
@@ -122,6 +127,7 @@ function Dashboard() {
           </ul>
         </Panel>
       </div>
+      {scheduleOpen && <ScheduleDialog defaultDate={day} onClose={() => setScheduleOpen(false)} />}
       <ReservationDialog res={sel} onClose={() => setSel(null)} />
     </div>
   );
