@@ -13,7 +13,8 @@ describe("monthly work log validation",()=>{
  it("rejects unsafe links, partial name/link pairs and oversized records",()=>{
   for(const url of ["javascript:alert(1)","data:text/html,test","https://exa mple.com"])
    expect(workLogValidation("employee","2026-11",[0,0,0],"",[{name:"A",url}])).toBeTruthy();
-  expect(workLogValidation("employee","2026-11",[0,0,0],"",[{name:"",url:"https://example.com"}])).toBeTruthy();
+  expect(workLogValidation("employee","2026-11",[0,0,0,0],"",[{name:"",url:"https://example.com"}],"고객A · 진정관리")).toBeNull();
+  expect(workLogValidation("employee","2026-11",[0,0,0,0],"",[],"가".repeat(5001))).toBeTruthy();
   expect(workLogValidation("employee","2026-11",[0,0,0],"x".repeat(5001),[])).toBeTruthy();
  });
 });

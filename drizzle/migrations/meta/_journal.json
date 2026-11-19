@@ -253,6 +253,13 @@
       "when": 1792672700309,
       "tag": "0035_monthly_work_reports",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1792672700310,
+      "tag": "0036_work_log_content_columns",
+      "breakpoints": true
     }
   ]
 }
