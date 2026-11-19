@@ -19,11 +19,12 @@ export function PaymentFields({ value, onChange, disabled }: { value: PaymentDra
         onChange?.(withReservationSales(value, value.sales.length ? value.sales.map((s, i) => i === index ? next : s) : [next]));
       }}><option value="">▼ 제품 선택</option>{sale.product_id && products && !products.some(p=>p.id===sale.product_id) && <option value={sale.product_id}>기존 제품 (삭제됨)</option>}{products?.filter((p) => p.is_active || p.id === sale.product_id).map((p) => <option value={p.id} key={p.id}>{p.name} · 재고 {p.stock}{p.unit}</option>)}</select>
       {!sale.product_id && value.sales.length > 0 && <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onChange?.(withReservationSales(value, value.sales.filter((_, i) => i !== index)))}>삭제</Button>}
-      {sale.product_id && <div className="flex flex-wrap items-end gap-1">
-        <label className="text-xs">수량<Input aria-label={`예약 판매 수량 ${index + 1}`} type="number" inputMode="decimal" min="0.001" max={100000} step="0.001" className="h-9 w-20" value={sale.quantity} disabled={disabled} onChange={(e) => onChange?.(withReservationSales(value, value.sales.map((s, i) => i === index ? { ...s, quantity: Number(e.target.value) } : s)))} /></label>
-        <label className="text-xs">판매단가(원)<Input aria-label={`예약 판매단가 ${index + 1}`} type="number" inputMode="decimal" min={0} max={999999999999} step="0.01" className="h-9 w-28" value={sale.unit_price ?? 0} disabled={disabled} onChange={(e) => onChange?.(withReservationSales(value, value.sales.map((s, i) => i === index ? { ...s, unit_price: Number(e.target.value) } : s)))} /></label>
+      <div className="flex flex-wrap items-end gap-1">
+        <label className="text-xs">판매 수량<Input aria-label={`예약 판매 수량 ${index + 1}`} type="number" inputMode="decimal" min="0.001" max={100000} step="0.001" className="h-9 w-20" value={sale.quantity} disabled={disabled || !sale.product_id} onChange={(e) => onChange?.(withReservationSales(value, value.sales.map((s, i) => i === index ? { ...s, quantity: Number(e.target.value) } : s)))} /></label>
+        {sale.product_id && <><label className="text-xs">판매단가(원)<Input aria-label={`예약 판매단가 ${index + 1}`} type="number" inputMode="decimal" min={0} max={999999999999} step="0.01" className="h-9 w-28" value={sale.unit_price ?? 0} disabled={disabled} onChange={(e) => onChange?.(withReservationSales(value, value.sales.map((s, i) => i === index ? { ...s, unit_price: Number(e.target.value) } : s)))} /></label>
         <Button type="button" size="sm" variant="outline" disabled={disabled} onClick={() => onChange?.(withReservationSales(value, value.sales.filter((_, i) => i !== index)))}>삭제</Button>
-      </div>}
+        </>}
+      </div>
     </div>)}
     {value.sales.length > 0 && <Button type="button" variant="outline" size="sm" disabled={disabled} onClick={() => onChange?.({ ...value, sales: [...value.sales, { product_id: "", quantity: 1 }] })}>+ 제품</Button>}
     <Input aria-label="제품 내용" placeholder="제품 메모 (선택)" maxLength={300} disabled={disabled} value={value.rows.find((r) => r.kind === "product")?.description ?? ""} onChange={(e) => onChange?.({ ...value, rows: value.rows.map((r) => r.kind === "product" ? { ...r, description: e.target.value } : r) })} />
@@ -43,7 +44,7 @@ export function PaymentFields({ value, onChange, disabled }: { value: PaymentDra
           })}</tbody>
         </table>
       </div>
-      {!readonly && <p className="text-xs text-muted-foreground">제품 행에서 제품·수량·단가를 입력한 뒤 예약을 저장하면 <Link to="/attendance" search={{ tab: "products" }} className="underline">WORK → 제품</Link>의 판매내역과 재고에 자동 반영됩니다.</p>}
+      {!readonly && <p className="text-xs text-muted-foreground">제품을 선택하고 판매 수량(2개 이상 입력 가능)·단가를 입력한 뒤 예약을 저장하면 <Link to="/attendance" search={{ tab: "products" }} className="underline">WORK → 제품</Link>의 판매내역과 재고에 자동 반영됩니다.</p>}
       <label className="block space-y-1 text-sm">계산 메모<Textarea aria-label="계산 메모" value={value.memo} maxLength={1000} disabled={disabled || readonly} onChange={(e) => onChange?.({ ...value, memo: e.target.value })} /></label>
     </section>
   );
