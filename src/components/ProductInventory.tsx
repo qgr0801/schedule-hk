@@ -12,6 +12,13 @@ export function ProductInventory() {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const admin = me?.role === "admin";
+  const [reportFrom, setReportFrom] = useState(format(new Date(), "yyyy-MM-dd"));
+  const [reportTo, setReportTo] = useState(format(new Date(), "yyyy-MM-dd"));
+  const validReport = !!reportFrom && !!reportTo && reportFrom <= reportTo;
+  const overview = useQuery({ queryKey: ["product-overview", reportFrom, reportTo], enabled: validReport, queryFn: async () => {
+    const { data, error } = await supabase.rpc("product_inventory_overview", { _from: reportFrom, _to: reportTo });
+    if (error) throw error; return data;
+  } });
   const [saleId, setSaleId] = useState(() => crypto.randomUUID());
   const [saleProduct, setSaleProduct] = useState("");
   const [saleQuantity, setSaleQuantity] = useState("1");
@@ -53,6 +60,7 @@ export function ProductInventory() {
       if (result.error) throw result.error;
       await qc.invalidateQueries({ queryKey: productsQuery.queryKey });
       await qc.invalidateQueries({ queryKey: ["stock-movements"] });
+      await qc.invalidateQueries({ queryKey: ["product-overview"] });
       toast.success("제품 정보를 저장했습니다.");
       setName(""); setPrice(""); setAdjustment(null); setQuantity("");
     } catch (err) { toast.error(dbErrorMessage(err)); }
@@ -66,7 +74,7 @@ export function ProductInventory() {
     try {
       const { error } = await supabase.rpc("record_work_product_sale", { _id: saleId, _product: saleProduct, _quantity: Number(saleQuantity), _paid_on: saleDate, _method: saleMethod, _memo: saleMemo, ...(customer ? { _customer: customer.id } : {}) });
       if (error) throw error;
-      await Promise.all(["products", "work-sales", "stock-movements", "customer-products", "customer-work-products", "payment-summary"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
+      await Promise.all(["product-overview", "products", "work-sales", "stock-movements", "customer-products", "customer-work-products", "payment-summary"].map((key) => qc.invalidateQueries({ queryKey: [key] })));
       setSaleId(crypto.randomUUID()); setSaleProduct(""); setSaleQuantity("1"); setSaleMemo(""); setCustomer(null); setSearch(""); setSalesPage(0);
       toast.success("판매를 등록하고 재고를 차감했습니다.");
     } catch (err) { toast.error(dbErrorMessage(err)); }
@@ -75,6 +83,17 @@ export function ProductInventory() {
   const selected = data?.find((p) => p.id === saleProduct);
   return <section className="space-y-4">
     <h3 className="font-semibold">제품 · 입고 · 판매 · 재고</h3>
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="text-sm">조회 시작일<Input aria-label="제품 조회 시작일" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} /></label>
+      <label className="text-sm">조회 종료일<Input aria-label="제품 조회 종료일" type="date" min={reportFrom} value={reportTo} onChange={(e) => setReportTo(e.target.value)} /></label>
+      <Button variant="outline" onClick={() => { const today = format(new Date(), "yyyy-MM-dd"); setReportFrom(today); setReportTo(today); }}>오늘</Button>
+    </div>
+    {!validReport && <p role="alert">조회 기간을 확인해 주세요.</p>}
+    {overview.error && <p role="alert">제품 현황을 불러오지 못했습니다.</p>}
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
+      {[["입고·증가 수량", `${overview.data?.reduce((sum, r) => sum + Number(r.received), 0) ?? 0}개`], ["판매 수량", `${overview.data?.reduce((sum, r) => sum + Number(r.sold), 0) ?? 0}개`], ["제품 판매금액", `${(overview.data?.reduce((sum, r) => sum + Number(r.sales_amount), 0) ?? 0).toLocaleString("ko-KR")}원`], ["재고 부족 제품", `${data?.filter((p) => p.is_active && p.stock <= 3).length ?? 0}종`]].map(([label, value]) => <div key={label} className="rounded-lg bg-muted p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{(label === "재고 부족 제품" ? !data : overview.isPending || !validReport || overview.error) ? "—" : value}</p></div>)}
+    </div>
+    <p className="text-xs text-muted-foreground">입고·증가는 등록일(한국 시간), 판매는 판매일 기준입니다. 현재 재고는 조회 기간과 관계없는 최신 수량이며, 3개 이하는 부족으로 표시합니다. 판매금액은 제품별 등록 판매가 기준입니다.</p>
     {admin && <form className="flex flex-wrap gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.from("products").insert({ name: name.trim(), price: Number(price) || 0 })); }}>
       <Input aria-label="새 제품명" placeholder="제품명" maxLength={100} className="flex-1" value={name} onChange={(e) => setName(e.target.value)} required />
       <Input aria-label="제품 판매가" placeholder="판매가(원)" className="w-36" type="number" min={0} step="0.01" value={price} onChange={(e) => setPrice(e.target.value)} />
@@ -82,8 +101,8 @@ export function ProductInventory() {
     </form>}
     {isPending && <p>제품을 불러오는 중입니다.</p>}
     {error && <p role="alert">제품 목록을 불러오지 못했습니다.</p>}
-    <div className="overflow-x-auto"><table className="w-full min-w-[480px] text-sm"><thead><tr><th className="text-left">제품</th><th>판매가(원)</th><th>현재 재고</th>{admin && <th>관리</th>}</tr></thead>
-      <tbody>{data?.map((p) => <tr key={p.id} className="border-b"><td className="py-3">{p.name}{!p.is_active && " · 사용 중지"}</td><td className="text-right">{Number(p.price).toLocaleString("ko-KR")}</td><td className={`text-center font-bold ${p.stock === 0 ? "text-destructive" : ""}`}>{p.stock}개</td>{admin && <td className="flex flex-wrap justify-end gap-1 py-2">
+    <div className="overflow-x-auto"><table className="w-full min-w-[850px] text-sm"><thead><tr><th className="text-left">제품</th><th>판매가(원)</th><th>입고·증가</th><th>판매 수량</th><th>판매금액(원)</th><th>현재 재고</th>{admin && <th>관리</th>}</tr></thead>
+      <tbody>{data?.map((p) => <tr key={p.id} className="border-b"><td className="py-3">{p.name}{!p.is_active && " · 사용 중지"}</td><td className="text-right">{Number(p.price).toLocaleString("ko-KR")}</td><td className="text-center">{overview.data?.find((r) => r.product_id === p.id)?.received ?? "—"}</td><td className="text-center">{overview.data?.find((r) => r.product_id === p.id)?.sold ?? "—"}</td><td className="text-right">{overview.data ? Number(overview.data.find((r) => r.product_id === p.id)?.sales_amount ?? 0).toLocaleString("ko-KR") : "—"}</td><td className={`text-center font-bold ${p.stock === 0 ? "text-destructive" : p.stock <= 3 ? "text-amber-700" : ""}`}>{p.stock}개{p.is_active && p.stock <= 3 && <span className="ml-1 text-xs">{p.stock === 0 ? "품절" : "부족"}</span>}</td>{admin && <td className="flex flex-wrap justify-end gap-1 py-2">
         <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => { setAdjustment({ id: p.id, event: crypto.randomUUID() }); setQuantity(""); }}>입고·재고 조정</Button>
         <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => run(() => supabase.from("products").update({ is_active: !p.is_active }).eq("id", p.id))}>{p.is_active ? "사용 중지" : "다시 사용"}</Button>
       </td>}</tr>)}</tbody>

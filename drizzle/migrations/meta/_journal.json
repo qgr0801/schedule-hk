@@ -183,6 +183,13 @@
       "when": 1792672700299,
       "tag": "0025_work_products_payment_content",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1792672700300,
+      "tag": "0026_product_inventory_overview",
+      "breakpoints": true
     }
   ]
 }

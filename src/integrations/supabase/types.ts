@@ -692,6 +692,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      product_inventory_overview: { Args: { _from: string; _to: string }; Returns: { product_id: string; received: number; sold: number; sales_amount: number }[] }
       record_work_product_sale: { Args: { _id: string; _product: string; _quantity: number; _paid_on: string; _method: string; _memo?: string; _customer?: string }; Returns: string }
 
       attendance_summary: { Args: { _from: string; _to: string; _employee?: string }; Returns: { employee_id: string; minutes: number }[] }
