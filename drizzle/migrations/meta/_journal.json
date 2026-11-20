@@ -288,6 +288,13 @@
       "when": 1792672700314,
       "tag": "0040_work_log_dates",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1792672700315,
+      "tag": "0041_admin_sales_details",
+      "breakpoints": true
     }
   ]
 }

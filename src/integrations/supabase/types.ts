@@ -752,6 +752,7 @@ export type Database = {
       save_booking_route: { Args: { _id: string; _name: string; _active?: boolean }; Returns: string }
       payment_summary_v2: { Args: { _customer?: string; _from?: string; _to?: string; _product_only?: boolean }; Returns: { kind: string; cost: number; card: number; bank: number; krw: number; jpy: number; usd: number; cny: number }[] }
       booking_activity_report: { Args: { _from: string; _to: string; _route?: string; _staff?: string; _customer?: string; _offset?: number }; Returns: { reservation_id: string; start_at: string; customer_name: string; staff_name: string; route_name: string; service_content: string; care_content: string; paid_on: string | null; payment_rows: Json; payment_memo: string; status: string }[] }
+      booking_activity_report_by_kind: { Args: { _from: string; _to: string; _kind?: "service" | "care"; _route?: string; _unassigned?: boolean; _offset?: number; _staff?: string; _customer?: string }; Returns: { reservation_id: string; start_at: string; customer_name: string; staff_name: string; route_name: string; service_content: string; care_content: string; paid_on: string | null; payment_rows: Json; payment_memo: string; status: string }[] }
 
       save_inventory_route: { Args: { _id: string; _name: string }; Returns: string }
       delete_inventory_route: { Args: { _id: string }; Returns: undefined }
