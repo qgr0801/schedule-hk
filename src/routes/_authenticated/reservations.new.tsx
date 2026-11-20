@@ -184,8 +184,12 @@ function ReservationForm() {
       setNewCustomerNo(data.customer_no);
       toast.info(`새 고객번호 No.${data.customer_no}가 부여되었습니다.`);
     } else if (canEditCustomer) {
-      const { error } = await supabase.from("customers").update({ category_id: categoryId || null, ...(selected?{birth_date:birthDate||null,gender:gender||null}:{}) }).eq("id", cid);
+      const { data, error } = await supabase.from("customers").update({
+        category_id: categoryId || null,
+        ...(selected ? { birth_date: birthDate || null, gender: gender || null } : {}),
+      }).eq("id", cid).select("id").maybeSingle();
       if (error) { toast.error(dbErrorMessage(error)); return null; }
+      if (!data) { toast.error("연결된 고객정보를 수정할 수 없습니다."); return null; }
       const {error:tagError}=await supabase.from("customer_category_tags").delete().eq("customer_id",cid);
       if(tagError){toast.error(dbErrorMessage(tagError));return null;}
     } else {
@@ -220,10 +224,24 @@ function ReservationForm() {
       : id
         ? await supabase.from("reservations").update(payload).eq("id", id)
         : await supabase.from("reservations").insert(payload);
+    if (error) { setBusy(false); toast.error(dbErrorMessage(error)); return; }
+    const name = parsed.data.customer_name;
+    const phone = parsed.data.customer_phone || null;
+    if (customerId && canEditCustomer && selected && (name !== selected.name || phone !== selected.phone)) {
+      const {data:updated,error:customerError}=await supabase.from("customers")
+        .update({name,phone}).eq("id",cid).select("id").maybeSingle();
+      if(customerError||!updated){
+        setBusy(false);
+        await qc.invalidateQueries();
+        toast.error("예약은 저장됐지만 고객정보는 반영되지 않았습니다. 고객정보 화면에서 확인해 주세요.");
+        if(id) await navigate({to:"/calendar",search:{today:Date.now()}});
+        else await navigate({to:"/my-reservations"});
+        return;
+      }
+    }
     setBusy(false);
-    if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success(id ? "예약이 수정되었습니다." : "예약이 등록되었습니다.");
-    qc.invalidateQueries();
+    await qc.invalidateQueries();
     if(id) await navigate({to:"/calendar",search:{today:Date.now()}});
     else await navigate({to:"/my-reservations"});
   }
@@ -277,6 +295,7 @@ function ReservationForm() {
           </div>
           <div className="space-y-2"><Label>고객명 *</Label><Input value={f.customer_name} onChange={set("customer_name")} placeholder="예: 김가상" /></div>
           <div className="space-y-2"><Label>연락처</Label><Input value={f.customer_phone} onChange={set("customer_phone")} placeholder="010-0000-0000" /></div>
+          {selected&&canEditCustomer&&<p className="text-xs text-muted-foreground sm:col-span-2">수정 저장하면 입력한 고객명과 연락처가 연결된 고객정보에도 반영됩니다. 다른 고객의 예약이라면 기존 고객 검색에서 해당 고객을 선택해 주세요.</p>}
           <CustomerIdentityFields birthDate={birthDate} gender={gender} onBirthDate={setBirthDate} onGender={setGender} disabled={!canEditCustomer}/>
           {!customerId&&duplicate&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
             <p>{duplicate}</p>
