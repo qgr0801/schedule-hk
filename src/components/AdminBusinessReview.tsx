@@ -15,6 +15,8 @@ import { BookingRouteManager } from "@/components/BookingRoutes";
 import { MoneyInput } from "@/components/MoneyInput";
 import { Tabs,TabsList,TabsTrigger,TabsContent } from "@/components/ui/tabs";
 import { Dialog,DialogContent,DialogTitle,DialogHeader } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuRadioGroup, DropdownMenuRadioItem, DropdownMenuLabel } from "@/components/ui/dropdown-menu";
+import { ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -29,10 +31,13 @@ export function AdminBusinessReview(){
  const [from,setFrom]=useState(format(startOfMonth(new Date()),"yyyy-MM-dd")),[to,setTo]=useState(format(new Date(),"yyyy-MM-dd"));
  const [period,setPeriod]=useState<ReviewPeriod|null>(null),[timeStaff,setTimeStaff]=useState(""),[workStaff,setWorkStaff]=useState("");
  const [route,setRoute]=useState("");
- const {data:routes,error:routesError}=useQuery({...bookingRoutesQuery,enabled:admin&&tab==="settlements"&&salesView==="route"});
+ const routesLookup=useQuery({...bookingRoutesQuery,enabled:admin});
+ const routes=routesLookup.data;
  const [category,setCategory]=useState("");
- const {data:categories,error:categoriesError}=useQuery({...categoriesQuery,enabled:admin&&tab==="sales"});
- const {data:employees}=useQuery({...employeesQuery,enabled:admin});
+ const categoriesLookup=useQuery({...categoriesQuery,enabled:admin});
+ const categories=categoriesLookup.data;
+ const employeesLookup=useQuery({...employeesQuery,enabled:admin});
+ const employees=employeesLookup.data;
  const overview=useQuery({queryKey:["admin-business-overview",period],enabled:admin&&!!period,queryFn:async()=>{const {data,error}=await supabase.rpc("admin_business_overview",{_from:period!.from,_to:period!.to});if(error)throw error;return data as unknown as AdminOverview;}});
  const {data:metricLabels}=useQuery({...workMetricLabelsQuery,enabled:admin&&!!period});
  if(!admin)return <p>ADMIN은 최고관리자만 열람할 수 있습니다.</p>;
@@ -47,25 +52,22 @@ export function AdminBusinessReview(){
  const selector=(value:string,set:(value:string)=>void,label:string)=><label className="text-sm">직원선택<select aria-label={label} className="ml-2 h-10 rounded border bg-background px-2" value={value} onChange={e=>set(e.target.value)}><option value="">전체 직원</option>{employees?.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label>;
  return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold">ADMIN · 운영 검토</h2><div className="flex flex-wrap items-center gap-2">
    <div role="group" aria-label="매출 조회 구분" className="flex flex-wrap gap-1">
-    {salesViews.map(([view, label]) => {
-     const active=view==="category" ? tab==="sales" : tab==="settlements"&&salesView===view;
-     return (
-     <Button key={view} type="button" size="sm"
-      variant={active ? "default" : "outline"}
-      aria-pressed={active}
-      onClick={() => { if(view==="category"){setTab("sales");return;} setSalesView(view);setTab("settlements"); }}>
-      {label}
-     </Button>
-     );
+    {salesViews.map(([view,label])=>{
+     const active=view==="category"?tab==="sales":tab==="settlements"&&salesView===view;
+     const activate=()=>{if(view==="category"){setTab("sales");return;}setSalesView(view);setTab("settlements");};
+     if(view==="route")return <AdminFilterMenu key={view} label={label} active={active} onOpen={activate} value={route} onChange={setRoute} pending={routesLookup.isPending} failed={!!routesLookup.error} options={[{value:"unassigned",label:"미지정"},...(routes??[]).map(item=>({value:item.id,label:item.name}))]}/>;
+     if(view==="category")return <AdminFilterMenu key={view} label={label} active={active} onOpen={activate} value={category} onChange={setCategory} pending={categoriesLookup.isPending} failed={!!categoriesLookup.error} options={[{value:"",label:"전체 고객구분"},{value:"미지정",label:"선택 안 함"},...categoryNames.map(name=>({value:name,label:name}))]}/>;
+     return <Button key={view} type="button" size="sm" variant={active?"default":"outline"} aria-pressed={active} onClick={activate}>{label}</Button>;
     })}
-    <Button type="button" size="sm" variant={tab==="time-log"?"default":"outline"} aria-pressed={tab==="time-log"} onClick={()=>setTab("time-log")}>직원선택</Button>
+    <AdminFilterMenu label="직원선택" active={tab==="time-log"} onOpen={()=>setTab("time-log")} value={timeStaff} onChange={setTimeStaff} pending={employeesLookup.isPending} failed={!!employeesLookup.error} options={[{value:"",label:"전체 직원"},...(employees??[]).map(employee=>({value:employee.id,label:employee.name}))]}/>
+
    </div>
    <BookingRouteManager/>
   </div></div>
  <form onSubmit={e=>{e.preventDefault();if(valid)setPeriod({from,to});}} className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-3"><label className="text-sm">조회 시작일<Input aria-label="ADMIN 조회 시작일" type="date" required value={from} onChange={e=>setFrom(e.target.value)}/></label><label className="text-sm">조회 종료일<Input aria-label="ADMIN 조회 종료일" type="date" required min={from} value={to} onChange={e=>setTo(e.target.value)}/></label><Button disabled={!valid}>기간 조회</Button></form>
- {tab==="settlements"&&salesView==="route"&&<label className="block max-w-sm text-sm">경로<select aria-label="정산 경로" className="mt-1 h-10 w-full rounded border bg-background px-2" value={route} onChange={e=>setRoute(e.target.value)}><option value="">경로 선택</option><option value="unassigned">미지정</option>{routes?.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{routesError&&<span role="alert">경로를 불러오지 못했습니다.</span>}</label>}
- {tab==="sales"&&<label className="block max-w-sm text-sm">고객구분<select aria-label="판매매출 고객구분" className="mt-1 h-10 w-full rounded border bg-background px-2" value={category} onChange={e=>setCategory(e.target.value)}><option value="">전체 고객구분</option><option value="미지정">선택 안 함</option>{categoryNames.map(name=><option key={name} value={name}>{name}</option>)}</select>{categoriesError&&<span role="alert">고객구분을 불러오지 못했습니다.</span>}</label>}
- {tab==="time-log"&&<label className="block max-w-sm text-sm">직원명<select aria-label="ADMIN TIME LOG 직원" className="mt-1 h-10 w-full rounded border bg-background px-2" value={timeStaff} onChange={e=>setTimeStaff(e.target.value)}><option value="">전체 직원</option>{employees?.map(employee=><option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></label>}
+ {tab==="settlements"&&salesView==="route"&&route&&<p className="text-sm">경로 {route==="unassigned"?"미지정":routes?.find(item=>item.id===route)?.name}</p>}
+ {tab==="sales"&&category&&<p className="text-sm">고객구분 {category==="미지정"?"선택 안 함":category}</p>}
+ {tab==="time-log"&&timeStaff&&<p className="text-sm">직원명 {employees?.find(employee=>employee.id===timeStaff)?.name}</p>}
  {period&&<p className="text-sm font-medium">조회 기간: {period.from} ~ {period.to}</p>}
  {period&&<>{overview.error&&<p role="alert">운영 집계를 불러오지 못했습니다.</p>}{overview.isPending&&<p>운영 집계를 불러오는 중입니다.</p>}</>}
  <Tabs value={tab} onValueChange={setTab}><TabsList className="grid h-auto w-full grid-cols-3 gap-1 sm:grid-cols-4"><TabsTrigger value="sales">판매매출</TabsTrigger><TabsTrigger value="time-log">TIME LOG</TabsTrigger><TabsTrigger value="work-log">WORK LOG</TabsTrigger><TabsTrigger value="settlements">매출</TabsTrigger></TabsList>
@@ -80,6 +82,24 @@ export function AdminBusinessReview(){
  <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">WORK LOG</h3>{selector(workStaff,setWorkStaff,"ADMIN WORK LOG 직원")}</div><p className="text-xs text-muted-foreground">일별 기록은 조회 기간으로 집계합니다. 기존 월간 기록은 조회 기간과 겹치는 월의 전체 건수를 포함합니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[1000px] text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">직원</th>{labels.map((t,i)=><th key={i} className="p-2 text-right">{t}</th>)}</tr></thead><tbody>{overview.data&&work.length===0&&<tr><td colSpan={keys.length+1} className="p-2">조회 기간에 업무 기록이 없습니다.</td></tr>}{work.map(r=><tr key={r.employee_id} className="border-b"><th className="p-2 text-left">{r.name}</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(r[k])}</td>)}</tr>)}<tr className="bg-muted font-semibold"><th className="p-2 text-left">합계(건)</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(work.reduce((s,r)=>s+Number(r[k]??0),0))}</td>)}</tr></tbody></table></div></section></>}</TabsContent>
  <TabsContent value="settlements">{period&&(salesView==="route"&&!route?<p className="rounded border p-6 text-sm text-muted-foreground">조회할 경로를 선택해 주세요.</p>:<RouteCollections key={`${period.from}-${period.to}-${salesView}`} period={period} grouping={salesView==="service"||salesView==="care"?salesView:"route"} route={salesView==="route"?route:""}/>)}</TabsContent></Tabs></section>;
 }
+function AdminFilterMenu({label,active,onOpen,value,onChange,pending,failed,options}:{
+ label:string;active:boolean;onOpen:()=>void;value:string;onChange:(value:string)=>void;
+ pending:boolean;failed:boolean;options:{value:string;label:string}[];
+}){
+ return <DropdownMenu onOpenChange={open=>{if(open)onOpen();}}>
+  <DropdownMenuTrigger asChild>
+   <Button type="button" size="sm" variant={active?"default":"outline"}>{label}<ChevronDown aria-hidden className="ml-1 size-4"/></Button>
+  </DropdownMenuTrigger>
+  <DropdownMenuContent align="start" className="max-h-[min(65vh,var(--radix-dropdown-menu-content-available-height))] min-w-48 overflow-y-auto">
+   {pending&&<DropdownMenuLabel>목록을 불러오는 중입니다.</DropdownMenuLabel>}
+   {failed&&<DropdownMenuLabel>목록을 불러오지 못했습니다.</DropdownMenuLabel>}
+   <DropdownMenuRadioGroup value={value} onValueChange={onChange}>
+    {options.map(option=><DropdownMenuRadioItem key={option.value} value={option.value}>{option.label}</DropdownMenuRadioItem>)}
+   </DropdownMenuRadioGroup>
+  </DropdownMenuContent>
+ </DropdownMenu>;
+}
+
 function RouteCollections({period,grouping,route}:{period:ReviewPeriod;grouping:SettlementGrouping;route:string}){
  const [kind,setKind]=useState<string>(grouping === "route" ? "" : grouping);const [editing,setEditing]=useState<SettlementReview|null|undefined>(undefined);
  const report=useQuery({queryKey:["admin-route-collections",period,route,kind],queryFn:async()=>{const {data,error}=await supabase.rpc("admin_route_collection_report",{_from:period.from,_to:period.to,...(route&&route!=="unassigned"?{_route:route}:{}),...(kind?{_kind:kind}:{})});if(error)throw error;return data as unknown as SettlementReview[];}});
