@@ -1,7 +1,8 @@
+import type { WorkExtraKey } from "@/lib/work-log";
 export type ReviewPeriod={from:string;to:string};
 export type SalesReview={category:string;collected:number;jpy:number;usd:number;cny:number;customers:number};
 export type TimeReview={employee_id:string;name:string;minutes:number};
-export type WorkReview={employee_id:string;name:string;records:number;shot:number;video:number;feed:number;sponsored:number;youtube:number;dm:number;dmr:number;dm_confirmed:number;dm_visited:number};
+export type WorkReview={employee_id:string;name:string;records:number;shot:number;video:number;feed:number;sponsored:number;youtube:number;dm:number;dmr:number;dm_confirmed:number;dm_visited:number} & Partial<Record<WorkExtraKey,number>>;
 export type AdminOverview={sales:SalesReview[];times:TimeReview[];work:WorkReview[]};
 export type SettlementReview={route_id:string|null;route_name:string;kind:string;content:string|null;collected:number;jpy:number;usd:number;cny:number;record_id:string|null;version:number;amount:number;completed:number;memo:string};
 export const won=(n:unknown)=>Number(n??0).toLocaleString("ko-KR",{maximumFractionDigits:2});

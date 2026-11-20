@@ -1,3 +1,5 @@
+import { workMetricLabelsQuery } from "@/components/WorkLog";
+import { WORK_EXTRA_KEYS, WORK_PRIMARY_ITEMS, WORK_CHECK_ITEMS, workMetricLabel } from "@/lib/work-log";
 import { BookingActivityReport } from "@/components/BookingActivityReport";
 import { Fragment,useState } from "react";
 import { useQuery,useQueryClient } from "@tanstack/react-query";
@@ -32,8 +34,10 @@ export function AdminBusinessReview(){
  const sales=overview.data?.sales ?? [];
  const visibleSales=sales.filter(row=>!category||row.category===category);
  const times=(overview.data?.times??[]).filter(r=>!timeStaff||r.employee_id===timeStaff),work=(overview.data?.work??[]).filter(r=>!workStaff||r.employee_id===workStaff);
- const keys=["shot","video","feed","sponsored","youtube","dm","dmr","dm_confirmed","dm_visited"] as const;
- const labels=["S영상완성","S영상UP","S피드UP","협찬UP","유튜브","DM","DMR","DM확정","DM방문"];
+ const {data:metricLabels}=useQuery({...workMetricLabelsQuery,enabled:!!period});
+ const extraKeys=WORK_EXTRA_KEYS.filter(key=>workMetricLabel(metricLabels,key,""));
+ const keys=["shot","video","feed","sponsored","youtube","dm","dmr","dm_confirmed","dm_visited",...extraKeys] as const;
+ const labels=[...WORK_PRIMARY_ITEMS,...WORK_CHECK_ITEMS,...extraKeys.map(key=>[key,""] as const)].map(([key,label])=>workMetricLabel(metricLabels,key,label));
  const selector=(value:string,set:(value:string)=>void,label:string)=><label className="text-sm">직원선택<select aria-label={label} className="ml-2 h-10 rounded border bg-background px-2" value={value} onChange={e=>set(e.target.value)}><option value="">전체 직원</option>{employees?.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label>;
  return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold">ADMIN · 운영 검토</h2><div className="flex flex-wrap items-center gap-2">
    <div role="group" aria-label="매출 조회 구분" className="flex flex-wrap gap-1">
@@ -60,7 +64,7 @@ export function AdminBusinessReview(){
  <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">TIME LOG</h3>{selector(timeStaff,setTimeStaff,"ADMIN TIME LOG 직원")}</div><p className="rounded bg-muted p-3 font-semibold">전체시간 합산 · {overview.data?minutesText(times.reduce((s,r)=>s+Number(r.minutes),0)):"—"}</p>{overview.data&&times.length===0&&<p className="text-sm text-muted-foreground">조회 기간에 근무 기록이 없습니다.</p>}{times.map(r=><p key={r.employee_id} className="flex justify-between text-sm"><span>{r.name}</span><span>{minutesText(Number(r.minutes))}</span></p>)}</section>
  </>}</TabsContent>
  <TabsContent value="work-log">{period&&<>
- <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">WORK LOG</h3>{selector(workStaff,setWorkStaff,"ADMIN WORK LOG 직원")}</div><p className="text-xs text-muted-foreground">선택 기간이 포함된 월의 업무 기록을 합산합니다. 월별 기록이므로 일 단위로 나누어 계산하지 않습니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[1000px] text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">직원</th>{labels.map(t=><th key={t} className="p-2 text-right">{t}</th>)}</tr></thead><tbody>{overview.data&&work.length===0&&<tr><td colSpan={10} className="p-2">조회 기간에 업무 기록이 없습니다.</td></tr>}{work.map(r=><tr key={r.employee_id} className="border-b"><th className="p-2 text-left">{r.name}</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(r[k])}</td>)}</tr>)}<tr className="bg-muted font-semibold"><th className="p-2 text-left">합계(건)</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(work.reduce((s,r)=>s+Number(r[k]),0))}</td>)}</tr></tbody></table></div></section></>}</TabsContent>
+ <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">WORK LOG</h3>{selector(workStaff,setWorkStaff,"ADMIN WORK LOG 직원")}</div><p className="text-xs text-muted-foreground">일별 기록은 조회 기간으로 집계합니다. 기존 월간 기록은 조회 기간과 겹치는 월의 전체 건수를 포함합니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[1000px] text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">직원</th>{labels.map((t,i)=><th key={i} className="p-2 text-right">{t}</th>)}</tr></thead><tbody>{overview.data&&work.length===0&&<tr><td colSpan={keys.length+1} className="p-2">조회 기간에 업무 기록이 없습니다.</td></tr>}{work.map(r=><tr key={r.employee_id} className="border-b"><th className="p-2 text-left">{r.name}</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(r[k])}</td>)}</tr>)}<tr className="bg-muted font-semibold"><th className="p-2 text-left">합계(건)</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(work.reduce((s,r)=>s+Number(r[k]??0),0))}</td>)}</tr></tbody></table></div></section></>}</TabsContent>
  <TabsContent value="settlements">{period&&<RouteCollections key={`${period.from}-${period.to}-${salesView}`} period={period} grouping={salesView}/>}</TabsContent></Tabs></section>;
 }
 function RouteCollections({period,grouping}:{period:ReviewPeriod;grouping:SalesView}){

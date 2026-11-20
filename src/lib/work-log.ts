@@ -25,3 +25,18 @@ export const readWorkCounts=(value:unknown):WorkCounts=>{
  const source=value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
  return Object.fromEntries(WORK_CHECK_ITEMS.map(([key])=>{const n=source[key];return [key,typeof n==="number"&&Number.isInteger(n)&&n>=0&&n<=100000?n:0];})) as WorkCounts;
 };
+
+export const WORK_PRIMARY_ITEMS = [
+ ["shot", "S영상완성"], ["upload", "S영상UP"], ["feed", "S피드UP"], ["influencer", "협찬UP"],
+] as const;
+
+export const WORK_EXTRA_KEYS = ["extra_1","extra_2","extra_3","extra_4","extra_5","extra_6"] as const;
+export type WorkExtraKey = typeof WORK_EXTRA_KEYS[number];
+export const WORK_METRICS = [...WORK_PRIMARY_ITEMS, ...WORK_CHECK_ITEMS, ...WORK_EXTRA_KEYS.map(key => [key, ""] as const)] as const;
+export const workMetricLabel = (items: { id: string; label: string }[] | undefined, key: string, fallback: string) =>
+ items?.find(item => item.id === key)?.label ?? fallback;
+
+export function readExtraWorkCounts(value: unknown) {
+ const source = value && typeof value === "object" ? value as Record<string, unknown> : {};
+ return Object.fromEntries(WORK_EXTRA_KEYS.map(key => [key, typeof source[key] === "number" ? source[key] : 0])) as Record<WorkExtraKey, number>;
+}
