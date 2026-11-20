@@ -22,7 +22,7 @@ export function ProductInventory() {
   const [reportFrom, setReportFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [reportTo, setReportTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const validReport = !!reportFrom && !!reportTo && reportFrom <= reportTo;
-  const overview = useQuery({ queryKey: ["product-overview", reportFrom, reportTo], enabled: validReport, queryFn: async () => {
+  const overview = useQuery({ queryKey: ["product-overview", reportFrom, reportTo], enabled: admin && validReport, queryFn: async () => {
     const { data, error } = await supabase.rpc("inventory_balance_report", { _from: reportFrom, _to: reportTo });
     if (error) throw error; return data;
   } });
@@ -44,7 +44,7 @@ export function ProductInventory() {
       if (error) throw error; return data;
     },
   });
-  const sales = useQuery({ queryKey: ["work-sales", salesPage], queryFn: async () => {
+  const sales = useQuery({ queryKey: ["work-sales", salesPage], enabled: admin, queryFn: async () => {
     const { data, error } = await supabase.from("work_product_sales").select("*").order("paid_on", { ascending: false }).order("created_at", { ascending: false }).order("id").range(salesPage * 30, salesPage * 30 + 29);
     if (error) throw error; return data;
   } });
@@ -105,8 +105,8 @@ export function ProductInventory() {
   };
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">제품 · 재고 관리</h3><p className="text-sm">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 60종</p></div>
-    <div className="grid items-start gap-4 lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.4fr)]">
-      <section className="min-w-0 rounded-lg border bg-background">
+    <div className={admin?"grid items-start gap-4 lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.4fr)]":"grid gap-4"}>
+      {admin && <section className="min-w-0 rounded-lg border bg-background">
         <h4 className="border-b px-3 py-3 font-semibold">전체 제품 재고</h4>
         {isPending && <p className="p-3">제품을 불러오는 중입니다.</p>}
         {error && <p role="alert" className="p-3">제품 목록을 불러오지 못했습니다.</p>}
@@ -120,7 +120,7 @@ export function ProductInventory() {
           </tr>)}</tbody>
         </table></div>
         {data?.length === 0 && <p className="p-3 text-sm text-muted-foreground">제품을 등록하면 이 표에 재고가 표시됩니다.</p>}
-      </section>
+      </section>}
       <div className="min-w-0 space-y-4">
     <form id="inventory-entry" onSubmit={(e) => {
       e.preventDefault();
@@ -135,9 +135,10 @@ export function ProductInventory() {
       <label className="text-sm">수량 {adjustment && `(${data?.find((p) => p.id === adjustment.id)?.unit ?? "개"})`}<Input aria-label="재고 기록 수량" disabled={busy} required type="number" inputMode="decimal" min={movementKind === "adjustment" ? -100000000 : 0.001} max={100000000} step="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={movementKind === "adjustment" ? "증가 + / 감소 −" : "예: 1 또는 0.2"} /></label>
       <label className="text-sm sm:col-span-2">메모 (선택)<Input aria-label="재고 기록 내용" disabled={busy} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 납품처, 사용 목적, 사은품 수령 고객" /></label>
       <div className="flex items-end gap-2"><Button disabled={busy || !adjustment || !Number(quantity)}>등록</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { setAdjustment(null); setQuantity(""); setReason(""); }}>초기화</Button></div>
-      <p className="text-xs text-muted-foreground sm:col-span-2">저장하면 위 재고표에 반영됩니다. 예약의 제품구매는 자동 연결되므로 이곳에서 같은 판매를 다시 입력할 필요가 없습니다. 제품명을 클릭하면 입고·출고·판매 이력을 확인할 수 있습니다.</p>
+      <p className="text-xs text-muted-foreground sm:col-span-2">저장하면 재고에 반영됩니다. 예약의 제품구매는 자동 연결되므로 이곳에서 같은 판매를 다시 입력할 필요가 없습니다. {admin&&"제품명을 클릭하면 입고·출고·판매 이력을 확인할 수 있습니다."}</p>
     </form>
 
+    {admin && <>
     <InventoryRoutes />
     <details className="space-y-3 rounded-lg border p-4" open={data?.length === 0 || undefined}><summary className="cursor-pointer font-semibold">제품 · 초기 재고 등록 (최대 60종)</summary><form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("register_routed_product", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock), _unit: unit.trim(), ...(routeId ? { _route: routeId } : {}) })); }}>
       <label className="w-full text-sm">경로<select aria-label="신규 제품 경로" className="h-10 w-full rounded border bg-background px-2" value={routeId} onChange={e=>setRouteId(e.target.value)}><option value="">미지정</option>{routes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
@@ -149,7 +150,8 @@ export function ProductInventory() {
     </form></details>
 
     <InventoryCatalogManager />
-        <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">예약 외 판매 등록·내역</summary><div className="mt-3 space-y-3">    <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">+ 예약 외 제품 판매 등록</summary><form onSubmit={sell} className="space-y-3 rounded border p-3">
+    </>}
+        <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">{admin?"예약 외 판매 등록·내역":"예약 외 판매 등록"}</summary><div className="mt-3 space-y-3">    <details className="rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">+ 예약 외 제품 판매 등록</summary><form onSubmit={sell} className="space-y-3 rounded border p-3">
       <h4 className="font-semibold">제품 판매 등록</h4>
       <p className="text-xs text-muted-foreground">예약에서 제품판매를 연결한 경우 이미 자동 반영됩니다. 여기에는 예약 없이 판매한 제품만 등록해 주세요.</p>
       <div className="grid gap-3 sm:grid-cols-2">
@@ -166,18 +168,18 @@ export function ProductInventory() {
       <Input aria-label="제품 판매 메모" placeholder="판매 내용·메모" maxLength={500} disabled={busy} value={saleMemo} onChange={(e) => setSaleMemo(e.target.value)} />
       <Button disabled={busy || !selected || Number(saleQuantity) <= 0}>판매 저장 · 재고 차감</Button>
     </form></details>
-    <details className="space-y-2 rounded border p-3"><summary className="cursor-pointer font-semibold">예약 외 판매 내역</summary>
+    {admin && <details className="space-y-2 rounded border p-3"><summary className="cursor-pointer font-semibold">예약 외 판매 내역</summary>
       {sales.error && <p role="alert">판매 내역을 불러오지 못했습니다.</p>}{sales.isPending && <p>불러오는 중입니다.</p>}
       {sales.data?.map((s) => <div className="rounded border p-2 text-sm" key={s.id}>{s.paid_on} · {s.product_name} · {s.quantity}개 · {(s.quantity * Number(s.unit_price)).toLocaleString("ko-KR")}원 · {s.method === "card" ? "카드" : s.method === "bank" ? "계좌" : "현금"}{s.memo && <p>{s.memo}</p>}</div>)}
       {sales.data?.length === 0 && <p className="text-sm">등록된 판매가 없습니다.</p>}
       <div className="flex gap-2"><Button variant="outline" disabled={salesPage === 0} onClick={() => setSalesPage(salesPage - 1)}>이전</Button><Button variant="outline" disabled={sales.data?.length !== 30} onClick={() => setSalesPage(salesPage + 1)}>다음</Button></div>
-    </details>
+    </details>}
 </div></details>
       </div>
     </div>
     {detailProduct && validReport && <Dialog open onOpenChange={(open) => !open && setDetailId("")}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl"><DialogHeader><DialogTitle>{detailProduct.name} · 이력</DialogTitle></DialogHeader><ProductStockDetail key={`${detailProduct.id}-${reportFrom}-${reportTo}`} product={detailProduct} from={reportFrom} to={reportTo} onClose={() => setDetailId("")} /><Button type="button" variant="outline" onClick={()=>{setEditingProduct(detailProduct);setDetailId("");}}>제품 수정·삭제</Button></DialogContent></Dialog>}
     {editingProduct && <InventoryProductEditor key={editingProduct.id} product={editingProduct} onClose={()=>setEditingProduct(null)} />}
-    <section className="space-y-3 rounded-lg border p-4"><h4 className="font-semibold">기간별 판매·재고 조회</h4>
+    {admin && <section className="space-y-3 rounded-lg border p-4"><h4 className="font-semibold">기간별 판매·재고 조회</h4>
     <div className="flex flex-wrap items-end gap-2">
       <label className="text-sm">조회 시작일<Input aria-label="제품 조회 시작일" type="date" value={reportFrom} onChange={(e) => setReportFrom(e.target.value)} /></label>
       <label className="text-sm">조회 종료일<Input aria-label="제품 조회 종료일" type="date" min={reportFrom} value={reportTo} onChange={(e) => setReportTo(e.target.value)} /></label>
@@ -209,6 +211,6 @@ export function ProductInventory() {
       </table></div>
 
       </details>
-    </section>
+    </section>}
   </section>;
 }

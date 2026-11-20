@@ -773,6 +773,7 @@ export type Database = {
       inventory_balance_report: { Args: { _from: string; _to: string }; Returns: { product_id: string; received: number; sold: number; sales_amount: number; opening_stock: number; used: number; internal_used: number; adjustment: number; closing_stock: number; notes: string }[] }
       record_product_sale: { Args: { _id: string; _product: string; _quantity: number; _paid_on: string; _method: string; _memo?: string; _customer?: string; _unit_price?: number }; Returns: string }
 
+      register_work_attendance: { Args: { _id: string; _employee: string; _start: string; _end: string; _memo: string; _work_type: string }; Returns: string }
       attendance_summary: { Args: { _from: string; _to: string; _employee?: string }; Returns: { employee_id: string; minutes: number }[] }
       save_reservation_payment: { Args: { _id: string; _reservation: Json; _payment: Json }; Returns: string }
       adjust_product_stock: { Args: { _event: string; _product: string; _quantity: number; _reason: string }; Returns: undefined }
