@@ -15,9 +15,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { StatusBadge } from "@/components/PageHeader";
 import { CategoryBadge, type ResWithCustomer } from "@/components/ReservationCard";
 import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, STATUS_LABEL, type Reservation, type ResStatus } from "@/lib/app";
-import { STATUS_ORDER, useCardLookups } from "@/lib/display";
+import { useCardLookups } from "@/lib/display";
 import { PaymentHistory } from "@/components/PaymentHistory";
-import { cn } from "@/lib/utils";
 
 export function ReservationDialog({ res, onClose, initialAction }: { initialAction?: "cancelled" | "no_show" | undefined; res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access" | "visible" | "customer_no">>) | null; onClose: () => void }) {
   const qc = useQueryClient();
@@ -158,25 +157,6 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
 
         {canChange && (
           <div className="space-y-3 border-t pt-4">
-            <h4 className="text-sm font-semibold text-primary">예약 상태 변경</h4>
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {STATUS_ORDER.map((s) => {
-                const c = L.statusColor(s);
-                const current = res.status === s;
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    disabled={busy || current}
-                    onClick={() => (s === "cancelled" ? setConfirming("cancelled") : apply(s))}
-                    className={cn("h-11 rounded-md border-2 text-sm font-semibold transition-opacity disabled:cursor-default", current ? "ring-2 ring-offset-1" : "hover:opacity-80")}
-                    style={{ color: c.text_color, background: c.bg_color, borderColor: c.border_color, ["--tw-ring-color" as string]: c.border_color }}
-                  >
-                    {STATUS_LABEL[s]}{current && " ✓"}
-                  </button>
-                );
-              })}
-            </div>
             {canEdit && (
               <div className="grid grid-cols-2 gap-2">
                 <Button asChild variant="outline" className="h-11">

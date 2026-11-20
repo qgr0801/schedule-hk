@@ -30,7 +30,7 @@ function LoginPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: "/dashboard" });
+      if (data.session) navigate({ to: "/calendar", search: {today:Date.now()}, replace: true });
     });
   }, [navigate]);
 
@@ -44,7 +44,7 @@ function LoginPage() {
       toast.error(/banned/i.test(error.message) ? "비활성화된 계정입니다. 관리자에게 문의해 주세요." : "이메일 또는 비밀번호를 확인해 주세요.");
       return;
     }
-    navigate({ to: "/dashboard" });
+    navigate({ to: "/calendar", search: {today:Date.now()}, replace: true });
   }
 
   async function forgot() {

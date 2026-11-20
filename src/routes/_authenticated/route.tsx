@@ -39,6 +39,10 @@ function AppShell() {
   const items = me?.active ? NAV.filter((n) => canMenu(me.role, me.perms, n.key)) : [];
   const guard = menuForPath(path);
   const blocked = !!me && !!guard && !canMenu(me.role, me.perms, guard);
+  const canOpenCalendar = !!me && canMenu(me.role, me.perms, "calendar");
+  function openCalendarHome() {
+    void navigate({ to: "/calendar", search: { today: Date.now() } });
+  }
   const showFab = !!me && canMenu(me.role, me.perms, "reservation_new") && !path.startsWith("/reservations/new");
 
   async function signOut() {
@@ -52,7 +56,7 @@ function AppShell() {
     <div className="min-h-screen bg-muted md:flex">
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col bg-sidebar p-4 text-sidebar-foreground md:flex">
         <div className="mb-8 flex items-center gap-2 px-2 font-bold text-sidebar-primary">
-          <CalendarCheck2 className="h-5 w-5" /> Schedule HK
+          {canOpenCalendar ? <button type="button" onClick={openCalendarHome} aria-label="Schedule HK 캘린더 홈" className="flex items-center gap-2"><CalendarCheck2 className="h-5 w-5" /> Schedule HK</button> : <><CalendarCheck2 className="h-5 w-5" /> Schedule HK</>}
         </div>
         <nav className="flex-1 space-y-1">
           {items.map((n) => (
@@ -82,7 +86,7 @@ function AppShell() {
 
       <header className="sticky top-0 z-20 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b bg-background px-4 pb-3 pt-[max(0.75rem,env(safe-area-inset-top))] md:hidden">
         <div className="flex min-w-0 items-center gap-2 font-bold text-primary">
-          <CalendarCheck2 className="h-5 w-5 shrink-0" /><span className="min-w-0"><span className="block truncate">Schedule HK</span><span className="block truncate text-xs font-normal text-muted-foreground">{me?.name} · {me && ROLE_LABEL[me.role]}</span></span>
+          <CalendarCheck2 className="h-5 w-5 shrink-0" /><span className="min-w-0">{canOpenCalendar?<button type="button" aria-label="Schedule HK 캘린더 홈" className="block max-w-full truncate text-left" onClick={openCalendarHome}>Schedule HK</button>:<span className="block truncate">Schedule HK</span>}<span className="block truncate text-xs font-normal text-muted-foreground">{me?.name} · {me && ROLE_LABEL[me.role]}</span></span>
         </div>
         <div className="flex min-w-0 items-center gap-1">
           <AppRefreshButton />
