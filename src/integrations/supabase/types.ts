@@ -774,6 +774,8 @@ export type Database = {
       record_work_product_sale: { Args: { _id: string; _product: string; _quantity: number; _paid_on: string; _method: string; _memo?: string; _customer?: string }; Returns: string }
       product_inventory_overview: { Args: { _from: string; _to: string }; Returns: { product_id: string; received: number; sold: number; sales_amount: number }[] }
 
+      record_inventory_batch: { Args: { _rows: Json }; Returns: undefined }
+      correct_inventory_movement: { Args: { _id: string; _event: string; _expected_quantity: number; _expected_date: string; _expected_note: string; _quantity: number; _date: string; _note: string; _cancel: boolean }; Returns: undefined }
       record_product_movement: { Args: { _event: string; _product: string; _kind: string; _quantity: number; _date: string; _reason: string }; Returns: undefined }
       product_stock_ledger: { Args: { _product: string; _from: string; _to: string; _offset?: number }; Returns: { id: string; effective_on: string; movement_kind: string; quantity: number; reason: string; reservation_id: string | null; customer_name: string }[] }
 

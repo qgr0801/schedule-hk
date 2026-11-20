@@ -323,6 +323,13 @@
       "when": 1792672700319,
       "tag": "0045_internal_product_management",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1792672700320,
+      "tag": "0046_inventory_batch_corrections",
+      "breakpoints": true
     }
   ]
 }

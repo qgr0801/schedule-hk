@@ -1,3 +1,4 @@
+import { InventoryMovementHistory, type InventoryHistoryView } from "@/components/InventoryMovementHistory";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -15,10 +16,15 @@ import { productsQuery } from "@/lib/payments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
+const blankMovement = (product = "", kind = "receipt") => ({
+  event: crypto.randomUUID(), product, kind, quantity: "", note: "",
+});
+
 export function ProductInventory() {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const canManageProducts = me?.role === "admin" || me?.role === "internal";
+  const [historyView, setHistoryView] = useState<InventoryHistoryView | null>(null);
   const [reportFrom, setReportFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [reportTo, setReportTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const validReport = !!reportFrom && !!reportTo && reportFrom <= reportTo;
@@ -57,17 +63,13 @@ export function ProductInventory() {
   const [editingProduct, setEditingProduct] = useState<InventoryProduct | null>(null);
   const [productId, setProductId] = useState(() => crypto.randomUUID());
   const [unit, setUnit] = useState("개");
-  const [movementKind, setMovementKind] = useState("receipt");
+  const [movements, setMovements] = useState(() => [blankMovement()]);
   const [movementDate, setMovementDate] = useState(format(new Date(), "yyyy-MM-dd"));
   const [initialStock, setInitialStock] = useState("0");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [busy, setBusy] = useState(false);
-  const [adjustment, setAdjustment] = useState<{ id: string; event: string } | null>(null);
-  const [quantity, setQuantity] = useState("");
-  const [reason, setReason] = useState("");
-
-  async function run(action: () => PromiseLike<{ error: unknown }>) {
+  async function run(action: () => PromiseLike<{ error: unknown }>, onSaved?: () => void) {
     if (busy) return;
     setBusy(true);
     try {
@@ -76,8 +78,10 @@ export function ProductInventory() {
       await qc.invalidateQueries({ queryKey: productsQuery.queryKey });
       await qc.invalidateQueries({ queryKey: ["product-ledger"] });
       await qc.invalidateQueries({ queryKey: ["product-overview"] });
+      await qc.invalidateQueries({ queryKey: ["inventory-movements"] });
+      onSaved?.();
       toast.success("제품 정보를 저장했습니다.");
-      setName(""); setPrice(""); setUnit("개"); setInitialStock("0"); setProductId(crypto.randomUUID()); setAdjustment(null); setQuantity(""); setReason("");
+      setName(""); setPrice(""); setUnit("개"); setInitialStock("0"); setProductId(crypto.randomUUID());
     } catch (err) { toast.error(dbErrorMessage(err)); }
     finally { setBusy(false); }
   }
@@ -105,8 +109,20 @@ export function ProductInventory() {
   };
   return <section className="space-y-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">제품 · 재고 관리</h3><p className="text-sm">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 60종</p></div>
+    <nav aria-label="제품 관리 메뉴" className="flex flex-wrap gap-2">
+      <Button type="button" variant="outline" size="sm" onClick={()=>document.getElementById("inventory-entry")?.scrollIntoView({block:"start"})}>매입등록</Button>
+      {([["purchases","매입내역"],["product","제품별매입내역"],["usage","내부소모내역"],["adjustments","재고조정내역"],["outbound","출고내역"],["all","입출고현황"]] as const).map(([view,label])=><Button type="button" size="sm" key={view} variant={historyView===view?"default":"outline"} aria-pressed={historyView===view} onClick={()=>setHistoryView(view)}>{label}</Button>)}
+      <Button type="button" variant="outline" size="sm" onClick={()=>document.getElementById("inventory-stock")?.scrollIntoView({block:"start"})}>재고현황</Button>
+      <Button type="button" variant="outline" size="sm" onClick={()=>{const details=document.querySelector<HTMLDetailsElement>("#inventory-suppliers details");if(details){details.open=true;details.scrollIntoView({block:"start"});}}}>매입처등록</Button>
+    </nav>
+    {historyView&&<div className="flex flex-wrap gap-2">
+      <label className="text-sm">내역 시작일<Input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/></label>
+      <label className="text-sm">내역 종료일<Input type="date" min={reportFrom} value={reportTo} onChange={e=>setReportTo(e.target.value)}/></label>
+      {!validReport&&<p role="alert" className="self-end text-sm">조회 날짜를 확인해 주세요.</p>}
+    </div>}
+    {historyView&&validReport&&<InventoryMovementHistory key={historyView+reportFrom+reportTo} view={historyView} from={reportFrom} to={reportTo} products={allProducts??[]}/>}
     <div className={canManageProducts?"grid items-start gap-4 lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.4fr)]":"grid gap-4"}>
-      {canManageProducts && <section className="min-w-0 rounded-lg border bg-background">
+      {canManageProducts && <section id="inventory-stock" className="min-w-0 rounded-lg border bg-background">
         <h4 className="border-b px-3 py-3 font-semibold">전체 제품 재고</h4>
         {isPending && <p className="p-3">제품을 불러오는 중입니다.</p>}
         {error && <p role="alert" className="p-3">제품 목록을 불러오지 못했습니다.</p>}
@@ -124,22 +140,34 @@ export function ProductInventory() {
       <div className="min-w-0 space-y-4">
     <form id="inventory-entry" onSubmit={(e) => {
       e.preventDefault();
-      if (!adjustment || busy) return;
-      const fallback = movementKind === "receipt" ? "제품 입고" : movementKind === "usage" ? "내부소진" : movementKind === "internal" ? "사은품" : "재고 조정";
-      void run(() => supabase.rpc("record_product_movement", { _event: adjustment.event, _product: adjustment.id, _kind: movementKind, _quantity: Number(quantity), _date: movementDate, _reason: reason.trim() || fallback }));
-    }} className="grid gap-3 rounded-lg border bg-muted/30 p-4 sm:grid-cols-2 ">
-      <h4 className="font-semibold sm:col-span-2">입고·내부소진·사은품 등록</h4>
-      <label className="text-sm sm:col-span-2">제품<select aria-label="입출고 제품 선택" required disabled={busy} className="h-10 w-full rounded border bg-background px-2" value={adjustment?.id ?? ""} onChange={(e) => { setAdjustment(e.target.value ? { id: e.target.value, event: crypto.randomUUID() } : null); }}><option value="">▼ 등록된 제품 선택</option>{data?.filter((p) => p.is_active).map((p) => <option key={p.id} value={p.id}>{routeName(p.route_id)} · {p.name} · {p.stock_confirmed ? `현재 ${fmt(p.stock)}${p.unit}` : "초기 재고 미확인"}</option>)}</select></label>
-      <label className="text-sm">구분<select aria-label="재고 기록 구분" disabled={busy} className="h-10 w-full rounded border bg-background px-2" value={movementKind} onChange={(e) => setMovementKind(e.target.value)}><option value="receipt">입고 (+)</option><option value="usage">내부소진 (−)</option><option value="internal">사은품 (−)</option>{canManageProducts && movementKind === "adjustment" && <option value="adjustment">재고 조정 (증감)</option>}</select></label>
-      <label className="text-sm">날짜<Input aria-label="재고 기록 날짜" disabled={busy} required type="date" value={movementDate} onChange={(e) => setMovementDate(e.target.value)} /></label>
-      <label className="text-sm">수량 {adjustment && `(${data?.find((p) => p.id === adjustment.id)?.unit ?? "개"})`}<Input aria-label="재고 기록 수량" disabled={busy} required type="number" inputMode="decimal" min={movementKind === "adjustment" ? -100000000 : 0.001} max={100000000} step="0.001" value={quantity} onChange={(e) => setQuantity(e.target.value)} placeholder={movementKind === "adjustment" ? "증가 + / 감소 −" : "예: 1 또는 0.2"} /></label>
-      <label className="text-sm sm:col-span-2">메모 (선택)<Input aria-label="재고 기록 내용" disabled={busy} maxLength={200} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="예: 납품처, 사용 목적, 사은품 수령 고객" /></label>
-      <div className="flex items-end gap-2"><Button disabled={busy || !adjustment || !Number(quantity)}>등록</Button><Button type="button" variant="outline" disabled={busy} onClick={() => { setAdjustment(null); setQuantity(""); setReason(""); }}>초기화</Button></div>
-      <p className="text-xs text-muted-foreground sm:col-span-2">저장하면 재고에 반영됩니다. 예약의 제품구매는 자동 연결되므로 이곳에서 같은 판매를 다시 입력할 필요가 없습니다. {canManageProducts&&"제품명을 클릭하면 입고·출고·판매 이력을 확인할 수 있습니다."}</p>
+      if (busy) return;
+      const rows = movements.map(row => ({
+        ...row, day: movementDate, quantity: Number(row.quantity),
+        note: row.note.trim() || ({receipt:"제품 입고",usage:"내부소진",internal:"사은품",adjustment:"재고 조정"}[row.kind] ?? ""),
+      }));
+      void run(() => supabase.rpc("record_inventory_batch", { _rows: rows }), () => setMovements([blankMovement()]));
+    }} className="space-y-4 rounded-lg border bg-muted/30 p-4">
+      <h4 className="font-semibold">입고·내부소진·사은품 등록</h4>
+      <label className="block max-w-52 text-sm">날짜<Input disabled={busy} required type="date" value={movementDate} onChange={e=>setMovementDate(e.target.value)}/></label>
+      {movements.map((row,index)=>{
+        const update=(change: Partial<typeof row>)=>setMovements(previous=>previous.map(item=>item.event===row.event?{...item,...change}:item));
+        return <fieldset key={row.event} disabled={busy} className="grid gap-3 rounded-md border bg-background p-3 sm:grid-cols-2">
+          <legend className="px-1 text-sm font-medium">제품 {index+1}</legend>
+          <label className="text-sm sm:col-span-2">제품<select className="h-10 w-full rounded border bg-background px-2" required value={row.product} onChange={e=>update({product:e.target.value})}><option value="">등록된 제품 선택</option>{data?.filter(product=>product.is_active).map(product=><option key={product.id} value={product.id}>{routeName(product.route_id)} · {product.name} · {product.stock_confirmed?`현재 ${fmt(product.stock)}${product.unit}`:"초기 재고 미확인"}</option>)}</select></label>
+          <label className="text-sm">구분<select className="h-10 w-full rounded border bg-background px-2" value={row.kind} onChange={e=>update({kind:e.target.value})}><option value="receipt">입고 (+)</option><option value="usage">내부소진 (−)</option><option value="internal">사은품 (−)</option><option value="adjustment">재고 조정</option></select></label>
+          <label className="text-sm">수량<Input required type="number" inputMode="decimal" min={row.kind==="adjustment"?-100000000:0.001} max={100000000} step="0.001" value={row.quantity} onChange={e=>update({quantity:e.target.value})}/></label>
+          <label className="text-sm sm:col-span-2">메모 (선택)<Input maxLength={200} value={row.note} onChange={e=>update({note:e.target.value})}/></label>
+          {movements.length>1&&<Button type="button" variant="ghost" onClick={()=>setMovements(previous=>previous.filter(item=>item.event!==row.event))}>이 줄 제거</Button>}
+        </fieldset>;
+      })}
+      <div className="flex flex-wrap gap-2">
+        <Button type="button" variant="outline" disabled={busy||movements.length>=100} onClick={()=>setMovements(rows=>[...rows,blankMovement("",rows.at(-1)?.kind)])}>+ 추가</Button>
+        <Button disabled={busy||movements.some(row=>!row.product||!Number(row.quantity))}>전체 등록</Button>
+      </div>
     </form>
 
     {canManageProducts && <>
-    <InventoryRoutes />
+    <div id="inventory-suppliers"><InventoryRoutes /></div>
     <details className="space-y-3 rounded-lg border p-4" open={data?.length === 0 || undefined}><summary className="cursor-pointer font-semibold">제품 · 초기 재고 등록 (최대 60종)</summary><form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("register_routed_product", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock), _unit: unit.trim(), ...(routeId ? { _route: routeId } : {}) })); }}>
       <label className="w-full text-sm">경로<select aria-label="신규 제품 경로" className="h-10 w-full rounded border bg-background px-2" value={routeId} onChange={e=>setRouteId(e.target.value)}><option value="">미지정</option>{routes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
       <label className="min-w-40 flex-1 text-sm">제품명<Input aria-label="새 제품명" placeholder="제품명" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} required /></label>
@@ -205,7 +233,7 @@ export function ProductInventory() {
             <td className="px-2 text-right">{fmt(r?.used)}</td><td className="px-2 text-right">{fmt(r?.internal_used)}</td><td className="px-2 text-right">{fmt(r?.sold)}</td><td className="px-2 text-right">{fmt(r?.adjustment)}</td>
             <td className="bg-sky-100 px-2 text-right font-semibold">{fmt(r?.closing_stock)}{r && Number(r.closing_stock) !== Number(p.stock) && <p className="text-xs font-normal">현재 {fmt(p.stock)}</p>}{p.is_active && p.stock_confirmed && p.stock <= 3 && <p className={p.stock === 0 ? "text-xs text-destructive" : "text-xs text-amber-800"}>{p.stock === 0 ? "품절" : "부족"}</p>}</td>
             <td className="px-2 text-right">{r ? Number(r.sales_amount).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : "—"}</td><td className="max-w-64 break-words p-2 text-xs">{r?.notes || "—"}</td>
-            <td className="p-1"><div className="flex gap-1"><Button size="sm" variant="outline" onClick={() => setDetailId(p.id)}>내역</Button>{canManageProducts && <Button size="sm" variant="outline" disabled={busy} onClick={() => { setAdjustment({ id: p.id, event: crypto.randomUUID() }); setMovementKind("adjustment"); setQuantity(""); setReason(""); document.getElementById("inventory-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>조정</Button>}{canManageProducts && <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => supabase.rpc("set_inventory_product_active", { _id: p.id, _active: !p.is_active }))}>{p.is_active ? "중지" : "재사용"}</Button>}</div></td>
+            <td className="p-1"><div className="flex gap-1"><Button size="sm" variant="outline" onClick={() => setDetailId(p.id)}>내역</Button>{canManageProducts && <Button size="sm" variant="outline" disabled={busy} onClick={() => { setMovements(rows => rows.length===1&&!rows[0]?.product ? [blankMovement(p.id,"adjustment")] : rows.length<100 ? [...rows,blankMovement(p.id,"adjustment")] : rows); document.getElementById("inventory-entry")?.scrollIntoView({ behavior: "smooth", block: "center" }); }}>조정</Button>}{canManageProducts && <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => supabase.rpc("set_inventory_product_active", { _id: p.id, _active: !p.is_active }))}>{p.is_active ? "중지" : "재사용"}</Button>}</div></td>
           </tr>;
         })}</tbody>
       </table></div>
