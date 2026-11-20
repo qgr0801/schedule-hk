@@ -16,6 +16,8 @@ export const Route = createFileRoute("/_authenticated/admin/reservations")({
   component: AllReservations,
 });
 
+type ReservationWithCustomer = Reservation & { customer: { customer_no: number; name: string } | null };
+
 function AllReservations() {
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
@@ -25,7 +27,7 @@ function AllReservations() {
   const [to, setTo] = useState("");
   const [q, setQ] = useState("");
   const [sel, setSel] = useState<Reservation | null>(null);
-  const [duplicate, setDuplicate] = useState<Reservation | null>(null);
+  const [duplicate, setDuplicate] = useState<ReservationWithCustomer | null>(null);
   const [reason, setReason] = useState("");
   const [deleting, setDeleting] = useState(false);
   const qc = useQueryClient();
@@ -52,7 +54,7 @@ function AllReservations() {
     queryKey: ["reservations", "all", staff, status, from, to],
     enabled: me?.role === "admin",
     queryFn: async () => {
-      let qy = supabase.from("reservations").select("*").order("start_at", { ascending: false }).limit(500);
+      let qy = supabase.from("reservations").select("*, customer:customers(customer_no,name)").order("start_at", { ascending: false }).limit(500);
       if (staff) qy = qy.eq("created_by", staff);
       if (status) qy = qy.eq("status", status);
       if (from) qy = qy.gte("start_at", new Date(from).toISOString());
@@ -64,14 +66,16 @@ function AllReservations() {
   });
   if (me && me.role !== "admin") return <Panel>관리자만 접근할 수 있습니다.</Panel>;
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "-";
-  const rows = (data ?? []).filter((r) => !q || r.customer_name.includes(q) || r.service.includes(q));
+  const search = q.trim();
+  const customerNumber = search.replace(/^No\.?\s*/i, "");
+  const rows = (data ?? []).filter(r => !search || r.customer_name.includes(search) || r.customer?.name.includes(search) || r.service.includes(search) || String(r.customer?.customer_no ?? "") === customerNumber);
   const sel_cls = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 
   return (
     <div>
       <PageHeader title="전체 예약 조회" desc={`총 ${rows.length}건 · 모든 직원의 예약과 취소 내역`} />
       <Panel className="mb-4 grid gap-2 sm:grid-cols-5">
-        <Input placeholder="고객명·시술 검색" value={q} onChange={(e) => setQ(e.target.value)} />
+        <Input placeholder="고객명·고객번호·시술 검색" value={q} onChange={(e) => setQ(e.target.value)} />
         <select className={sel_cls} value={staff} onChange={(e) => setStaff(e.target.value)}>
           <option value="">전체 직원</option>
           {profiles?.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
@@ -93,7 +97,9 @@ function AllReservations() {
               <tr key={r.id} onClick={() => setSel(r)} className="cursor-pointer hover:bg-muted">
                 <td className="px-4 py-3 font-medium text-primary">{format(new Date(r.start_at), "yyyy.MM.dd HH:mm")}</td>
                 <td className="px-4 py-3">
+                  <span className="mr-2 whitespace-nowrap font-semibold">{r.customer ? `No.${r.customer.customer_no}` : "미연결"}</span>
                   {r.customer_name}
+                  {r.customer && r.customer.name !== r.customer_name && <p className="mt-1 text-xs text-muted-foreground">연결 고객 · {r.customer.name}</p>}
                   {r.is_test && <span className="ml-1.5 rounded border px-1.5 py-0.5 text-[10px] text-muted-foreground">테스트</span>}
                 </td>
                 <td className="px-4 py-3">{r.service}</td>
@@ -110,7 +116,7 @@ function AllReservations() {
           <AlertDialogHeader>
             <AlertDialogTitle>중복 예약을 삭제할까요?</AlertDialogTitle>
             <AlertDialogDescription>
-              {duplicate&&<span className="block font-semibold">{duplicate.customer_name} · {format(new Date(duplicate.start_at),"yyyy.MM.dd HH:mm")}</span>}
+              {duplicate&&<span className="block font-semibold">{duplicate.customer_name} · {duplicate.customer ? `No.${duplicate.customer.customer_no} (${duplicate.customer.name})` : "고객 미연결"} · {format(new Date(duplicate.start_at),"yyyy.MM.dd HH:mm")}</span>}
               이 예약과 연결된 시술·관리·수납·제품 판매가 운영 목록과 합계에서 빠집니다. 판매로 차감한 재고는 복원되며, 처리 이력은 보관합니다.
             </AlertDialogDescription>
           </AlertDialogHeader>
