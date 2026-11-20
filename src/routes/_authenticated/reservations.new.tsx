@@ -1,4 +1,4 @@
-import { CustomerIdentityFields, SameNameCustomerList,registerCheckedCustomer } from "@/components/CustomerIdentityFields";
+import { CustomerIdentityFields, SameNameCustomerList,normalizedCustomerName,registerCheckedCustomer } from "@/components/CustomerIdentityFields";
 import { BookingRouteField } from "@/components/BookingRoutes";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -136,6 +136,10 @@ function ReservationForm() {
   const publicServiceValue = id || publicServices.includes(publicService) ? publicService : (publicServices[0] ?? "");
   const selected = customers?.find((x) => x.id === customerId);
   const canEditCustomer = !customerId || me?.role === "admin" || me?.role === "internal" || selected?.created_by === me?.id;
+  const enteredName = normalizedCustomerName(f.customer_name);
+  const replacementCustomers = selected && enteredName && enteredName !== normalizedCustomerName(selected.name)
+    ? (customers ?? []).filter(customer => customer.id !== selected.id && normalizedCustomerName(customer.name) === enteredName)
+    : [];
   const identityKey=JSON.stringify([f.customer_name,f.customer_phone,birthDate,gender]);
   const matches = search.trim()
     ? (customers ?? []).filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()) || (c.phone ?? "").replace(/\D/g, "").includes(search.replace(/\D/g, "") || "\u0000") || String(c.customer_no) === search.trim().replace(/^No\.?\s*/i, "")).slice(0, 6)
@@ -205,6 +209,10 @@ function ReservationForm() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (busy || !me) return;
+    if (replacementCustomers.length) {
+      toast.error("입력한 이름의 기존 고객이 있습니다. 맞는 고객번호를 선택해 주세요.");
+      return;
+    }
     const salesError = canBill ? saleValidation(payment.sales) : null;
     if (salesError) { toast.error(salesError); return; }
     if (canBill && id && (paymentQuery.isPending || paymentQuery.error)) { toast.error("계산 내역을 불러온 뒤 저장해 주세요."); return; }
@@ -295,6 +303,12 @@ function ReservationForm() {
           </div>
           <div className="space-y-2"><Label>고객명 *</Label><Input value={f.customer_name} onChange={set("customer_name")} placeholder="예: 김가상" /></div>
           <div className="space-y-2"><Label>연락처</Label><Input value={f.customer_phone} onChange={set("customer_phone")} placeholder="010-0000-0000" /></div>
+          {replacementCustomers.length>0&&<div className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
+            <p>입력한 이름의 기존 고객이 있습니다. 맞는 고객번호를 선택한 뒤 수정 저장하면 예약과 연결된 계산 내역이 함께 이동합니다.</p>
+            <div className="flex flex-wrap gap-2">{replacementCustomers.map(customer=><Button key={customer.id} type="button" variant="outline" size="sm" disabled={busy} onClick={()=>pickCustomer(customer.id)}>
+              No.{customer.customer_no} {customer.name}{customer.phone ? ` · ${maskPhone(customer.phone)}` : ""}
+            </Button>)}</div>
+          </div>}
           {selected&&canEditCustomer&&<p className="text-xs text-muted-foreground sm:col-span-2">수정 저장하면 입력한 고객명과 연락처가 연결된 고객정보에도 반영됩니다. 다른 고객의 예약이라면 기존 고객 검색에서 해당 고객을 선택해 주세요.</p>}
           <CustomerIdentityFields birthDate={birthDate} gender={gender} onBirthDate={setBirthDate} onGender={setGender} disabled={!canEditCustomer}/>
           {!customerId&&duplicate&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
