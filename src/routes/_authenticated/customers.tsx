@@ -5,6 +5,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomerRecords } from "@/components/CustomerRecords";
+import { PAYMENT_KINDS, type PaymentLine } from "@/lib/payments";
 import { PaymentHistory } from "@/components/PaymentHistory";
 import { Link } from "@tanstack/react-router";
 import { format } from "date-fns";
@@ -252,8 +253,10 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
 
 /** Re-visit list: only reservations this user may read in full (server rules decide). */
 function VisitHistory({ customerId }: { customerId: string }) {
-  const { data, isLoading } = useQuery({
-    queryKey: ["customer_visits", customerId],
+  const {data:me}=useQuery(meQuery);
+  const canViewDetails=!!me?.active&&(me.role==="admin"||me.role==="internal");
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["customer_visits", customerId, me?.id, canViewDetails],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("reservations")
@@ -262,7 +265,11 @@ function VisitHistory({ customerId }: { customerId: string }) {
         .order("start_at", { ascending: false })
         .limit(100);
       if (error) throw error;
-      return data;
+      if (!canViewDetails || !data.length) return data.map(visit=>({...visit,payment:null}));
+      const payments=await supabase.from("customer_payments").select("reservation_id,paid_on,rows").in("reservation_id", data.map(visit=>visit.id));
+      if(payments.error)throw payments.error;
+      const byReservation=new Map(payments.data.map(payment=>[payment.reservation_id,payment]));
+      return data.map(visit=>({...visit,payment:byReservation.get(visit.id)??null}));
     },
   });
   const done = data?.filter((v) => v.status === "completed" || v.status === "paid").length ?? 0;
@@ -272,10 +279,15 @@ function VisitHistory({ customerId }: { customerId: string }) {
       <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
         {data?.map((v) => (
           <li key={v.id} className="flex items-start justify-between gap-2 rounded-md bg-muted px-3 py-2">
-            <Link className="min-w-0 flex-1 break-words underline" to="/reservations/new" search={{ id: v.id }}><span className="block">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.public_service || v.service}</span>{v.service_detail && <span className="mt-1 block whitespace-pre-wrap break-words font-medium">{v.service_detail}</span>}</Link>
+            <Link className="min-w-0 flex-1 break-words underline" to="/reservations/new" search={{ id: v.id }}><span className="block">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.public_service || v.service}</span>{v.payment ? PAYMENT_KINDS.filter(([kind])=>kind!=="product").map(([kind,label])=>{
+              const description=(v.payment!.rows as unknown as PaymentLine[]).find(row=>row.kind===kind)?.description?.trim();
+              return description ? <span key={kind} className="mt-1 block whitespace-pre-wrap break-words font-medium">{label} · {description}</span> : null;
+            }) : v.service_detail && <span className="mt-1 block whitespace-pre-wrap break-words font-medium">{v.service_detail}</span>}
+            {v.payment?.paid_on&&v.payment.paid_on!==format(new Date(v.start_at),"yyyy-MM-dd")&&<span className="mt-1 block text-xs text-muted-foreground">결제일 {v.payment.paid_on}</span>}</Link>
             <StatusBadge status={v.status} />
           </li>
         ))}
+        {error && <li role="alert" className="text-sm text-destructive">예약 내역을 불러오지 못했습니다.</li>}
         {isLoading && <li className="text-xs text-muted-foreground">불러오는 중…</li>}
         {data?.length === 0 && <li className="text-xs text-muted-foreground">볼 수 있는 예약 내역이 없습니다.</li>}
       </ul>
