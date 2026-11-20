@@ -1,3 +1,4 @@
+import { ProductSalesReport } from "@/components/ProductSalesReport";
 import { workMetricLabelsQuery } from "@/components/WorkLog";
 import { WORK_EXTRA_KEYS, WORK_PRIMARY_ITEMS, WORK_CHECK_ITEMS, workMetricLabel } from "@/lib/work-log";
 import { Fragment,useState } from "react";
@@ -91,9 +92,12 @@ export function AdminBusinessReview(){
  {period&&<p className="text-sm font-medium">조회 기간: {period.from} ~ {period.to}</p>}
  {period&&<>{overview.error&&<p role="alert">운영 집계를 불러오지 못했습니다.</p>}{overview.isPending&&<p>운영 집계를 불러오는 중입니다.</p>}</>}
  {!period&&<p className="rounded border p-6 text-sm text-muted-foreground">기간을 설정한 뒤 ‘기간 조회’를 눌러 주세요.</p>}
- <TabsContent value="sales" className="space-y-5">{period&&<Tabs key={JSON.stringify([route,category])} defaultValue="totals"><ReviewDetailTabs label="고객구분별 매출 보기"/><TabsContent value="entries"><SalesEntries key={period.from+period.to} period={period} scope="category" route={route} category={category}/></TabsContent><TabsContent value="totals">
+ <TabsContent value="sales" className="space-y-5">{period&&<>
+ <SalesRouteFilter route={route} onRouteChange={setRoute} routeOptions={routeOptions}/>
+ <ProductSalesReport key={JSON.stringify([period,route])} from={period.from} to={period.to} adminRoute={route}/>
+ <details className="space-y-3"><summary className="cursor-pointer text-sm font-semibold">고객구분별 판매</summary><Tabs key={JSON.stringify([route,category])} defaultValue="totals"><ReviewDetailTabs label="고객구분별 매출 보기"/><TabsContent value="entries"><SalesEntries key={period.from+period.to} period={period} scope="category" route={route} category={category}/></TabsContent><TabsContent value="totals">
  <section className="space-y-2 rounded border p-3"><h3 className="font-semibold">판매 · 고객구분</h3><div className="rounded bg-muted p-3 font-semibold">{category?"선택 구분 매출(원화)":"전체 매출(원화)"}  {salesResult.data?`${won(visibleSales.reduce((s,r)=>s+Number(r.collected),0))}원`:"—"}</div><p className="text-xs text-muted-foreground">결제일 기준 카드+계좌+원화 현금 합계입니다. 비용은 중복 합산하지 않으며, 외화는 통화별로 표시합니다. 고객구분은 현재 설정 기준입니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[600px] text-sm"><thead className="bg-muted"><tr>{["고객구분","고객 수","수납(원)","엔","달러","위엔"].map(t=><th key={t} className="p-2 text-right first:text-left">{t}</th>)}</tr></thead><tbody>{visibleSales.map(r=><tr key={r.category} className="border-b"><th className="p-2 text-left">{r.category}</th>{[r.customers,r.collected,r.jpy,r.usd,r.cny].map((n,i)=><td key={i} className="p-2 text-right">{won(n)}</td>)}</tr>)}</tbody></table></div>{salesResult.error&&<p role="alert">판매 내역을 불러오지 못했습니다.</p>}{salesResult.isPending&&<p>판매 내역을 불러오는 중입니다.</p>}{salesResult.data&&visibleSales.length===0&&<p className="text-sm text-muted-foreground">조회 기간에 해당 고객구분의 판매 내역이 없습니다.</p>}</section>
- </TabsContent></Tabs>}</TabsContent>
+ </TabsContent></Tabs></details></>}</TabsContent>
  <TabsContent value="time-log">{period&&<Tabs key={timeStaff} defaultValue="totals"><ReviewDetailTabs label="근무시간 보기"/><TabsContent value="entries"><TimeEntries key={period.from+period.to} period={period} employee={timeStaff} employees={employees??[]}/></TabsContent><TabsContent value="totals">
  <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">TIME LOG</h3></div><p className="rounded bg-muted p-3 font-semibold">전체시간 합산 · {overview.data?minutesText(times.reduce((s,r)=>s+Number(r.minutes),0)):"—"}</p>{overview.data&&times.length===0&&<p className="text-sm text-muted-foreground">조회 기간에 근무 기록이 없습니다.</p>}{times.map(r=><p key={r.employee_id} className="flex justify-between text-sm"><span>{r.name}</span><span>{minutesText(Number(r.minutes))}</span></p>)}</section>
  </TabsContent></Tabs>}</TabsContent>
@@ -153,11 +157,18 @@ function routeArgs(route:string) {
  return route==="unassigned"?{_unassigned:true}:route?{_route:route}:{};
 }
 
+function SalesRouteFilter({route,onRouteChange,routeOptions}:{
+ route:string;onRouteChange:(route:string)=>void;routeOptions:{value:string;label:string}[];
+}) {
+ const filterLabelClass = buttonVariants({ size: "sm", className: "pointer-events-none" });
+ return <label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>경로</span><select aria-label="매출 경로" className="h-10 rounded border bg-background px-2" value={route} onChange={e=>onRouteChange(e.target.value)}>{routeOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
+}
+
 function SalesFilters({grouping,kind,setKind,route,onRouteChange,routeOptions}:{
  grouping:SettlementGrouping;kind:string;setKind:(kind:string)=>void;route:string;onRouteChange:(route:string)=>void;routeOptions:{value:string;label:string}[];
 }) {
  const filterLabelClass = buttonVariants({ size: "sm", className: "pointer-events-none" });
- return <div className="flex flex-wrap items-end gap-2"><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>내용</span><select aria-label="매출 내용" className="h-10 rounded border bg-background px-2" value={kind} onChange={e=>setKind(e.target.value)}>{grouping==="route"&&<option value="">시술·관리 전체</option>}{grouping!=="care"&&<option value="service">시술</option>}{grouping!=="service"&&<option value="care">관리</option>}</select></label><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>경로</span><select aria-label="매출 경로" className="h-10 rounded border bg-background px-2" value={route} onChange={e=>onRouteChange(e.target.value)}>{routeOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>;
+ return <div className="flex flex-wrap items-end gap-2"><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>내용</span><select aria-label="매출 내용" className="h-10 rounded border bg-background px-2" value={kind} onChange={e=>setKind(e.target.value)}>{grouping==="route"&&<option value="">시술·관리 전체</option>}{grouping!=="care"&&<option value="service">시술</option>}{grouping!=="service"&&<option value="care">관리</option>}</select></label><SalesRouteFilter {...{route,onRouteChange,routeOptions}}/></div>;
 }
 
 export function PerformanceReview() {

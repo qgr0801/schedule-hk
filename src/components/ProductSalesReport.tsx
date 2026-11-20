@@ -9,9 +9,19 @@ export const productSalesReportQuery = (from: string, to: string, page = 0) => (
     const { data, error } = await supabase.rpc("product_sales_report", { _from: from, _to: to, _offset: page * 50 });
     if (error) throw error; return data;
   } });
-export function ProductSalesReport({ from, to }: { from: string; to: string }) {
+export function ProductSalesReport({ from, to, adminRoute }: { from: string; to: string; adminRoute?: string }) {
   const [page, setPage] = useState(0);
-  const report = useQuery(productSalesReportQuery(from, to, page));
+  const report = useQuery(adminRoute === undefined ? productSalesReportQuery(from, to, page) : {
+    queryKey: ["product-sales-report", "admin", from, to, adminRoute, page],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc("admin_product_sales_report", {
+        _from: from, _to: to, _offset: page * 50,
+        ...(adminRoute === "unassigned" ? { _unassigned: true } : adminRoute ? { _route: adminRoute } : {}),
+      });
+      if (error) throw error;
+      return data;
+    },
+  });
   useEffect(() => { if (page > 0 && report.data?.length === 0) setPage(0); }, [page, report.data]);
   const totalCount = Number(report.data?.[0]?.total_count ?? 0);
   return <section className="space-y-3 rounded-lg border p-4">
@@ -19,9 +29,9 @@ export function ProductSalesReport({ from, to }: { from: string; to: string }) {
     <p className="text-sm">{from} ~ {to}</p>
     {report.isPending && <p>판매내역을 불러오는 중입니다.</p>}
     {report.error && <p role="alert">제품 판매내역을 불러오지 못했습니다.</p>}
-    {report.data && <div className="rounded bg-muted p-3 font-semibold">총 판매금액 {money(Number(report.data[0]?.total_amount ?? 0))}원 <span className="ml-3 text-sm font-normal">판매 항목 {number(totalCount)}건 · 조회 기간 전체 합계</span></div>}
-    <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-sm"><thead className="bg-muted"><tr>{["날짜", "고객명", "제품명", "수량", "판매금액(원)", "구분"].map((s) => <th key={s} className="whitespace-nowrap p-2 text-left">{s}</th>)}</tr></thead>
-      <tbody>{report.data?.map((r) => <tr key={r.sale_key} className="border-b"><td className="whitespace-nowrap p-2">{r.paid_on}</td><td className="p-2 font-medium">{r.customer_name}</td><td className="p-2">{r.product_name}</td><td className="p-2 text-right">{number(r.quantity)}{r.unit}</td><td className="p-2 text-right font-semibold">{money(r.sales_amount)}</td><td className="p-2">{r.reservation_id ? <Link className="underline" to="/reservations/new" search={{ id: r.reservation_id }}>{r.source}</Link> : r.source}</td></tr>)}</tbody>
+    {report.data && <div className="rounded bg-muted p-3 font-semibold">{adminRoute === undefined ? "총 판매금액" : "총판매출"} {money(Number(report.data[0]?.total_amount ?? 0))}원 <span className="ml-3 text-sm font-normal">판매 항목 {number(totalCount)}건 · 조회 기간 전체 합계</span></div>}
+    <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-sm"><thead className="bg-muted"><tr>{["날짜", "고객명", "제품명", "수량", ...(adminRoute === undefined ? [] : ["판매단가(원)"]), "판매금액(원)", "구분"].map((s) => <th key={s} className="whitespace-nowrap p-2 text-left">{s}</th>)}</tr></thead>
+      <tbody>{report.data?.map((r) => <tr key={r.sale_key} className="border-b"><td className="whitespace-nowrap p-2">{r.paid_on}</td><td className="p-2 font-medium">{r.customer_name}</td><td className="p-2">{r.product_name}</td><td className="p-2 text-right">{number(r.quantity)}{r.unit}</td>{adminRoute !== undefined && <td className="p-2 text-right">{money(r.unit_price)}</td>}<td className="p-2 text-right font-semibold">{money(r.sales_amount)}</td><td className="p-2">{r.reservation_id ? <Link className="underline" to="/reservations/new" search={{ id: r.reservation_id }}>{r.source}</Link> : r.source}</td></tr>)}</tbody>
     </table></div>
     {report.data?.length === 0 && <p className="text-sm">해당 기간의 제품 판매내역이 없습니다.</p>}
     <div className="flex items-center gap-2"><Button size="sm" variant="outline" disabled={page === 0 || report.isFetching} onClick={() => setPage(page - 1)}>이전</Button><span className="text-xs">{page + 1} / {Math.max(1, Math.ceil(totalCount / 50))}</span><Button size="sm" variant="outline" disabled={report.isFetching || (page + 1) * 50 >= totalCount} onClick={() => setPage(page + 1)}>다음</Button></div>
