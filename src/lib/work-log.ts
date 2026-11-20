@@ -11,3 +11,11 @@ export function workLogValidation(employee:string, month:string, counts:number[]
  }
  return null;
 }
+
+export const WORK_CHECK_ITEMS=[["youtube","유튜브"],["dm","DM"],["dmr","DMR"],["dm_confirmed","DM확정"],["dm_visited","DM방문"]] as const;
+export type WorkCheckKey=typeof WORK_CHECK_ITEMS[number][0];
+export type WorkChecks=Record<WorkCheckKey,boolean>;
+export const readWorkChecks=(value:unknown):WorkChecks=>{
+ const source=value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
+ return Object.fromEntries(WORK_CHECK_ITEMS.map(([key])=>[key,source[key]===true])) as WorkChecks;
+};

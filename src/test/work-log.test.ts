@@ -1,5 +1,5 @@
 import { describe,it,expect } from "vitest";
-import { workLogValidation } from "@/lib/work-log";
+import { workLogValidation,readWorkChecks } from "@/lib/work-log";
 describe("monthly work log validation",()=>{
  it("accepts zero counts, multiline notes and multiple named video links",()=>{
   expect(workLogValidation("employee","2026-11",[25,3,17],"DM 답장 9명\n예약 확인",[{name:"인플루언서 A",url:"https://www.instagram.com/reel/example/"},{name:"인플루언서 B",url:"https://www.tiktok.com/@example/video/1"}])).toBeNull();
@@ -16,5 +16,13 @@ describe("monthly work log validation",()=>{
   expect(workLogValidation("employee","2026-11",[0,0,0,0],"",[{name:"",url:"https://example.com"}],"고객A · 진정관리")).toBeNull();
   expect(workLogValidation("employee","2026-11",[0,0,0,0],"",[],"가".repeat(5001))).toBeTruthy();
   expect(workLogValidation("employee","2026-11",[0,0,0],"x".repeat(5001),[])).toBeTruthy();
+ });
+});
+
+describe("work log check items",()=>{
+ it("defaults old records to unchecked and round-trips all five independent states",()=>{
+  expect(readWorkChecks(null)).toEqual({youtube:false,dm:false,dmr:false,dm_confirmed:false,dm_visited:false});
+  expect(readWorkChecks({youtube:true,dm:false,dmr:true,dm_confirmed:true,dm_visited:false})).toEqual({youtube:true,dm:false,dmr:true,dm_confirmed:true,dm_visited:false});
+  expect(readWorkChecks({dm:"false",dm_visited:"true"}).dm_visited).toBe(false);
  });
 });

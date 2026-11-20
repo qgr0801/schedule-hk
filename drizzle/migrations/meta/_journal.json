@@ -260,6 +260,13 @@
       "when": 1792672700310,
       "tag": "0036_work_log_content_columns",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "7",
+      "when": 1792672700311,
+      "tag": "0037_work_log_check_items",
+      "breakpoints": true
     }
   ]
 }

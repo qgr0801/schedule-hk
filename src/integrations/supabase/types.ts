@@ -15,9 +15,9 @@ export type Database = {
   public: {
     Tables: {
       monthly_work_reports: {
-        Row: { id: string; employee_id: string; report_month: string; shot_edit_count: number; influencer_upload_count: number; feed_upload_count: number; customer_content: string; upload_count: number; memo: string; links: Json; version: number; created_by: string; updated_by: string; created_at: string; updated_at: string }
-        Insert: { id?: string; employee_id: string; report_month: string; shot_edit_count?: number; influencer_upload_count?: number; feed_upload_count?: number; customer_content?: string; upload_count?: number; memo?: string; links?: Json; version?: number; created_by?: string; updated_by?: string; created_at?: string; updated_at?: string }
-        Update: { id?: string; employee_id?: string; report_month?: string; shot_edit_count?: number; influencer_upload_count?: number; feed_upload_count?: number; customer_content?: string; upload_count?: number; memo?: string; links?: Json; version?: number; updated_by?: string; updated_at?: string }
+        Row: { id: string; employee_id: string; report_month: string; shot_edit_count: number; influencer_upload_count: number; feed_upload_count: number; customer_content: string; upload_count: number; work_checks: Json; memo: string; links: Json; version: number; created_by: string; updated_by: string; created_at: string; updated_at: string }
+        Insert: { id?: string; employee_id: string; report_month: string; shot_edit_count?: number; influencer_upload_count?: number; feed_upload_count?: number; customer_content?: string; upload_count?: number; work_checks?: Json; memo?: string; links?: Json; version?: number; created_by?: string; updated_by?: string; created_at?: string; updated_at?: string }
+        Update: { id?: string; employee_id?: string; report_month?: string; shot_edit_count?: number; influencer_upload_count?: number; feed_upload_count?: number; customer_content?: string; upload_count?: number; work_checks?: Json; memo?: string; links?: Json; version?: number; updated_by?: string; updated_at?: string }
         Relationships: []
       }
       monthly_work_report_history: {
@@ -728,6 +728,8 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      save_monthly_work_report_v3: { Args: { _id: string; _event: string; _employee: string; _month: string; _shot_count: number; _influencer_count: number; _upload_count: number; _memo: string; _links: Json; _feed_count: number; _customer_content: string; _checks: Json; _version?: number }; Returns: string }
+
       save_monthly_work_report_v2: { Args: { _id: string; _event: string; _employee: string; _month: string; _shot_count: number; _influencer_count: number; _upload_count: number; _memo: string; _links: Json; _feed_count: number; _customer_content: string; _version?: number }; Returns: string }
 
       save_monthly_work_report: { Args: { _id: string; _event: string; _employee: string; _month: string; _shot_count: number; _influencer_count: number; _upload_count: number; _memo: string; _links: Json; _version?: number }; Returns: string }
