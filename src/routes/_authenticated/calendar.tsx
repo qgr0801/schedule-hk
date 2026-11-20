@@ -1,4 +1,5 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { canMenu } from "@/lib/permissions";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays, addMonths, addWeeks, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format,
@@ -212,7 +213,14 @@ function CalendarPage() {
       <PageHeader
         title="캘린더"
         desc="카드 배경은 예약 상태, 왼쪽 띠는 담당자, 작은 배지는 고객 구분입니다."
-        action={<Button variant="outline" onClick={() => { setScheduleDate(null); setSchOpen(true); }}>+ 일정 추가</Button>}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => { setScheduleDate(null); setSchOpen(true); }}>+ 일정 추가</Button>
+            {me?.active && canMenu(me.role, me.perms, "reservation_new") && (
+              <Button asChild><Link to="/reservations/new" search={{ date: format(cursor, "yyyy-MM-dd") }}>+ 예약 등록</Link></Button>
+            )}
+          </div>
+        }
       />
       <div className="mb-4 flex flex-wrap items-center gap-2" {...swipe}>
         <div className="flex w-full rounded-lg bg-background p-1 shadow-card sm:w-auto">
