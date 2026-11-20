@@ -166,18 +166,20 @@ function CalendarPage() {
     setMove(t);
   }
   async function saveMove(t: MoveTarget, undo?: boolean) {
+    if (saving) return;
     setSaving(true);
     const before = { start_at: t.r.start_at, end_at: t.r.end_at, section: t.r.section };
     const { data: upd, error } = await supabase
       .from("reservations")
       .update({ start_at: t.start.toISOString(), end_at: t.end.toISOString(), section: t.section })
       .eq("id", t.r.id)
+      .eq("updated_at", t.r.updated_at)
       .select("*, customer:customers(customer_no, category_id, customer_category_tags(category_id))");
     setSaving(false);
     setMove(null);
     qc.invalidateQueries({ queryKey: ["calendar"] });
     if (error) { toast.error(`${dbErrorMessage(error)} 예약은 원래 위치로 돌아갔습니다.`); return; }
-    if (!upd?.length) { toast.error("이 예약을 옮길 권한이 없습니다. 원래 위치로 돌아갔습니다."); return; }
+    if (!upd?.length) { toast.error("예약이 이미 변경됐거나 수정 권한이 없습니다. 최신 위치를 확인해 주세요."); return; }
     qc.invalidateQueries({ queryKey: ["history", t.r.id] });
     if (undo) { toast.success("이동을 되돌렸습니다."); return; }
     const moved = upd[0] as ResWithCustomer;
