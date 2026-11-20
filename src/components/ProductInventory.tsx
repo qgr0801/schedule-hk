@@ -8,7 +8,7 @@ import { InventoryRoutes } from "@/components/InventoryRoutes";
 import { InventoryCatalogManager } from "@/components/InventoryCatalogManager";
 import { InventoryProductEditor } from "@/components/InventoryProductEditor";
 import { inventoryRoutesQuery, type InventoryProduct } from "@/lib/inventory-catalog";
-import { ProductSalesReport } from "@/components/ProductSalesReport";
+import { ProductSalesReport, productSalesReportQuery } from "@/components/ProductSalesReport";
 import { ProductStockDetail } from "@/components/ProductStockDetail";
 import { format, startOfMonth } from "date-fns";
 import { meQuery, dbErrorMessage } from "@/lib/app";
@@ -28,6 +28,7 @@ export function ProductInventory() {
   const [reportFrom, setReportFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [reportTo, setReportTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const validReport = !!reportFrom && !!reportTo && reportFrom <= reportTo;
+  const productSales = useQuery({ ...productSalesReportQuery(reportFrom, reportTo), enabled: canManageProducts && validReport });
   const overview = useQuery({ queryKey: ["product-overview", reportFrom, reportTo], enabled: canManageProducts && validReport, queryFn: async () => {
     const { data, error } = await supabase.rpc("inventory_balance_report", { _from: reportFrom, _to: reportTo });
     if (error) throw error; return data;
@@ -120,7 +121,10 @@ export function ProductInventory() {
   }
 
   return <section id="inventory-home" className="scroll-mt-24 space-y-4 md:scroll-mt-4">
-    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">제품 · 재고 관리</h3><p className="text-sm">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 60종</p></div>
+    <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">제품 · 재고 관리</h3><div className="ml-auto text-right">
+      {canManageProducts && validReport && productSales.data && <p className="font-semibold">제품매출 합계 {Number(productSales.data[0]?.total_amount ?? 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원</p>}
+      <p className="text-sm">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 60종</p>
+    </div></div>
     <nav aria-label="제품 관리 메뉴" className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 flex flex-wrap gap-2 bg-background py-2 md:top-0">
       <Button type="button" size="sm" variant={historyView===null?"default":"outline"} aria-pressed={historyView===null} onClick={()=>openHome()}>홈</Button>
       <Button type="button" variant="outline" size="sm" onClick={()=>openHome("inventory-entry")}>매입등록</Button>

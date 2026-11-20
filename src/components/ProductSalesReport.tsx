@@ -5,12 +5,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 const number = (n: number) => Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 3 });
 const money = (n: number) => Number(n).toLocaleString("ko-KR", { maximumFractionDigits: 2 });
-export function ProductSalesReport({ from, to }: { from: string; to: string }) {
-  const [page, setPage] = useState(0);
-  const report = useQuery({ queryKey: ["product-sales-report", from, to, page], queryFn: async () => {
+export const productSalesReportQuery = (from: string, to: string, page = 0) => ({ queryKey: ["product-sales-report", from, to, page], queryFn: async () => {
     const { data, error } = await supabase.rpc("product_sales_report", { _from: from, _to: to, _offset: page * 50 });
     if (error) throw error; return data;
   } });
+export function ProductSalesReport({ from, to }: { from: string; to: string }) {
+  const [page, setPage] = useState(0);
+  const report = useQuery(productSalesReportQuery(from, to, page));
   useEffect(() => { if (page > 0 && report.data?.length === 0) setPage(0); }, [page, report.data]);
   const totalCount = Number(report.data?.[0]?.total_count ?? 0);
   return <section className="space-y-3 rounded-lg border p-4">
