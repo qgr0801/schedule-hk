@@ -200,6 +200,8 @@ export type Database = {
       }
       customers: {
         Row: {
+          birth_date: string | null
+          gender: string | null
           category_id: string | null
           created_at: string
           created_by: string
@@ -212,6 +214,8 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          birth_date?: string | null
+          gender?: string | null
           category_id?: string | null
           created_at?: string
           created_by?: string
@@ -224,6 +228,8 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          birth_date?: string | null
+          gender?: string | null
           category_id?: string | null
           created_at?: string
           created_by?: string
@@ -737,6 +743,10 @@ export type Database = {
       admin_business_overview: { Args: { _from: string; _to: string }; Returns: Json }
       admin_route_collection_report: { Args: { _from: string; _to: string; _route?: string; _kind?: string }; Returns: Json }
       admin_sales_by_route_category: { Args: { _from: string; _to: string; _route?: string; _unassigned?: boolean }; Returns: Json }
+      register_customer_checked: {
+        Args: { _name: string; _phone: string | null; _birth_date: string | null; _gender: string | null; _memo: string | null; _category: string | null; _confirm_same_name: boolean };
+        Returns: { id: string; customer_no: number }[];
+      }
       admin_filtered_collections: { Args: { _from: string; _to: string; _route?: string; _kind?: string; _category?: string; _unassigned?: boolean }; Returns: Json }
       save_admin_settlement: { Args: { _id: string; _event: string; _from: string; _to: string; _route: string | null; _kind: string; _amount: number; _completed: number; _memo: string; _version?: number }; Returns: string }
 

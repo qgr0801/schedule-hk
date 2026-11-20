@@ -15,7 +15,7 @@ export function CustomerRecords({ customerId, children, basicInfo }: { customerI
     queryKey: ["customer-services", customerId],
     queryFn: async () => {
       const { data, error } = await supabase.from("reservations").select("id,start_at,service,service_detail")
-        .eq("customer_id", customerId).in("status", ["completed", "paid"]).order("start_at", { ascending: false }).limit(100);
+        .eq("customer_id", customerId).eq("service", "SV").in("status", ["completed", "paid"]).order("start_at", { ascending: false }).limit(100);
       if (error) throw error;
       return data;
     },

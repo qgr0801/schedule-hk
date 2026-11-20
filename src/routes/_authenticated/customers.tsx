@@ -1,3 +1,4 @@
+import { CustomerIdentityFields, SameNameCustomerList, normalizedCustomerName, registerCheckedCustomer } from "@/components/CustomerIdentityFields";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
@@ -62,6 +63,11 @@ function CustomersPage() {
       (!q.trim() || c.name.toLowerCase().includes(q.trim().toLowerCase()) || String(c.customer_no) === q.trim().replace(/^No\.?\s*/i, "") || (!!digits && (c.phone ?? "").replace(/\D/g, "").includes(digits))) &&
       (!cat || c.category_id === cat || c.customer_category_tags.some((t) => t.category_id === cat)),
   );
+  const sameNameCount = new Map<string, number>();
+  for (const entry of customers ?? []) {
+    const key = normalizedCustomerName(entry.name);
+    sameNameCount.set(key, (sameNameCount.get(key) ?? 0) + 1);
+  }
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "-";
 
   return (
@@ -71,6 +77,7 @@ function CustomersPage() {
         desc="권한에 따라 볼 수 있는 고객만 표시됩니다. 가상 고객 정보만 사용하세요."
         action={<Button onClick={() => setEdit("new")}>+ 고객 등록</Button>}
       />
+      {q.trim()&&(sameNameCount.get(normalizedCustomerName(q))??0)>1&&<p role="status" className="mb-3 rounded border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900">같은 이름의 고객이 여러 명 있습니다. 고객번호·성별·생년월일·전화번호를 확인해 주세요.</p>}
       <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap">
         <Input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="이름, 고객번호, 전화번호 검색" className="h-11 text-base sm:h-9 sm:max-w-xs sm:text-sm" />
         <select value={cat} onChange={(e) => setCat(e.target.value)} className="h-11 rounded-md border border-input bg-background px-3 text-base sm:h-9 sm:text-sm" aria-label="고객 구분 필터">
@@ -117,27 +124,41 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: categories } = useQuery(categoriesQuery);
+  const {data:existingCustomers}=useQuery({...customersQuery,enabled:!customer});
   const [name, setName] = useState(customer?.name ?? "");
   const [phone, setPhone] = useState(customer?.phone ?? "");
+  const [birthDate,setBirthDate] = useState(customer?.birth_date ?? "");
+  const [gender,setGender] = useState(customer?.gender ?? "");
+  const [duplicate,setDuplicate] = useState("");
+  const [confirmed,setConfirmed] = useState(false);
+  const confirmKey = JSON.stringify([name,phone,birthDate,gender]);
+  const [checkedKey,setCheckedKey] = useState("");
   const [memo, setMemo] = useState(customer?.memo ?? "");
   const [categoryId, setCategoryId] = useState(customer?.category_id ?? categories?.[0]?.id ?? "");
   const [tags, setTags] = useState<string[]>(customer?.customer_category_tags.map((t) => t.category_id) ?? []);
   const [busy, setBusy] = useState(false);
-  const canEdit = !customer || me?.role === "admin" || customer.created_by === me?.id;
+  const canEdit = !customer || me?.role === "admin" || me?.role === "internal" || customer.created_by === me?.id;
 
   async function save() {
+    if (!canEdit || busy) return;
     if (!name.trim()) { toast.error("고객명을 입력해 주세요."); return; }
     if (name.trim().length > 50) { toast.error("고객명은 50자 이내로 입력해 주세요."); return; }
     setBusy(true);
-    const row = { name: name.trim(), phone: phone.trim() || null, memo: memo.trim() || null, category_id: categoryId || null };
+    const row = { name: name.trim(), phone: phone.trim() || null, memo: memo.trim() || null, birth_date:birthDate||null, gender:gender||null, category_id: categoryId || null };
     let id = customer?.id;
     if (id) {
       const { error } = await supabase.from("customers").update(row).eq("id", id);
       if (error) { setBusy(false); toast.error(dbErrorMessage(error)); return; }
-      await supabase.from("customer_category_tags").delete().eq("customer_id", id);
+      const {error:tagError}=await supabase.from("customer_category_tags").delete().eq("customer_id",id);
+      if(tagError){setBusy(false);toast.error(dbErrorMessage(tagError));return;}
     } else {
-      const { data, error } = await supabase.from("customers").insert(row).select("id").single();
-      if (error) { setBusy(false); toast.error(dbErrorMessage(error)); return; }
+      const {data,error}=await registerCheckedCustomer({name:row.name,phone:row.phone,birthDate,gender,memo:row.memo,categoryId,confirmed:confirmed&&checkedKey===confirmKey});
+      if(error){
+        setBusy(false);
+        if(error.code==="P4701"||error.code==="P4702"){setDuplicate(error.message);setConfirmed(false);setCheckedKey(error.code==="P4702"?confirmKey:"");}
+        else toast.error(dbErrorMessage(error));
+        return;
+      }
       id = data.id;
     }
     const tagIds = tags.filter((t) => t !== categoryId);
@@ -160,6 +181,7 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1"><Label>고객명 *</Label><Input value={name} maxLength={50} onChange={(e) => setName(e.target.value)} placeholder="예: 김가상" /></div>
             <div className="space-y-1"><Label>연락처</Label><Input value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></div>
+            <CustomerIdentityFields birthDate={birthDate} gender={gender} onBirthDate={setBirthDate} onGender={setGender}/>
           </div>
           <div className="space-y-1">
             <Label>기본 구분</Label>
@@ -190,6 +212,7 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1"><Label>고객명 *</Label><Input value={name} maxLength={50} onChange={(e) => setName(e.target.value)} placeholder="예: 김가상" /></div>
             <div className="space-y-1"><Label>연락처</Label><Input value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></div>
+            <CustomerIdentityFields birthDate={birthDate} gender={gender} onBirthDate={setBirthDate} onGender={setGender}/>
           </div>
           <div className="space-y-1">
             <Label>기본 구분</Label>
@@ -211,6 +234,11 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
           </div>
           <div className="space-y-1"><Label>메모</Label><Textarea value={memo} maxLength={500} onChange={(e) => setMemo(e.target.value)} /></div>
         </fieldset>
+        {duplicate&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <p>{duplicate}</p>
+          <SameNameCustomerList customers={existingCustomers} name={name}/>
+          {checkedKey===confirmKey&&<label className="flex gap-2"><Checkbox checked={confirmed} onCheckedChange={value=>setConfirmed(value===true)}/>확인 결과 동명이인입니다.</label>}
+        </div>}
         {canEdit ? (
           <Button className="h-11 w-full" disabled={busy} onClick={save}>저장</Button>
         ) : (

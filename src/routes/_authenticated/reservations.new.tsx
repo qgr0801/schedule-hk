@@ -1,3 +1,4 @@
+import { CustomerIdentityFields, SameNameCustomerList,registerCheckedCustomer } from "@/components/CustomerIdentityFields";
 import { BookingRouteField } from "@/components/BookingRoutes";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -54,6 +55,11 @@ function ReservationForm() {
   const { data: settings } = useQuery(bookingSettingsQuery);
   const services = settings?.services ?? SERVICES;
   const publicServices = settings?.public_services ?? PUBLIC_SERVICES;
+  const [birthDate,setBirthDate]=useState("");
+  const [gender,setGender]=useState("");
+  const [duplicate,setDuplicate]=useState("");
+  const [confirmedKey,setConfirmedKey]=useState("");
+  const [duplicateKey,setDuplicateKey]=useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
@@ -120,6 +126,8 @@ function ReservationForm() {
   useEffect(() => {
     const c = customers?.find((x) => x.id === customerId);
     if (!c) return;
+    setBirthDate(c.birth_date??"");
+    setGender(c.gender??"");
     setCategoryId(c.category_id ?? "");
     setTags(c.customer_category_tags.map((t) => t.category_id));
   }, [customerId, customers]);
@@ -127,7 +135,8 @@ function ReservationForm() {
   const serviceValue = id || services.includes(f.service) ? f.service : (services[0] ?? "");
   const publicServiceValue = id || publicServices.includes(publicService) ? publicService : (publicServices[0] ?? "");
   const selected = customers?.find((x) => x.id === customerId);
-  const canEditCustomer = !selected || me?.role === "admin" || selected.created_by === me?.id;
+  const canEditCustomer = !customerId || me?.role === "admin" || me?.role === "internal" || selected?.created_by === me?.id;
+  const identityKey=JSON.stringify([f.customer_name,f.customer_phone,birthDate,gender]);
   const matches = search.trim()
     ? (customers ?? []).filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()) || (c.phone ?? "").replace(/\D/g, "").includes(search.replace(/\D/g, "") || "\u0000") || String(c.customer_no) === search.trim().replace(/^No\.?\s*/i, "")).slice(0, 6)
     : [];
@@ -154,6 +163,7 @@ function ReservationForm() {
   function pickCustomer(cid: string) {
     const c = customers?.find((x) => x.id === cid);
     if (!c) return;
+    setDuplicate("");setDuplicateKey("");setConfirmedKey("");
     setCustomerId(c.id);
     setF((p) => ({ ...p, customer_name: c.name, customer_phone: c.phone ?? "" }));
     setSearch("");
@@ -163,16 +173,21 @@ function ReservationForm() {
     const tagIds = tags.filter((t) => t !== categoryId);
     let cid = customerId;
     if (!cid) {
-      const { data, error } = await supabase.from("customers").insert({ name, phone, category_id: categoryId || null }).select("id, customer_no").single();
-      if (error) { toast.error(dbErrorMessage(error)); return null; }
+      const {data,error}=await registerCheckedCustomer({name,phone,birthDate,gender,categoryId,confirmed:confirmedKey===identityKey});
+      if(error){
+        if(error.code==="P4701"||error.code==="P4702"){setDuplicate(error.message);setDuplicateKey(error.code==="P4702"?identityKey:"");setConfirmedKey("");}
+        else toast.error(dbErrorMessage(error));
+        return null;
+      }
       cid = data.id;
       setCustomerId(cid);
       setNewCustomerNo(data.customer_no);
       toast.info(`새 고객번호 No.${data.customer_no}가 부여되었습니다.`);
     } else if (canEditCustomer) {
-      const { error } = await supabase.from("customers").update({ category_id: categoryId || null }).eq("id", cid);
+      const { error } = await supabase.from("customers").update({ category_id: categoryId || null, ...(selected?{birth_date:birthDate||null,gender:gender||null}:{}) }).eq("id", cid);
       if (error) { toast.error(dbErrorMessage(error)); return null; }
-      await supabase.from("customer_category_tags").delete().eq("customer_id", cid);
+      const {error:tagError}=await supabase.from("customer_category_tags").delete().eq("customer_id",cid);
+      if(tagError){toast.error(dbErrorMessage(tagError));return null;}
     } else {
       return cid;
     }
@@ -209,7 +224,8 @@ function ReservationForm() {
     if (error) { toast.error(dbErrorMessage(error)); return; }
     toast.success(id ? "예약이 수정되었습니다." : "예약이 등록되었습니다.");
     qc.invalidateQueries();
-    navigate({ to: "/my-reservations" });
+    if(id) await navigate({to:"/calendar",search:{today:Date.now()}});
+    else await navigate({to:"/my-reservations"});
   }
 
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) =>
@@ -241,7 +257,7 @@ function ReservationForm() {
             {selected ? (
               <p className="flex items-center gap-2 text-xs text-muted-foreground">
                 연결된 고객: <b className="text-foreground">{selected.name}</b>
-                <button type="button" className="text-primary underline" onClick={() => { setCustomerId(null); setTags([]); }}>신규 고객으로 등록</button>
+                <button type="button" className="text-primary underline" onClick={() => { setCustomerId(null); setTags([]); setBirthDate("");setGender("");setDuplicate("");setDuplicateKey("");setConfirmedKey(""); }}>신규 고객으로 등록</button>
               </p>
             ) : (
               <p className="text-xs text-muted-foreground">검색 결과에서 고르지 않으면 아래 정보로 새 고객이 등록됩니다.</p>
@@ -261,6 +277,12 @@ function ReservationForm() {
           </div>
           <div className="space-y-2"><Label>고객명 *</Label><Input value={f.customer_name} onChange={set("customer_name")} placeholder="예: 김가상" /></div>
           <div className="space-y-2"><Label>연락처</Label><Input value={f.customer_phone} onChange={set("customer_phone")} placeholder="010-0000-0000" /></div>
+          <CustomerIdentityFields birthDate={birthDate} gender={gender} onBirthDate={setBirthDate} onGender={setGender} disabled={!canEditCustomer}/>
+          {!customerId&&duplicate&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
+            <p>{duplicate}</p>
+            <SameNameCustomerList customers={customers} name={f.customer_name}/>
+            {duplicateKey===identityKey&&<label className="flex gap-2"><Checkbox checked={confirmedKey===identityKey} onCheckedChange={value=>setConfirmedKey(value===true?identityKey:"")}/>확인 결과 동명이인입니다.</label>}
+          </div>}
           <div className="space-y-2">
             <Label>고객 구분 (기본)</Label>
             <select value={categoryId} disabled={!canEditCustomer} onChange={(e) => setCategoryId(e.target.value)} className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm">

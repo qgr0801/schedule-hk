@@ -6,7 +6,7 @@ import {
 } from "date-fns";
 import { ko } from "date-fns/locale";
 import { CalendarDays, ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel } from "@/components/PageHeader";
@@ -35,6 +35,10 @@ import { displayQuery, useCardLookups, type ColorMode } from "@/lib/display";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
   head: () => ({ meta: [{ title: "예약 캘린더 | Schedule HK" }] }),
+  validateSearch: (search:Record<string,unknown>):{today?:number}=>{
+    const today=search["today"];
+    return typeof today==="number"&&Number.isFinite(today)?{today}:{};
+  },
   component: CalendarPage,
 });
 
@@ -42,9 +46,13 @@ type View = "month" | "week" | "day";
 type Item = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
 
 function CalendarPage() {
-  const [view, setView] = useState<View>("week");
+  const {today}=Route.useSearch();
+  const [view, setView] = useState<View>(today?"day":"week");
   const [cursor, setCursor] = useState(new Date());
   const [startFromSelected, setStartFromSelected] = useState(false);
+  useEffect(()=>{
+    if(today){setCursor(new Date());setView("day");}
+  },[today]);
   const weekScroll = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState<{ reservation: ResWithCustomer; action?: "cancelled" | "no_show" | undefined } | null>(null);
   const openReservation = (reservation: ResWithCustomer, action?: "cancelled" | "no_show") => setSel({ reservation, action });
