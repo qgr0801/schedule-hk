@@ -149,8 +149,26 @@ function routeArgs(route:string) {
  return route==="unassigned"?{_unassigned:true}:route?{_route:route}:{};
 }
 
-function SalesEntries({period,scope,route="",category="",kind=""}:{
- period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;
+export function PerformanceReview() {
+ const {data:me}=useQuery(meQuery);
+ const [from,setFrom]=useState(()=>format(startOfMonth(new Date()),"yyyy-MM-dd"));
+ const [to,setTo]=useState(()=>format(new Date(),"yyyy-MM-dd"));
+ const [period,setPeriod]=useState<ReviewPeriod>({from,to});
+ if(me?.role!=="admin")return null;
+ const valid=!!from&&!!to&&from<=to;
+ return <section className="space-y-4">
+  <h2 className="text-xl font-semibold">성과</h2>
+  <form className="flex flex-wrap items-end gap-3" onSubmit={event=>{event.preventDefault();if(valid)setPeriod({from,to});}}>
+   <label className="grid gap-1 text-sm">시작일<Input type="date" required value={from} max={to} onChange={event=>setFrom(event.target.value)}/></label>
+   <label className="grid gap-1 text-sm">종료일<Input type="date" required value={to} min={from} onChange={event=>setTo(event.target.value)}/></label>
+   <Button type="submit" disabled={!valid}>조회</Button>
+  </form>
+  <SalesEntries key={JSON.stringify(period)} period={period} scope="settlement" hideTotal/>
+ </section>;
+}
+
+function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false}:{
+ period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;hideTotal?:boolean;
 }) {
  const [page,setPage]=useState(0);
  const entries=useQuery({queryKey:["admin-sales-entries",period,scope,route,category,kind,page],queryFn:async()=>{
@@ -182,7 +200,7 @@ function SalesEntries({period,scope,route="",category="",kind=""}:{
       {lines.filter(line=>line.kind==="product"&&line.description).map((line,i)=><p key={i}>제품 · {line.description}</p>)}
       {entry.payment_memo&&<p className="text-muted-foreground">{entry.payment_memo}</p>}
      </td>
-     <td className="p-2"><p className="font-medium">원화 {won(collectedKrw(lines as unknown as Record<string,unknown>[]))}원</p>
+     <td className="p-2">{!hideTotal&&<p className="font-medium">원화 {won(collectedKrw(lines as unknown as Record<string,unknown>[]))}원</p>}
       {lines.map((line,i)=><p key={i}>{PAYMENT_KINDS.find(([key])=>key===line.kind)?.[1]} · {MONEY_COLUMNS.filter(([key])=>key!=="cost"&&Number(line[key])).map(([key,label])=>`${label} ${won(line[key])}`).join(" / ")||"수납 없음"}</p>)}
      </td>
     </tr>;
