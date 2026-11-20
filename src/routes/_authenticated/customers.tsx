@@ -134,6 +134,10 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
   const [confirmed,setConfirmed] = useState(false);
   const confirmKey = JSON.stringify([name,phone,birthDate,gender]);
   const [checkedKey,setCheckedKey] = useState("");
+  const [blockedKey,setBlockedKey] = useState("");
+  const sameName = !customer && !!normalizedCustomerName(name) && !!existingCustomers?.some(entry => normalizedCustomerName(entry.name) === normalizedCustomerName(name));
+  const needsConfirmation = blockedKey !== confirmKey && (sameName || checkedKey === confirmKey);
+  const confirmationReady = !!birthDate && !!gender && phone.replace(/\D/g, "").length >= 7;
   const [memo, setMemo] = useState(customer?.memo ?? "");
   const [categoryId, setCategoryId] = useState(customer?.category_id ?? categories?.[0]?.id ?? "");
   const [tags, setTags] = useState<string[]>(customer?.customer_category_tags.map((t) => t.category_id) ?? []);
@@ -144,6 +148,7 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
     if (!canEdit || busy) return;
     if (!name.trim()) { toast.error("고객명을 입력해 주세요."); return; }
     if (name.trim().length > 50) { toast.error("고객명은 50자 이내로 입력해 주세요."); return; }
+    if (needsConfirmation && (!confirmationReady || !confirmed || checkedKey !== confirmKey)) return;
     setBusy(true);
     const row = { name: name.trim(), phone: phone.trim() || null, memo: memo.trim() || null, birth_date:birthDate||null, gender:gender||null, category_id: categoryId || null };
     let id = customer?.id;
@@ -156,7 +161,7 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
       const {data,error}=await registerCheckedCustomer({name:row.name,phone:row.phone,birthDate,gender,memo:row.memo,categoryId,confirmed:confirmed&&checkedKey===confirmKey});
       if(error){
         setBusy(false);
-        if(error.code==="P4701"||error.code==="P4702"){setDuplicate(error.message);setConfirmed(false);setCheckedKey(error.code==="P4702"?confirmKey:"");}
+        if(error.code==="P4701"||error.code==="P4702"){setDuplicate(error.message);setConfirmed(false);setCheckedKey(error.code==="P4702"?confirmKey:"");setBlockedKey(error.code==="P4701"?confirmKey:"");}
         else toast.error(dbErrorMessage(error));
         return;
       }
@@ -235,13 +240,13 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
           </div>
           <div className="space-y-1"><Label>메모</Label><Textarea value={memo} maxLength={500} onChange={(e) => setMemo(e.target.value)} /></div>
         </fieldset>
-        {duplicate&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-          <p>{duplicate}</p>
+        {(sameName||checkedKey===confirmKey||blockedKey===confirmKey)&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
+          <p>{blockedKey===confirmKey?duplicate:"같은 이름의 고객이 있습니다. 생년월일·성별·전화번호를 비교한 후, 다른 사람일 때만 등록해 주세요."}</p>
           <SameNameCustomerList customers={existingCustomers} name={name}/>
-          {checkedKey===confirmKey&&<label className="flex gap-2"><Checkbox checked={confirmed} onCheckedChange={value=>setConfirmed(value===true)}/>확인 결과 동명이인입니다.</label>}
+          {needsConfirmation&&<label className="flex gap-2"><Checkbox disabled={!confirmationReady} checked={confirmed&&checkedKey===confirmKey} onCheckedChange={value=>{setCheckedKey(confirmKey);setConfirmed(value===true);}}/>기존 고객과 비교했고, 다른 사람임을 확인했습니다.</label>}
         </div>}
         {canEdit ? (
-          <Button className="h-11 w-full" disabled={busy} onClick={save}>저장</Button>
+          <Button className="h-11 w-full" disabled={busy||blockedKey===confirmKey||(needsConfirmation&&(!confirmationReady||!confirmed||checkedKey!==confirmKey))} onClick={save}>{needsConfirmation?"동명이인으로 등록":"저장"}</Button>
         ) : (
           <p className="text-xs text-muted-foreground">다른 직원이 등록한 고객은 등록자나 관리자만 수정할 수 있습니다.</p>
         )}

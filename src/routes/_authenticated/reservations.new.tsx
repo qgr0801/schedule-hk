@@ -60,6 +60,7 @@ function ReservationForm() {
   const [duplicate,setDuplicate]=useState("");
   const [confirmedKey,setConfirmedKey]=useState("");
   const [duplicateKey,setDuplicateKey]=useState("");
+  const [blockedKey,setBlockedKey]=useState("");
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string>("");
   const [tags, setTags] = useState<string[]>([]);
@@ -141,6 +142,9 @@ function ReservationForm() {
     ? (customers ?? []).filter(customer => customer.id !== selected.id && normalizedCustomerName(customer.name) === enteredName)
     : [];
   const identityKey=JSON.stringify([f.customer_name,f.customer_phone,birthDate,gender]);
+  const sameName = !customerId && !!enteredName && !!customers?.some(customer=>normalizedCustomerName(customer.name)===enteredName);
+  const needsConfirmation = !customerId && blockedKey!==identityKey && (sameName||duplicateKey===identityKey);
+  const confirmationReady = !!birthDate && !!gender && f.customer_phone.replace(/\D/g, "").length>=7;
   const matches = search.trim()
     ? (customers ?? []).filter((c) => c.name.toLowerCase().includes(search.trim().toLowerCase()) || (c.phone ?? "").replace(/\D/g, "").includes(search.replace(/\D/g, "") || "\u0000") || String(c.customer_no) === search.trim().replace(/^No\.?\s*/i, "")).slice(0, 6)
     : [];
@@ -179,7 +183,7 @@ function ReservationForm() {
     if (!cid) {
       const {data,error}=await registerCheckedCustomer({name,phone,birthDate,gender,categoryId,confirmed:confirmedKey===identityKey});
       if(error){
-        if(error.code==="P4701"||error.code==="P4702"){setDuplicate(error.message);setDuplicateKey(error.code==="P4702"?identityKey:"");setConfirmedKey("");}
+        if(error.code==="P4701"||error.code==="P4702"){setDuplicate(error.message);setDuplicateKey(error.code==="P4702"?identityKey:"");setBlockedKey(error.code==="P4701"?identityKey:"");setConfirmedKey("");}
         else toast.error(dbErrorMessage(error));
         return null;
       }
@@ -208,7 +212,7 @@ function ReservationForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    if (busy || !me) return;
+    if (busy || !me || (!customerId && blockedKey===identityKey) || (needsConfirmation&&(!confirmationReady||confirmedKey!==identityKey))) return;
     if (replacementCustomers.length) {
       toast.error("입력한 이름의 기존 고객이 있습니다. 맞는 고객번호를 선택해 주세요.");
       return;
@@ -311,10 +315,10 @@ function ReservationForm() {
           </div>}
           {selected&&canEditCustomer&&<p className="text-xs text-muted-foreground sm:col-span-2">수정 저장하면 입력한 고객명과 연락처가 연결된 고객정보에도 반영됩니다. 다른 고객의 예약이라면 기존 고객 검색에서 해당 고객을 선택해 주세요.</p>}
           <CustomerIdentityFields birthDate={birthDate} gender={gender} onBirthDate={setBirthDate} onGender={setGender} disabled={!canEditCustomer}/>
-          {!customerId&&duplicate&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
-            <p>{duplicate}</p>
+          {!customerId&&(sameName||duplicateKey===identityKey||blockedKey===identityKey)&&<div role="alert" className="space-y-2 rounded border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
+            <p>{blockedKey===identityKey?duplicate:"같은 이름의 고객이 있습니다. 생년월일·성별·전화번호를 비교한 후, 다른 사람일 때만 등록해 주세요."}</p>
             <SameNameCustomerList customers={customers} name={f.customer_name}/>
-            {duplicateKey===identityKey&&<label className="flex gap-2"><Checkbox checked={confirmedKey===identityKey} onCheckedChange={value=>setConfirmedKey(value===true?identityKey:"")}/>확인 결과 동명이인입니다.</label>}
+            {needsConfirmation&&<label className="flex gap-2"><Checkbox disabled={!confirmationReady} checked={confirmedKey===identityKey} onCheckedChange={value=>setConfirmedKey(value===true?identityKey:"")}/>기존 고객과 비교했고, 다른 사람임을 확인했습니다.</label>}
           </div>}
           <div className="space-y-2">
             <Label>고객 구분 (기본)</Label>
@@ -405,7 +409,7 @@ function ReservationForm() {
             <PaymentFields value={payment} onChange={setPaymentOverride} disabled={busy || (!!id && paymentQuery.isPending)} />
           </div>}
           <div className="flex gap-2 sm:col-span-2">
-            <Button type="submit" disabled={busy || !me || (canBill && !!id && (paymentQuery.isPending || !!paymentQuery.error))} className="h-11 flex-1 sm:flex-none sm:px-8">{id ? "수정 저장" : "예약 등록"}</Button>
+            <Button type="submit" disabled={busy || !me || (!customerId&&blockedKey===identityKey) || (needsConfirmation&&(!confirmationReady||confirmedKey!==identityKey)) || (canBill && !!id && (paymentQuery.isPending || !!paymentQuery.error))} className="h-11 flex-1 sm:flex-none sm:px-8">{needsConfirmation ? "동명이인 등록 및 예약 저장" : id ? "수정 저장" : "예약 등록"}</Button>
             <Button type="button" variant="outline" className="h-11" onClick={() => history.back()}>돌아가기</Button>
           </div>
         </form>
