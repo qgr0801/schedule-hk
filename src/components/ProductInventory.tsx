@@ -8,7 +8,7 @@ import { InventoryRoutes } from "@/components/InventoryRoutes";
 import { InventoryCatalogManager } from "@/components/InventoryCatalogManager";
 import { InventoryProductEditor } from "@/components/InventoryProductEditor";
 import { inventoryRoutesQuery, type InventoryProduct } from "@/lib/inventory-catalog";
-import { ProductSalesReport, productSalesReportQuery } from "@/components/ProductSalesReport";
+import { ProductSalesReport } from "@/components/ProductSalesReport";
 import { ProductStockDetail } from "@/components/ProductStockDetail";
 import { format, startOfMonth } from "date-fns";
 import { meQuery, dbErrorMessage } from "@/lib/app";
@@ -28,7 +28,6 @@ export function ProductInventory() {
   const [reportFrom, setReportFrom] = useState(format(startOfMonth(new Date()), "yyyy-MM-dd"));
   const [reportTo, setReportTo] = useState(format(new Date(), "yyyy-MM-dd"));
   const validReport = !!reportFrom && !!reportTo && reportFrom <= reportTo;
-  const productSales = useQuery({ ...productSalesReportQuery(reportFrom, reportTo), enabled: canManageProducts && validReport });
   const overview = useQuery({ queryKey: ["product-overview", reportFrom, reportTo], enabled: canManageProducts && validReport, queryFn: async () => {
     const { data, error } = await supabase.rpc("inventory_balance_report", { _from: reportFrom, _to: reportTo });
     if (error) throw error; return data;
@@ -122,7 +121,6 @@ export function ProductInventory() {
 
   return <section id="inventory-home" className="scroll-mt-24 space-y-4 md:scroll-mt-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">제품 · 재고 관리</h3><div className="ml-auto text-right">
-      {canManageProducts && validReport && productSales.data && <p className="font-semibold">제품매출 합계 {Number(productSales.data[0]?.total_amount ?? 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 })}원</p>}
       <p className="text-sm">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 60종</p>
     </div></div>
     <nav aria-label="제품 관리 메뉴" className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 flex flex-wrap gap-2 bg-background py-2 md:top-0">
@@ -236,8 +234,8 @@ export function ProductInventory() {
       {!validReport && <p role="alert">조회 기간을 확인해 주세요.</p>}
       {validReport && <ProductSalesReport key={`${reportFrom}-${reportTo}`} from={reportFrom} to={reportTo} />}
       <details className="space-y-3 rounded border p-3"><summary className="cursor-pointer text-sm font-semibold">상세 재고·입출고 통계</summary>
-    <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-      {[["입고 수량", unitsTotal("received")], ["판매 수량", unitsTotal("sold")], ["제품 판매금액", `${(overview.data?.reduce((sum, r) => sum + Number(r.sales_amount), 0) ?? 0).toLocaleString("ko-KR")}원`], ["재고 부족 제품", `${data?.filter((p) => p.is_active && p.stock_confirmed && p.stock <= 3).length ?? 0}종`]].map(([label, value]) => <div key={label} className="rounded-lg bg-muted p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{(label === "재고 부족 제품" ? !data : overview.isPending || !validReport || overview.error) ? "—" : value}</p></div>)}
+    <div className="grid grid-cols-2 gap-2 lg:grid-cols-3">
+      {[["입고 수량", unitsTotal("received")], ["판매 수량", unitsTotal("sold")], ["재고 부족 제품", `${data?.filter((p) => p.is_active && p.stock_confirmed && p.stock <= 3).length ?? 0}종`]].map(([label, value]) => <div key={label} className="rounded-lg bg-muted p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-semibold">{(label === "재고 부족 제품" ? !data : overview.isPending || !validReport || overview.error) ? "—" : value}</p></div>)}
     </div>
     <p className="text-xs text-muted-foreground">기초 + 입고 − 내부소진 − 사은품 − 판매 + 조정 = 종료일 재고. 기초에는 조회 기간에 등록한 초기 재고도 포함됩니다. 판매금액은 저장된 판매단가(원) 기준이며, 예약 판매는 자동 반영됩니다.</p>
 

@@ -29,7 +29,7 @@ export function ProductSalesReport({ from, to, adminRoute }: { from: string; to:
     <p className="text-sm">{from} ~ {to}</p>
     {report.isPending && <p>판매내역을 불러오는 중입니다.</p>}
     {report.error && <p role="alert">제품 판매내역을 불러오지 못했습니다.</p>}
-    {report.data && <div className="rounded bg-muted p-3 font-semibold">{adminRoute === undefined ? "총 판매금액" : "총판매출"} {money(Number(report.data[0]?.total_amount ?? 0))}원 <span className="ml-3 text-sm font-normal">판매 항목 {number(totalCount)}건 · 조회 기간 전체 합계</span></div>}
+    {adminRoute !== undefined && report.data && <div className="rounded bg-muted p-3 font-semibold">총판매출 {money(Number(report.data[0]?.total_amount ?? 0))}원 <span className="ml-3 text-sm font-normal">판매 항목 {number(totalCount)}건 · 조회 기간 전체 합계</span></div>}
     <div className="overflow-x-auto"><table className="w-full min-w-[800px] text-sm"><thead className="bg-muted"><tr>{["날짜", "고객명", "제품명", "수량", ...(adminRoute === undefined ? [] : ["판매단가(원)"]), "판매금액(원)", "구분"].map((s) => <th key={s} className="whitespace-nowrap p-2 text-left">{s}</th>)}</tr></thead>
       <tbody>{report.data?.map((r) => <tr key={r.sale_key} className="border-b"><td className="whitespace-nowrap p-2">{r.paid_on}</td><td className="p-2 font-medium">{r.customer_name}</td><td className="p-2">{r.product_name}</td><td className="p-2 text-right">{number(r.quantity)}{r.unit}</td>{adminRoute !== undefined && <td className="p-2 text-right">{money(r.unit_price)}</td>}<td className="p-2 text-right font-semibold">{money(r.sales_amount)}</td><td className="p-2">{r.reservation_id ? <Link className="underline" to="/reservations/new" search={{ id: r.reservation_id }}>{r.source}</Link> : r.source}</td></tr>)}</tbody>
     </table></div>
