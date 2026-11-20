@@ -736,6 +736,8 @@ export type Database = {
     Functions: {
       admin_business_overview: { Args: { _from: string; _to: string }; Returns: Json }
       admin_route_collection_report: { Args: { _from: string; _to: string; _route?: string; _kind?: string }; Returns: Json }
+      admin_sales_by_route_category: { Args: { _from: string; _to: string; _route?: string; _unassigned?: boolean }; Returns: Json }
+      admin_filtered_collections: { Args: { _from: string; _to: string; _route?: string; _kind?: string; _category?: string; _unassigned?: boolean }; Returns: Json }
       save_admin_settlement: { Args: { _id: string; _event: string; _from: string; _to: string; _route: string | null; _kind: string; _amount: number; _completed: number; _memo: string; _version?: number }; Returns: string }
 
       save_monthly_work_report_v4: { Args: { _id: string; _event: string; _employee: string; _month: string; _shot_count: number; _influencer_count: number; _upload_count: number; _memo: string; _links: Json; _feed_count: number; _customer_content: string; _counts: Json; _version?: number }; Returns: string }
@@ -757,6 +759,7 @@ export type Database = {
         Returns: { entry_id: string; reservation_id: string | null; paid_on: string; customer_name: string; category: string; route_name: string; service_content: string; care_content: string; payment_rows: Json; payment_memo: string }[];
       }
       booking_activity_report_by_kind: { Args: { _from: string; _to: string; _kind?: "service" | "care"; _route?: string; _unassigned?: boolean; _offset?: number; _staff?: string; _customer?: string }; Returns: { reservation_id: string; start_at: string; customer_name: string; staff_name: string; route_name: string; service_content: string; care_content: string; paid_on: string | null; payment_rows: Json; payment_memo: string; status: string }[] }
+      admin_filtered_booking_activity: { Args: { _from: string; _to: string; _kind?: "service" | "care"; _route?: string; _unassigned?: boolean; _offset?: number; _staff?: string; _customer?: string; _category?: string }; Returns: { reservation_id: string; start_at: string; customer_name: string; staff_name: string; route_name: string; service_content: string; care_content: string; paid_on: string | null; payment_rows: Json; payment_memo: string; status: string }[] }
 
       save_inventory_route: { Args: { _id: string; _name: string }; Returns: string }
       delete_inventory_route: { Args: { _id: string }; Returns: undefined }

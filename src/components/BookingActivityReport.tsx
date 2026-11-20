@@ -9,16 +9,17 @@ import { type ReviewPeriod,collectedKrw,won } from "@/lib/admin-review";
 import { MONEY_COLUMNS,PAYMENT_KINDS,type PaymentLine } from "@/lib/payments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-export function BookingActivityReport({period,initialRoute="",selection}:{period:ReviewPeriod;initialRoute?:string;selection?:{kind?:"service"|"care";route:string}}){
+export function BookingActivityReport({period,initialRoute="",selection}:{period:ReviewPeriod;initialRoute?:string;selection?:{kind?:"service"|"care";route:string;category?:string}}){
  const {data:me}=useQuery(meQuery);const admin=me?.role==="admin";
  const [mode,setMode]=useState("route"),[route,setRoute]=useState(initialRoute),[staff,setStaff]=useState(""),[customer,setCustomer]=useState(""),[page,setPage]=useState(0);
  const [search,setSearch]=useState<{mode:string;route:string;staff:string;customer:string}|null>(null);
  const {data:routes,error:routeError}=useQuery({...bookingRoutesQuery,enabled:admin&&!selection}),{data:profiles,error:staffError}=useQuery({...profilesQuery,enabled:admin&&!selection?.kind});
  const rows=useQuery({queryKey:["booking-activity",period,search,selection,page],enabled:admin&&!!(search||selection),queryFn:async()=>{
   if(selection){
-   const {kind,route}=selection;
-   const {data,error}=await supabase.rpc("booking_activity_report_by_kind",{
+   const {kind,route,category}=selection;
+   const {data,error}=await supabase.rpc(category?"admin_filtered_booking_activity":"booking_activity_report_by_kind",{
     _from:period.from,_to:period.to,_offset:page*30,
+    ...(category?{_category:category}:{}),
     ...(kind ? {_kind:kind} : {}),
     ...(route==="unassigned" ? {_unassigned:true} : route ? {_route:route} : {}),
     ...(search?.mode==="staff"&&search.staff?{_staff:search.staff}:{}),
