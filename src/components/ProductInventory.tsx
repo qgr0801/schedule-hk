@@ -107,13 +107,26 @@ export function ProductInventory() {
     for (const r of overview.data ?? []) { const u = allProducts?.find((p) => p.id === r.product_id)?.unit ?? "개"; totals[u] = (totals[u] ?? 0) + Number(r[key]); }
     return Object.entries(totals).filter(([, n]) => n !== 0).map(([u, n]) => `${fmt(n)}${u}`).join(" · ") || "0";
   };
-  return <section className="space-y-4">
+  function openHome(target = "inventory-home", openSuppliers = false) {
+    setHistoryView(null);
+    requestAnimationFrame(() => {
+      const element = document.getElementById(target);
+      if (openSuppliers) {
+        const details = element?.querySelector("details");
+        if (details) details.open = true;
+      }
+      element?.scrollIntoView({ block: "start" });
+    });
+  }
+
+  return <section id="inventory-home" className="scroll-mt-24 space-y-4 md:scroll-mt-4">
     <div className="flex flex-wrap items-center justify-between gap-2"><h3 className="text-lg font-semibold">제품 · 재고 관리</h3><p className="text-sm">사용 중인 제품 {data?.filter((p) => p.is_active).length ?? 0} / 60종</p></div>
-    <nav aria-label="제품 관리 메뉴" className="flex flex-wrap gap-2">
-      <Button type="button" variant="outline" size="sm" onClick={()=>document.getElementById("inventory-entry")?.scrollIntoView({block:"start"})}>매입등록</Button>
+    <nav aria-label="제품 관리 메뉴" className="sticky top-[calc(3.5rem+env(safe-area-inset-top))] z-10 flex flex-wrap gap-2 bg-background py-2 md:top-0">
+      <Button type="button" size="sm" variant={historyView===null?"default":"outline"} aria-pressed={historyView===null} onClick={()=>openHome()}>홈</Button>
+      <Button type="button" variant="outline" size="sm" onClick={()=>openHome("inventory-entry")}>매입등록</Button>
       {([["purchases","매입내역"],["product","제품별매입내역"],["usage","내부소모내역"],["adjustments","재고조정내역"],["outbound","출고내역"],["all","입출고현황"]] as const).map(([view,label])=><Button type="button" size="sm" key={view} variant={historyView===view?"default":"outline"} aria-pressed={historyView===view} onClick={()=>setHistoryView(view)}>{label}</Button>)}
-      <Button type="button" variant="outline" size="sm" onClick={()=>document.getElementById("inventory-stock")?.scrollIntoView({block:"start"})}>재고현황</Button>
-      <Button type="button" variant="outline" size="sm" onClick={()=>{const details=document.querySelector<HTMLDetailsElement>("#inventory-suppliers details");if(details){details.open=true;details.scrollIntoView({block:"start"});}}}>매입처등록</Button>
+      <Button type="button" variant="outline" size="sm" onClick={()=>openHome("inventory-stock")}>재고현황</Button>
+      <Button type="button" variant="outline" size="sm" onClick={()=>openHome("inventory-suppliers",true)}>매입처등록</Button>
     </nav>
     {historyView&&<div className="flex flex-wrap gap-2">
       <label className="text-sm">내역 시작일<Input type="date" value={reportFrom} onChange={e=>setReportFrom(e.target.value)}/></label>
@@ -121,8 +134,9 @@ export function ProductInventory() {
       {!validReport&&<p role="alert" className="self-end text-sm">조회 날짜를 확인해 주세요.</p>}
     </div>}
     {historyView&&validReport&&<InventoryMovementHistory key={historyView+reportFrom+reportTo} view={historyView} from={reportFrom} to={reportTo} products={allProducts??[]}/>}
+    <div className={historyView ? "hidden" : undefined}>
     <div className={canManageProducts?"grid items-start gap-4 lg:grid-cols-[minmax(260px,0.9fr)_minmax(0,1.4fr)]":"grid gap-4"}>
-      {canManageProducts && <section id="inventory-stock" className="min-w-0 rounded-lg border bg-background">
+      {canManageProducts && <section id="inventory-stock" className="scroll-mt-40 md:scroll-mt-20 min-w-0 rounded-lg border bg-background">
         <h4 className="border-b px-3 py-3 font-semibold">전체 제품 재고</h4>
         {isPending && <p className="p-3">제품을 불러오는 중입니다.</p>}
         {error && <p role="alert" className="p-3">제품 목록을 불러오지 못했습니다.</p>}
@@ -146,7 +160,7 @@ export function ProductInventory() {
         note: row.note.trim() || ({receipt:"제품 입고",usage:"내부소진",internal:"사은품",adjustment:"재고 조정"}[row.kind] ?? ""),
       }));
       void run(() => supabase.rpc("record_inventory_batch", { _rows: rows }), () => setMovements([blankMovement()]));
-    }} className="space-y-4 rounded-lg border bg-muted/30 p-4">
+    }} className="scroll-mt-40 space-y-4 rounded-lg border bg-muted/30 p-4 md:scroll-mt-20">
       <h4 className="font-semibold">입고·내부소진·사은품 등록</h4>
       <label className="block max-w-52 text-sm">날짜<Input disabled={busy} required type="date" value={movementDate} onChange={e=>setMovementDate(e.target.value)}/></label>
       {movements.map((row,index)=>{
@@ -167,7 +181,7 @@ export function ProductInventory() {
     </form>
 
     {canManageProducts && <>
-    <div id="inventory-suppliers"><InventoryRoutes /></div>
+    <div id="inventory-suppliers" className="scroll-mt-40 md:scroll-mt-20"><InventoryRoutes /></div>
     <details className="space-y-3 rounded-lg border p-4" open={data?.length === 0 || undefined}><summary className="cursor-pointer font-semibold">제품 · 초기 재고 등록 (최대 60종)</summary><form className="flex flex-wrap items-end gap-2" onSubmit={(e) => { e.preventDefault(); if (name.trim()) void run(() => supabase.rpc("register_routed_product", { _id: productId, _name: name.trim(), _price: Number(price) || 0, _stock: Number(initialStock), _unit: unit.trim(), ...(routeId ? { _route: routeId } : {}) })); }}>
       <label className="w-full text-sm">경로<select aria-label="신규 제품 경로" className="h-10 w-full rounded border bg-background px-2" value={routeId} onChange={e=>setRouteId(e.target.value)}><option value="">미지정</option>{routes.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select></label>
       <label className="min-w-40 flex-1 text-sm">제품명<Input aria-label="새 제품명" placeholder="제품명" maxLength={100} value={name} onChange={(e) => setName(e.target.value)} required /></label>
@@ -240,5 +254,6 @@ export function ProductInventory() {
 
       </details>
     </section>}
+    </div>
   </section>;
 }
