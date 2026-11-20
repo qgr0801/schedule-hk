@@ -216,11 +216,11 @@ function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false
   {entries.error&&<p role="alert">매출 상세 내역을 불러오지 못했습니다.</p>}
   {entries.data?.length===0&&<p>조회 기간에 매출 상세 내역이 없습니다.</p>}
   {entries.data&&entries.data.length>0&&<div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm">
-   <thead className="bg-muted"><tr>{scope==="settlement"&&!hideTotal&&<th scope="col" className="w-12 p-2 text-center">NO</th>}{[scope==="settlement"?"최근 결제일":"결제일","고객 이름",...(scope==="category"?["고객구분"]:[]),"경로","시술 내용","관리 내용",scope==="category"?"제품·메모":"메모","수납 내역"].map(label=><th key={label} className="p-2 text-left">{label}</th>)}</tr></thead>
+   <thead className="bg-muted"><tr>{scope==="settlement"&&<th scope="col" className="w-12 p-2 text-center">NO</th>}{[scope==="settlement"?"최근 결제일":"결제일","고객 이름",...(scope==="category"?["고객구분"]:[]),"경로","시술 내용","관리 내용",scope==="category"?"제품·메모":"메모","수납 내역"].map(label=><th key={label} className="p-2 text-left">{label}</th>)}</tr></thead>
    <tbody>{entries.data.map((entry,index)=>{
     const lines=entry.payment_rows as unknown as PaymentLine[];
     return <tr key={entry.entry_id} className="border-b align-top">
-     {scope==="settlement"&&!hideTotal&&<td className="p-2 text-center tabular-nums">{page*30+index+1}</td>}
+     {scope==="settlement"&&<td className="p-2 text-center tabular-nums">{page*30+index+1}</td>}
      <td className="whitespace-nowrap p-2">{entry.paid_on}</td>
      <td className="p-2">{entry.reservation_id?<Link className="underline" to="/reservations/new" search={{id:entry.reservation_id}}>{entry.customer_name}</Link>:entry.customer_name}</td>
      {scope==="category"&&<td className="p-2">{entry.category}</td>}<td className="p-2">{entry.route_name}</td>
