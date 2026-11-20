@@ -25,10 +25,10 @@ function Work() {
   const { data: me } = useQuery(meQuery);
   if (me?.role !== "admin" && me?.role !== "internal") return <p>WORK 열람 권한이 없습니다.</p>;
   return <div className="space-y-4"><PageHeader title="WORK" />
-    <Tabs value={(tab === "admin" || tab === "performance") && me?.role !== "admin" ? "time" : tab} onValueChange={(value) => navigate({ search: { tab: value } })}>
-      <TabsList className={`grid w-full ${me?.role === "admin" ? "grid-cols-4" : "grid-cols-2"}`}><TabsTrigger value="time">업무</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger>{me?.role === "admin" && <><TabsTrigger value="performance">성과</TabsTrigger><TabsTrigger value="admin">ADMIN</TabsTrigger></>}</TabsList>
+    <Tabs value={tab === "admin" && me?.role !== "admin" ? "time" : tab} onValueChange={(value) => navigate({ search: { tab: value } })}>
+      <TabsList className={`grid w-full ${me?.role === "admin" ? "grid-cols-4" : "grid-cols-3"}`}><TabsTrigger value="time">업무</TabsTrigger><TabsTrigger value="products">제품</TabsTrigger><TabsTrigger value="performance">성과</TabsTrigger>{me?.role === "admin" && <TabsTrigger value="admin">ADMIN</TabsTrigger>}</TabsList>
       <TabsContent value="time"><Tabs defaultValue="timelog" className="space-y-4"><TabsList className="grid w-full grid-cols-2"><TabsTrigger value="timelog">TIME LOG</TabsTrigger><TabsTrigger value="worklog">WORK LOG</TabsTrigger></TabsList><TabsContent value="timelog"><Attendance /></TabsContent><TabsContent value="worklog"><WorkLog /></TabsContent></Tabs></TabsContent>
-      {me?.role === "admin" && <TabsContent value="performance"><Panel><PerformanceReview /></Panel></TabsContent>}
+      <TabsContent value="performance"><Panel><PerformanceReview /></Panel></TabsContent>
       {me?.role === "admin" && <TabsContent value="admin"><Panel><AdminBusinessReview /></Panel></TabsContent>}
       <TabsContent value="products"><Panel><ProductInventory /></Panel></TabsContent>
     </Tabs>

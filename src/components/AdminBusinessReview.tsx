@@ -125,7 +125,6 @@ function RouteCollections({period,grouping,route,onRouteChange,routeOptions,cate
  const rows=report.data??[];
  const amountKeys=category?(["collected"] as const):(["collected","amount","completed"] as const);
  const totals=(items:SettlementReview[],key:"collected"|"amount"|"completed"|"jpy"|"usd"|"cny")=>won(items.reduce((sum,row)=>sum+Number(row[key]),0));
- const filterLabelClass = buttonVariants({ size: "sm", className: "pointer-events-none" });
  const orderedRows=[...rows].sort((a,b)=>grouping==="route"?a.route_name.localeCompare(b.route_name,"ko"):Number(b.kind===grouping)-Number(a.kind===grouping)||a.route_name.localeCompare(b.route_name,"ko"));
  return <section className="space-y-3">
   <div className="flex flex-wrap items-center justify-between gap-2">
@@ -134,7 +133,7 @@ function RouteCollections({period,grouping,route,onRouteChange,routeOptions,cate
     {(["jpy","usd","cny"] as const).map(currency=>rows.some(row=>Number(row[currency])!==0)&&<span key={currency} className="ml-2 whitespace-nowrap">{totals(rows,currency)}{{jpy:"엔",usd:"달러",cny:"위안"}[currency]}</span>)}
    </p>}
   </div>
-  <div className="flex flex-wrap items-end gap-2"><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>내용</span><select aria-label="매출 내용" className="h-10 rounded border bg-background px-2" value={kind} onChange={e=>setKind(e.target.value)}>{grouping==="route"&&<option value="">시술·관리 전체</option>}{grouping!=="care"&&<option value="service">시술</option>}{grouping!=="service"&&<option value="care">관리</option>}</select></label><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>경로</span><select aria-label="매출 경로" className="h-10 rounded border bg-background px-2" value={route} onChange={e=>onRouteChange(e.target.value)}>{routeOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>
+  <SalesFilters {...{grouping,kind,setKind,route,onRouteChange,routeOptions}}/>
   <SalesEntries key={JSON.stringify([period,kind,route,category])} period={period} scope="settlement" route={route} category={category} kind={kind}/>
   <details className="rounded-lg border p-3"><summary className="cursor-pointer font-medium">합계</summary><div className="mt-3 space-y-3"><div className="flex flex-wrap items-end gap-2">{!category&&<Button type="button" variant="outline" onClick={()=>setEditing(null)}>정산 기록 추가</Button>}</div><p className="text-xs text-muted-foreground">{category?"수납은 선택한 고객구분의 결제일 기준입니다.":"수납은 결제일 기준 자동 집계입니다. 정산·정산완료(원)·메모는 직접 저장하며, 선택한 시작일·종료일이 같은 기간의 기록을 표시합니다."}</p>
  {report.error&&<p role="alert">경로별 내역을 불러오지 못했습니다.</p>}{report.isPending&&<p>정산을 불러오는 중입니다.</p>}<div className="overflow-x-auto"><table className="w-full min-w-[1050px] text-sm"><thead className="bg-muted"><tr>{["경로","구분","수납(원)",...(category?[]:["정산(원)","정산완료(원)","메모","작성"])].map(t=><th key={t} className="p-2 text-left">{t}</th>)}</tr></thead><tbody>{orderedRows.map((r,index)=><Fragment key={`${r.route_id??"none"}-${r.kind}`}>{grouping!=="route"&&orderedRows[index-1]?.kind!==r.kind&&<tr className="bg-muted/60"><th colSpan={2} className="p-2 text-left">{r.kind==="service"?"시술":"관리"} 소계</th>{amountKeys.map(k=><td key={k} className="p-2 text-right">{totals(rows.filter(item=>item.kind===r.kind),k)}</td>)}{!category&&<td colSpan={2}/>}</tr>}<tr key={`${r.route_id??"none"}-${r.kind}`} className="border-b align-top"><td className="p-2">{r.route_name}</td><td className="p-2">{r.kind==="service"?"시술":"관리"}</td><td className="p-2 text-right">{won(r.collected)}{(Number(r.jpy)>0||Number(r.usd)>0||Number(r.cny)>0)&&<p className="text-xs text-muted-foreground">엔 {won(r.jpy)} / 달러 {won(r.usd)} / 위엔 {won(r.cny)}</p>}</td>{!category&&<><td className="p-2 text-right">{won(r.amount)}</td><td className="p-2 text-right">{won(r.completed)}</td><td className="max-w-64 whitespace-pre-wrap p-2">{r.memo||"—"}</td><td className="p-2"><Button type="button" variant="outline" size="sm" onClick={()=>setEditing(r)}>수정</Button></td></>}</tr></Fragment>)}<tr className="bg-muted font-semibold"><th className="p-2" colSpan={2}>합계</th>{amountKeys.map(k=><td key={k} className="p-2 text-right">{totals(rows,k)}{k==="collected"&&rows.some(r=>Number(r.jpy)||Number(r.usd)||Number(r.cny))&&<p className="text-xs">엔 {totals(rows,"jpy")} / 달러 {totals(rows,"usd")} / 위엔 {totals(rows,"cny")}</p>}</td>)}{!category&&<td colSpan={2}/>}</tr></tbody></table></div>{report.data?.length===0&&<p>해당 기간에 내역이 없습니다.</p>}{editing!==undefined&&<SettlementEditor period={period} row={editing} onClose={()=>setEditing(undefined)}/>}</div></details></section>;
@@ -154,12 +153,24 @@ function routeArgs(route:string) {
  return route==="unassigned"?{_unassigned:true}:route?{_route:route}:{};
 }
 
+function SalesFilters({grouping,kind,setKind,route,onRouteChange,routeOptions}:{
+ grouping:SettlementGrouping;kind:string;setKind:(kind:string)=>void;route:string;onRouteChange:(route:string)=>void;routeOptions:{value:string;label:string}[];
+}) {
+ const filterLabelClass = buttonVariants({ size: "sm", className: "pointer-events-none" });
+ return <div className="flex flex-wrap items-end gap-2"><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>내용</span><select aria-label="매출 내용" className="h-10 rounded border bg-background px-2" value={kind} onChange={e=>setKind(e.target.value)}>{grouping==="route"&&<option value="">시술·관리 전체</option>}{grouping!=="care"&&<option value="service">시술</option>}{grouping!=="service"&&<option value="care">관리</option>}</select></label><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>경로</span><select aria-label="매출 경로" className="h-10 rounded border bg-background px-2" value={route} onChange={e=>onRouteChange(e.target.value)}>{routeOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label></div>;
+}
+
 export function PerformanceReview() {
  const {data:me}=useQuery(meQuery);
  const [from,setFrom]=useState(()=>format(startOfMonth(new Date()),"yyyy-MM-dd"));
  const [to,setTo]=useState(()=>format(new Date(),"yyyy-MM-dd"));
  const [period,setPeriod]=useState<ReviewPeriod>({from,to});
- if(me?.role!=="admin")return null;
+ const [kind,setKind]=useState("");
+ const [route,setRoute]=useState("");
+ const allowed=me?.role==="admin"||me?.role==="internal";
+ const {data:routes,error:routesError}=useQuery({...bookingRoutesQuery,enabled:allowed});
+ if(!allowed)return null;
+ const routeOptions=[{value:"",label:"전체 경로"},{value:"unassigned",label:"미지정"},...(routes??[]).map(item=>({value:item.id,label:item.name}))];
  const valid=!!from&&!!to&&from<=to;
  return <section className="space-y-4">
   <h2 className="text-xl font-semibold">성과</h2>
@@ -168,7 +179,9 @@ export function PerformanceReview() {
    <label className="grid gap-1 text-sm">종료일<Input type="date" required value={to} min={from} onChange={event=>setTo(event.target.value)}/></label>
    <Button type="submit" disabled={!valid}>기간 조회</Button>
   </form>
-  <SalesEntries key={JSON.stringify(period)} period={period} scope="settlement" hideTotal/>
+  <SalesFilters grouping="route" {...{kind,setKind,route,routeOptions}} onRouteChange={setRoute}/>
+  {routesError&&<p role="alert">경로를 불러오지 못했습니다.</p>}
+  <SalesEntries key={JSON.stringify([period,route,kind,me.role])} {...{period,route,kind}} scope="settlement" hideTotal/>
  </section>;
 }
 
@@ -176,9 +189,9 @@ function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false
  period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;hideTotal?:boolean;
 }) {
  const [page,setPage]=useState(0);
- const entries=useQuery({queryKey:["admin-sales-entries",period,scope,route,category,kind,page],queryFn:async()=>{
+ const entries=useQuery({queryKey:["admin-sales-entries",period,scope,hideTotal,route,category,kind,page],queryFn:async()=>{
   const {data,error}=await supabase.rpc("admin_sales_entries",{
-   _from:period.from,_to:period.to,_scope:scope,_offset:page*30,
+   _from:period.from,_to:period.to,_scope:hideTotal?"performance":scope,_offset:page*30,
    ...routeArgs(route),
    ...(category?{_category:category}:{}),
    ...(kind==="service"||kind==="care"?{_kind:kind}:{}),
