@@ -9,9 +9,9 @@ import { type ReviewPeriod,collectedKrw,won } from "@/lib/admin-review";
 import { MONEY_COLUMNS,PAYMENT_KINDS,type PaymentLine } from "@/lib/payments";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-export function BookingActivityReport({period}:{period:ReviewPeriod}){
+export function BookingActivityReport({period,initialRoute=""}:{period:ReviewPeriod;initialRoute?:string}){
  const {data:me}=useQuery(meQuery);const admin=me?.role==="admin";
- const [mode,setMode]=useState("route"),[route,setRoute]=useState(""),[staff,setStaff]=useState(""),[customer,setCustomer]=useState(""),[page,setPage]=useState(0);
+ const [mode,setMode]=useState("route"),[route,setRoute]=useState(initialRoute),[staff,setStaff]=useState(""),[customer,setCustomer]=useState(""),[page,setPage]=useState(0);
  const [search,setSearch]=useState<{mode:string;route:string;staff:string;customer:string}|null>(null);
  const {data:routes,error:routeError}=useQuery({...bookingRoutesQuery,enabled:admin}),{data:profiles,error:staffError}=useQuery({...profilesQuery,enabled:admin});
  const rows=useQuery({queryKey:["booking-activity",period,search,page],enabled:admin&&!!search,queryFn:async()=>{
