@@ -105,10 +105,7 @@ export function AdminBusinessReview(){
  <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">WORK LOG</h3>{selector(workStaff,setWorkStaff,"ADMIN WORK LOG 직원")}</div><p className="text-xs text-muted-foreground">일별 기록은 조회 기간으로 집계합니다. 기존 월간 기록은 조회 기간과 겹치는 월의 전체 건수를 포함합니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[1000px] text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">직원</th>{labels.map((t,i)=><th key={i} className="p-2 text-right">{t}</th>)}</tr></thead><tbody>{overview.data&&work.length===0&&<tr><td colSpan={keys.length+1} className="p-2">조회 기간에 업무 기록이 없습니다.</td></tr>}{work.map(r=><tr key={r.employee_id} className="border-b"><th className="p-2 text-left">{r.name}</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(r[k])}</td>)}</tr>)}<tr className="bg-muted font-semibold"><th className="p-2 text-left">합계(건)</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(work.reduce((s,r)=>s+Number(r[k]??0),0))}</td>)}</tr></tbody></table></div></section></>}</TabsContent>
  <TabsContent value="settlements">{period&&<>
   <RouteCollections key={`${period.from}-${period.to}-${salesView}`} period={period} grouping={salesView==="service"||salesView==="care"?salesView:"route"} route={route} onRouteChange={setRoute} routeOptions={routeOptions} category={category}/>
-  <section className="mt-5 space-y-3" aria-labelledby="admin-product-settlement">
-   <h3 id="admin-product-settlement" className="text-lg font-semibold">판매·정산</h3>
-   <ProductSalesReport key={JSON.stringify([period,route])} from={period.from} to={period.to} adminRoute={route}/>
-  </section>
+  <ProductSalesReport key={JSON.stringify([period,route])} from={period.from} to={period.to} adminRoute={route} settlement/>
  </>}</TabsContent></Tabs></section>;
 }
 function AdminFilterMenu({label,active,onOpen,value,onChange,pending,failed,options}:{
