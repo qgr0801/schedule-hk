@@ -316,6 +316,13 @@
       "when": 1792672700318,
       "tag": "0044_admin_combined_sales_filters",
       "breakpoints": true
+    },
+    {
+      "idx": 45,
+      "version": "7",
+      "when": 1792672700319,
+      "tag": "0045_internal_product_management",
+      "breakpoints": true
     }
   ]
 }

@@ -765,6 +765,7 @@ export type Database = {
       delete_inventory_route: { Args: { _id: string }; Returns: undefined }
       register_routed_product: { Args: { _id: string; _name: string; _price: number; _stock: number; _unit: string; _route?: string; _stock_confirmed?: boolean }; Returns: string }
       edit_inventory_product: { Args: { _id: string; _event: string; _name: string; _price: number; _unit: string; _route?: string; _initial_stock?: number }; Returns: string }
+      set_inventory_product_active: { Args: { _id: string; _active: boolean }; Returns: undefined }
       set_inventory_product_deleted: { Args: { _id: string; _event: string; _deleted: boolean }; Returns: string }
 
       product_sales_report: { Args: { _from: string; _to: string; _offset?: number }; Returns: { sale_key: string; paid_on: string; customer_name: string; product_name: string; quantity: number; unit: string; unit_price: number; sales_amount: number; reservation_id: string | null; source: string; total_count: number; total_amount: number }[] }
