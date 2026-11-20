@@ -7,6 +7,7 @@ import { format,startOfMonth } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { meQuery,dbErrorMessage } from "@/lib/app";
+import { categoriesQuery } from "@/lib/display";
 import { employeesQuery } from "@/lib/employees";
 import { bookingRoutesQuery } from "@/lib/booking-routes";
 import { type ReviewPeriod,type AdminOverview,type SettlementReview,won,minutesText } from "@/lib/admin-review";
@@ -17,18 +18,20 @@ import { Dialog,DialogContent,DialogTitle,DialogHeader } from "@/components/ui/d
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-const salesViews = [["route", "경로별"], ["service", "시술별"], ["care", "관리별"]] as const;
+const salesViews = [["all", "전체"], ["route", "경로별"], ["category", "고객구분별"], ["service", "시술별"], ["care", "관리별"]] as const;
 type SalesView = typeof salesViews[number][0];
+type SettlementGrouping = "route" | "service" | "care";
 
 export function AdminBusinessReview(){
  const [tab, setTab] = useState("sales");
- const [salesView, setSalesView] = useState<SalesView>("route");
+ const [salesView, setSalesView] = useState<SalesView>("all");
  const {data:me}=useQuery(meQuery);const admin=me?.role==="admin";
  const [from,setFrom]=useState(format(startOfMonth(new Date()),"yyyy-MM-dd")),[to,setTo]=useState(format(new Date(),"yyyy-MM-dd"));
  const [period,setPeriod]=useState<ReviewPeriod|null>(null),[timeStaff,setTimeStaff]=useState(""),[workStaff,setWorkStaff]=useState("");
  const [route,setRoute]=useState("");
  const {data:routes,error:routesError}=useQuery({...bookingRoutesQuery,enabled:admin&&tab==="settlements"&&salesView==="route"});
  const [category,setCategory]=useState("");
+ const {data:categories,error:categoriesError}=useQuery({...categoriesQuery,enabled:admin&&tab==="sales"});
  const {data:employees}=useQuery({...employeesQuery,enabled:admin});
  const overview=useQuery({queryKey:["admin-business-overview",period],enabled:admin&&!!period,queryFn:async()=>{const {data,error}=await supabase.rpc("admin_business_overview",{_from:period!.from,_to:period!.to});if(error)throw error;return data as unknown as AdminOverview;}});
  const {data:metricLabels}=useQuery({...workMetricLabelsQuery,enabled:admin&&!!period});
@@ -36,6 +39,7 @@ export function AdminBusinessReview(){
  const valid=!!from&&!!to&&from<=to;
  const sales=overview.data?.sales ?? [];
  const visibleSales=sales.filter(row=>!category||row.category===category);
+ const categoryNames=Array.from(new Set([...(categories??[]).map(item=>item.name),...sales.map(row=>row.category)].filter(name=>name!=="미지정")));
  const times=(overview.data?.times??[]).filter(r=>!timeStaff||r.employee_id===timeStaff),work=(overview.data?.work??[]).filter(r=>!workStaff||r.employee_id===workStaff);
  const extraKeys=WORK_EXTRA_KEYS.filter(key=>workMetricLabel(metricLabels,key,""));
  const keys=["shot","video","feed","sponsored","youtube","dm","dmr","dm_confirmed","dm_visited",...extraKeys] as const;
@@ -43,34 +47,40 @@ export function AdminBusinessReview(){
  const selector=(value:string,set:(value:string)=>void,label:string)=><label className="text-sm">직원선택<select aria-label={label} className="ml-2 h-10 rounded border bg-background px-2" value={value} onChange={e=>set(e.target.value)}><option value="">전체 직원</option>{employees?.map(e=><option key={e.id} value={e.id}>{e.name}</option>)}</select></label>;
  return <section className="space-y-4"><div className="flex flex-wrap items-center justify-between gap-2"><h2 className="text-xl font-semibold">ADMIN · 운영 검토</h2><div className="flex flex-wrap items-center gap-2">
    <div role="group" aria-label="매출 조회 구분" className="flex flex-wrap gap-1">
-    {salesViews.map(([view, label]) => (
+    {salesViews.map(([view, label]) => {
+     const active=view==="category" ? tab==="sales" : tab==="settlements"&&salesView===view;
+     return (
      <Button key={view} type="button" size="sm"
-      variant={tab === "settlements" && salesView === view ? "default" : "outline"}
-      aria-pressed={tab === "settlements" && salesView === view}
-      onClick={() => { setSalesView(view); setTab("settlements"); }}>
+      variant={active ? "default" : "outline"}
+      aria-pressed={active}
+      onClick={() => { if(view==="category"){setTab("sales");return;} setSalesView(view);setTab("settlements"); }}>
       {label}
      </Button>
-    ))}
+     );
+    })}
+    <Button type="button" size="sm" variant={tab==="time-log"?"default":"outline"} aria-pressed={tab==="time-log"} onClick={()=>setTab("time-log")}>직원선택</Button>
    </div>
    <BookingRouteManager/>
   </div></div>
- <form onSubmit={e=>{e.preventDefault();if(valid){setCategory("");setPeriod({from,to});}}} className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-3"><label className="text-sm">조회 시작일<Input aria-label="ADMIN 조회 시작일" type="date" required value={from} onChange={e=>setFrom(e.target.value)}/></label><label className="text-sm">조회 종료일<Input aria-label="ADMIN 조회 종료일" type="date" required min={from} value={to} onChange={e=>setTo(e.target.value)}/></label><Button disabled={!valid}>기간 조회</Button></form>
- {tab==="settlements"&&salesView==="route"&&<label className="block max-w-sm text-sm">경로<select aria-label="정산 경로" className="mt-1 h-10 w-full rounded border bg-background px-2" value={route} onChange={e=>setRoute(e.target.value)}><option value="">전체 경로</option><option value="unassigned">미지정</option>{routes?.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{routesError&&<span role="alert">경로를 불러오지 못했습니다.</span>}</label>}
+ <form onSubmit={e=>{e.preventDefault();if(valid)setPeriod({from,to});}} className="flex flex-wrap items-end gap-3 rounded-lg border bg-muted/30 p-3"><label className="text-sm">조회 시작일<Input aria-label="ADMIN 조회 시작일" type="date" required value={from} onChange={e=>setFrom(e.target.value)}/></label><label className="text-sm">조회 종료일<Input aria-label="ADMIN 조회 종료일" type="date" required min={from} value={to} onChange={e=>setTo(e.target.value)}/></label><Button disabled={!valid}>기간 조회</Button></form>
+ {tab==="settlements"&&salesView==="route"&&<label className="block max-w-sm text-sm">경로<select aria-label="정산 경로" className="mt-1 h-10 w-full rounded border bg-background px-2" value={route} onChange={e=>setRoute(e.target.value)}><option value="">경로 선택</option><option value="unassigned">미지정</option>{routes?.map(r=><option key={r.id} value={r.id}>{r.name}</option>)}</select>{routesError&&<span role="alert">경로를 불러오지 못했습니다.</span>}</label>}
+ {tab==="sales"&&<label className="block max-w-sm text-sm">고객구분<select aria-label="판매매출 고객구분" className="mt-1 h-10 w-full rounded border bg-background px-2" value={category} onChange={e=>setCategory(e.target.value)}><option value="">전체 고객구분</option><option value="미지정">선택 안 함</option>{categoryNames.map(name=><option key={name} value={name}>{name}</option>)}</select>{categoriesError&&<span role="alert">고객구분을 불러오지 못했습니다.</span>}</label>}
+ {tab==="time-log"&&<label className="block max-w-sm text-sm">직원명<select aria-label="ADMIN TIME LOG 직원" className="mt-1 h-10 w-full rounded border bg-background px-2" value={timeStaff} onChange={e=>setTimeStaff(e.target.value)}><option value="">전체 직원</option>{employees?.map(employee=><option key={employee.id} value={employee.id}>{employee.name}</option>)}</select></label>}
  {period&&<p className="text-sm font-medium">조회 기간: {period.from} ~ {period.to}</p>}
  {period&&<>{overview.error&&<p role="alert">운영 집계를 불러오지 못했습니다.</p>}{overview.isPending&&<p>운영 집계를 불러오는 중입니다.</p>}</>}
  <Tabs value={tab} onValueChange={setTab}><TabsList className="grid h-auto w-full grid-cols-3 gap-1 sm:grid-cols-4"><TabsTrigger value="sales">판매매출</TabsTrigger><TabsTrigger value="time-log">TIME LOG</TabsTrigger><TabsTrigger value="work-log">WORK LOG</TabsTrigger><TabsTrigger value="settlements">매출</TabsTrigger></TabsList>
  {!period&&<p className="rounded border p-6 text-sm text-muted-foreground">기간을 설정한 뒤 ‘기간 조회’를 눌러 주세요.</p>}
  <TabsContent value="sales" className="space-y-5">{period&&<>
- <section className="space-y-2 rounded border p-3"><h3 className="font-semibold">판매 · 고객구분</h3><label className="block text-sm">고객구분<select aria-label="판매매출 고객구분" className="ml-2 h-10 rounded border bg-background px-2" value={category} onChange={e=>setCategory(e.target.value)}><option value="">전체 고객구분</option>{sales.map(r=><option key={r.category}>{r.category}</option>)}</select></label><div className="rounded bg-muted p-3 font-semibold">전체 매출(원화)  {overview.data?`${won(overview.data.sales.reduce((s,r)=>s+Number(r.collected),0))}원`:"—"}</div><p className="text-xs text-muted-foreground">결제일 기준 카드+계좌+원화 현금 합계입니다. 비용은 중복 합산하지 않으며, 외화는 통화별로 표시합니다. 고객구분은 현재 설정 기준입니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[600px] text-sm"><thead className="bg-muted"><tr>{["고객구분","고객 수","수납(원)","엔","달러","위엔"].map(t=><th key={t} className="p-2 text-right first:text-left">{t}</th>)}</tr></thead><tbody>{visibleSales.map(r=><tr key={r.category} className="border-b"><th className="p-2 text-left">{r.category}</th>{[r.customers,r.collected,r.jpy,r.usd,r.cny].map((n,i)=><td key={i} className="p-2 text-right">{won(n)}</td>)}</tr>)}</tbody></table></div></section>
+ <section className="space-y-2 rounded border p-3"><h3 className="font-semibold">판매 · 고객구분</h3><div className="rounded bg-muted p-3 font-semibold">전체 매출(원화)  {overview.data?`${won(overview.data.sales.reduce((s,r)=>s+Number(r.collected),0))}원`:"—"}</div><p className="text-xs text-muted-foreground">결제일 기준 카드+계좌+원화 현금 합계입니다. 비용은 중복 합산하지 않으며, 외화는 통화별로 표시합니다. 고객구분은 현재 설정 기준입니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[600px] text-sm"><thead className="bg-muted"><tr>{["고객구분","고객 수","수납(원)","엔","달러","위엔"].map(t=><th key={t} className="p-2 text-right first:text-left">{t}</th>)}</tr></thead><tbody>{visibleSales.map(r=><tr key={r.category} className="border-b"><th className="p-2 text-left">{r.category}</th>{[r.customers,r.collected,r.jpy,r.usd,r.cny].map((n,i)=><td key={i} className="p-2 text-right">{won(n)}</td>)}</tr>)}</tbody></table></div>{overview.data&&visibleSales.length===0&&<p className="text-sm text-muted-foreground">조회 기간에 해당 고객구분의 판매 내역이 없습니다.</p>}</section>
  </>}</TabsContent>
  <TabsContent value="time-log">{period&&<>
- <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">TIME LOG</h3>{selector(timeStaff,setTimeStaff,"ADMIN TIME LOG 직원")}</div><p className="rounded bg-muted p-3 font-semibold">전체시간 합산 · {overview.data?minutesText(times.reduce((s,r)=>s+Number(r.minutes),0)):"—"}</p>{overview.data&&times.length===0&&<p className="text-sm text-muted-foreground">조회 기간에 근무 기록이 없습니다.</p>}{times.map(r=><p key={r.employee_id} className="flex justify-between text-sm"><span>{r.name}</span><span>{minutesText(Number(r.minutes))}</span></p>)}</section>
+ <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">TIME LOG</h3></div><p className="rounded bg-muted p-3 font-semibold">전체시간 합산 · {overview.data?minutesText(times.reduce((s,r)=>s+Number(r.minutes),0)):"—"}</p>{overview.data&&times.length===0&&<p className="text-sm text-muted-foreground">조회 기간에 근무 기록이 없습니다.</p>}{times.map(r=><p key={r.employee_id} className="flex justify-between text-sm"><span>{r.name}</span><span>{minutesText(Number(r.minutes))}</span></p>)}</section>
  </>}</TabsContent>
  <TabsContent value="work-log">{period&&<>
  <section className="space-y-2 rounded border p-3"><div className="flex flex-wrap items-center justify-between gap-2"><h3 className="font-semibold">WORK LOG</h3>{selector(workStaff,setWorkStaff,"ADMIN WORK LOG 직원")}</div><p className="text-xs text-muted-foreground">일별 기록은 조회 기간으로 집계합니다. 기존 월간 기록은 조회 기간과 겹치는 월의 전체 건수를 포함합니다.</p><div className="overflow-x-auto"><table className="w-full min-w-[1000px] text-sm"><thead className="bg-muted"><tr><th className="p-2 text-left">직원</th>{labels.map((t,i)=><th key={i} className="p-2 text-right">{t}</th>)}</tr></thead><tbody>{overview.data&&work.length===0&&<tr><td colSpan={keys.length+1} className="p-2">조회 기간에 업무 기록이 없습니다.</td></tr>}{work.map(r=><tr key={r.employee_id} className="border-b"><th className="p-2 text-left">{r.name}</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(r[k])}</td>)}</tr>)}<tr className="bg-muted font-semibold"><th className="p-2 text-left">합계(건)</th>{keys.map(k=><td key={k} className="p-2 text-right">{won(work.reduce((s,r)=>s+Number(r[k]??0),0))}</td>)}</tr></tbody></table></div></section></>}</TabsContent>
- <TabsContent value="settlements">{period&&<RouteCollections key={`${period.from}-${period.to}-${salesView}`} period={period} grouping={salesView} route={salesView==="route"?route:""}/>}</TabsContent></Tabs></section>;
+ <TabsContent value="settlements">{period&&(salesView==="route"&&!route?<p className="rounded border p-6 text-sm text-muted-foreground">조회할 경로를 선택해 주세요.</p>:<RouteCollections key={`${period.from}-${period.to}-${salesView}`} period={period} grouping={salesView==="service"||salesView==="care"?salesView:"route"} route={salesView==="route"?route:""}/>)}</TabsContent></Tabs></section>;
 }
-function RouteCollections({period,grouping,route}:{period:ReviewPeriod;grouping:SalesView;route:string}){
+function RouteCollections({period,grouping,route}:{period:ReviewPeriod;grouping:SettlementGrouping;route:string}){
  const [kind,setKind]=useState<string>(grouping === "route" ? "" : grouping);const [editing,setEditing]=useState<SettlementReview|null|undefined>(undefined);
  const report=useQuery({queryKey:["admin-route-collections",period,route,kind],queryFn:async()=>{const {data,error}=await supabase.rpc("admin_route_collection_report",{_from:period.from,_to:period.to,...(route&&route!=="unassigned"?{_route:route}:{}),...(kind?{_kind:kind}:{})});if(error)throw error;return data as unknown as SettlementReview[];}});
  const rows=(report.data ?? []).filter(row=>route!=="unassigned"||row.route_id===null);
