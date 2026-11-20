@@ -265,7 +265,7 @@ function ReservationForm() {
     <div className="max-w-2xl">
       <PageHeader title={id ? "예약 수정" : "예약 등록"} desc="같은 시간에 같은 담당자와 시술실로 여러 예약을 등록할 수 있습니다. 가상 데이터만 사용하세요." />
       <Panel>
-        <form onSubmit={submit} className="grid gap-4 sm:grid-cols-2">
+        <form onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
             <Label>기존 고객 검색</Label>
             <Input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="이름, 고객번호, 전화번호로 검색" />
@@ -404,7 +404,7 @@ function ReservationForm() {
             </div>
           )}
           <div className="space-y-2 sm:col-span-2"><Label>메모</Label><Textarea value={f.memo} onChange={set("memo")} /></div>
-          {canBill && <div className="sm:col-span-2">
+          {canBill && <div className="min-w-0 sm:col-span-2">
             {paymentQuery.error && <p role="alert" className="text-sm text-destructive">기존 계산 내역을 불러오지 못했습니다.</p>}
             <PaymentFields value={payment} onChange={setPaymentOverride} disabled={busy || (!!id && paymentQuery.isPending)} />
           </div>}
