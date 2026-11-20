@@ -267,6 +267,20 @@
       "when": 1792672700311,
       "tag": "0037_work_log_check_items",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1792672700312,
+      "tag": "0038_work_log_activity_counts",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1792672700313,
+      "tag": "0039_admin_business_review",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 import { describe,it,expect } from "vitest";
-import { workLogValidation,readWorkChecks } from "@/lib/work-log";
+import { workLogValidation,readWorkChecks,readWorkCounts } from "@/lib/work-log";
 describe("monthly work log validation",()=>{
  it("accepts zero counts, multiline notes and multiple named video links",()=>{
   expect(workLogValidation("employee","2026-11",[25,3,17],"DM 답장 9명\n예약 확인",[{name:"인플루언서 A",url:"https://www.instagram.com/reel/example/"},{name:"인플루언서 B",url:"https://www.tiktok.com/@example/video/1"}])).toBeNull();
@@ -24,5 +24,12 @@ describe("work log check items",()=>{
   expect(readWorkChecks(null)).toEqual({youtube:false,dm:false,dmr:false,dm_confirmed:false,dm_visited:false});
   expect(readWorkChecks({youtube:true,dm:false,dmr:true,dm_confirmed:true,dm_visited:false})).toEqual({youtube:true,dm:false,dmr:true,dm_confirmed:true,dm_visited:false});
   expect(readWorkChecks({dm:"false",dm_visited:"true"}).dm_visited).toBe(false);
+ });
+});
+
+describe("work log activity counts",()=>{
+ it("preserves each count and never treats old boolean checks as numeric activity",()=>{
+  expect(readWorkCounts({youtube:12,dm:83,dmr:9,dm_confirmed:6,dm_visited:3})).toEqual({youtube:12,dm:83,dmr:9,dm_confirmed:6,dm_visited:3});
+  expect(readWorkCounts({youtube:true,dm:-1,dmr:1.5}).youtube).toBe(0);
  });
 });

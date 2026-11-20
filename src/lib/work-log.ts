@@ -19,3 +19,9 @@ export const readWorkChecks=(value:unknown):WorkChecks=>{
  const source=value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
  return Object.fromEntries(WORK_CHECK_ITEMS.map(([key])=>[key,source[key]===true])) as WorkChecks;
 };
+
+export type WorkCounts=Record<WorkCheckKey,number>;
+export const readWorkCounts=(value:unknown):WorkCounts=>{
+ const source=value&&typeof value==="object"&&!Array.isArray(value)?value as Record<string,unknown>:{};
+ return Object.fromEntries(WORK_CHECK_ITEMS.map(([key])=>{const n=source[key];return [key,typeof n==="number"&&Number.isInteger(n)&&n>=0&&n<=100000?n:0];})) as WorkCounts;
+};
