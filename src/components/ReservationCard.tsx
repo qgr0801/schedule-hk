@@ -64,7 +64,7 @@ export function StatusPill({ status, colors, small }: { status: ResStatus; color
 
 /** Pure presentational card, also used for the settings preview. */
 export function CardView({
-  r, fields, mode, status, staffColor, categories, creatorName, staffName, compact, onClick, className,
+  r, fields, mode, status, staffColor, categories, creatorName, staffName, customerNumber, compact, onClick, className,
 }: {
   r: Pick<ResWithCustomer, "start_at" | "end_at" | "customer_name" | "customer_phone" | "service" | "memo" | "status">;
   fields: CardField[];
@@ -74,6 +74,7 @@ export function CardView({
   categories: Pick<Category, "name" | "color">[];
   creatorName: string;
   staffName: string;
+  customerNumber?: string | undefined;
   compact?: boolean | undefined;
   onClick?: (() => void) | undefined;
   className?: string | undefined;
@@ -83,7 +84,12 @@ export function CardView({
   const has = (f: CardField) => fields.includes(f);
   const showStatus = isVisitStatus || has("status") || mode === "staff" || r.status === "cancelled" || r.status === "no_show";
   const lines: ReactNode[] = [];
-  if (has("customer")) lines.push(<span key="c" className="block truncate font-semibold">고객: {r.customer_name}</span>);
+  if (has("customer") || customerNumber) lines.push(
+    <span key="c" className="flex min-w-0 flex-wrap items-center gap-x-1 font-semibold">
+      {has("customer") && <span className="min-w-0 truncate">고객: {r.customer_name}</span>}
+      {customerNumber && <span className="shrink-0 text-[10px]">{customerNumber}</span>}
+    </span>,
+  );
   if (has("category") && categories.length > 0)
     lines.push(<span key="g" className="flex flex-wrap gap-1">{categories.map((g, k) => <CategoryBadge key={k} cat={g} small />)}</span>);
   if (has("service")) lines.push(<span key="s" className="block truncate">{r.service}</span>);
@@ -110,6 +116,7 @@ export function CardView({
         <span className="flex items-center gap-1 truncate">
           {has("time") && <b className="shrink-0">{format(new Date(r.start_at), "HH:mm")}</b>}
           {has("customer") && <span className="truncate">{r.customer_name}</span>}
+          {customerNumber && <span className="shrink-0 text-[10px]">{customerNumber}</span>}
           {has("service") && !has("customer") && <span className="truncate">{r.service}</span>}
           {has("creator") && <span className="truncate opacity-70">· {creatorName}</span>}
           {showStatus && <span className="ml-auto shrink-0"><StatusPill status={r.status} colors={status} small /></span>}
@@ -166,9 +173,11 @@ export function ReservationCard({
   const care = lines.find((line) => line.kind === "care")?.description?.trim();
   const start = new Date(r.start_at);
   const end = new Date(r.end_at);
+  const customerNumber = canReadCustomer && r.customer_no != null && (!r.access || r.visible?.includes("customerNo"))
+    ? `No.${r.customer_no}` : undefined;
   const summary = [
     canReadCustomer && (!r.access || r.visible?.includes("customer")) ? r.customer_name : null,
-    canReadCustomer && r.customer_no && (!r.access || r.visible?.includes("customerNo")) ? `No.${r.customer_no}` : null,
+    customerNumber,
     `${format(start, "HH:mm")}–${format(end, "HH:mm")}`,
     canReadCustomer && !r.access ? `시술: ${service || (care ? r.service : r.service_detail || r.service)}` : r.service,
     care ? `관리: ${care}` : null,
@@ -216,6 +225,7 @@ export function ReservationCard({
       categories={cats}
       creatorName={name(r.created_by)}
       staffName={name(staffId)}
+      customerNumber={customerNumber}
       compact={compact}
       onClick={onClick ? () => { if (canOpen?.() !== false) { setPreviewOpen(false); setOpen(true); } } : undefined}
       className={className}
@@ -235,6 +245,7 @@ export function ReservationCard({
         </Tooltip>
       </TooltipProvider>
       <PopoverContent side="left" align="start" collisionPadding={12} className="w-36 max-w-[calc(100vw-1.5rem)] p-1.5" aria-label="예약 메뉴">
+        {customerNumber && <div className="mb-1 border-b px-2 py-1 text-center text-xs font-semibold">고객번호 {customerNumber}</div>}
         <div className="grid gap-1">
           {canEdit && r.status !== "cancelled" && (
             <>
