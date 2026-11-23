@@ -15,9 +15,9 @@ export type Database = {
   public: {
     Tables: {
       customer_management_sessions: {
-        Row: { customer_id: string; total: number; starts_on: string }
-        Insert: { customer_id: string; total: number; starts_on: string }
-        Update: { total?: number; starts_on?: string }
+        Row: { customer_id: string; total: number; starts_on: string; starts_at: string | null; initial_used: number }
+        Insert: { customer_id: string; total: number; starts_on: string; starts_at?: string | null; initial_used?: number }
+        Update: { total?: number; starts_on?: string; starts_at?: string | null; initial_used?: number }
         Relationships: []
       }
       monthly_work_reports: {

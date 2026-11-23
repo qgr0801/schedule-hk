@@ -76,7 +76,7 @@ function ReservationForm() {
   const [paymentOverride, setPaymentOverride] = useState<PaymentDraft | null>(null);
   const canBill = me?.role === "admin" || me?.role === "internal";
   const [sessionsOpen, setSessionsOpen] = useState(false);
-  const [sessionDraft, setSessionDraft] = useState<{ customer: string | null; total: number; starts_on: string } | null>(null);
+  const [sessionDraft, setSessionDraft] = useState<{ customer: string | null; total: number; remaining: number } | null>(null);
   const beforeSession = new Date(`${f.date}T${f.start}`);
   const sessionQuery = useQuery({
     queryKey: ["management-sessions", customerId, f.date, f.start, id],
@@ -95,7 +95,7 @@ function ReservationForm() {
   });
   const draft = sessionDraft?.customer === customerId ? sessionDraft : null;
   const sessionTotal = draft?.total ?? sessionQuery.data?.total;
-  const sessionsUsed = sessionQuery.data?.used ?? 0;
+  const sessionRemaining = draft?.remaining ?? Math.max(0, (sessionTotal ?? 0) - (sessionQuery.data?.used ?? 0));
   const paymentQuery = useQuery({
     queryKey: ["reservation-payment", id],
     enabled: !!id && canBill,
@@ -254,7 +254,8 @@ function ReservationForm() {
     if (!cid) { setBusy(false); return; }
     if (canBill && draft) {
       const { error: sessionError } = await supabase.from("customer_management_sessions").upsert({
-        customer_id: cid, total: draft.total, starts_on: draft.starts_on,
+        customer_id: cid, total: draft.total, starts_on: f.date, starts_at: start.toISOString(),
+        initial_used: draft.total - draft.remaining,
       });
       if (sessionError) { setBusy(false); toast.error(dbErrorMessage(sessionError)); return; }
     }
@@ -368,17 +369,28 @@ function ReservationForm() {
               <Button type="button" size="sm" variant="outline" aria-expanded={sessionsOpen}
                 disabled={busy || (!!customerId && (sessionQuery.isPending || sessionQuery.isError))}
                 onClick={() => setSessionsOpen(!sessionsOpen)}>횟수</Button>
-              {sessionTotal && <span className="text-sm">총 횟수-남은 횟수 <strong>{sessionTotal}-{Math.max(0, sessionTotal - sessionsUsed)}</strong></span>}
+              {sessionTotal && <span className="text-sm">총 횟수-남은 횟수 <strong>{sessionTotal}-{sessionRemaining}</strong></span>}
               {sessionQuery.isError && <span role="alert" className="text-sm">횟수를 불러오지 못했습니다.</span>}
             </div>
             {sessionsOpen && <>
+              <div className="grid grid-cols-2 gap-2">
               <select aria-label="총 관리 횟수" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
                 value={sessionTotal ?? ""} disabled={busy}
-                onChange={e => setSessionDraft(e.target.value ? { customer: customerId, total: Number(e.target.value), starts_on: sessionQuery.data?.starts_on ?? f.date } : null)}>
+                onChange={e => { const total = Number(e.target.value); setSessionDraft({ customer: customerId, total, remaining: total }); }}>
                 <option value="" disabled>총 횟수 선택</option>
                 {Array.from({ length: 30 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}회</option>)}
               </select>
-              <p className="text-xs text-muted-foreground">예약을 저장하면 총 횟수가 적용됩니다. 완료된 예약은 회당 1회 차감되며, 서비스(SV)는 차감되지 않습니다.</p>
+                <select aria-label="남은 관리 횟수" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                  value={sessionTotal ? sessionRemaining : ""} disabled={busy || !sessionTotal}
+                  onChange={e => { if (sessionTotal) setSessionDraft({ customer: customerId, total: sessionTotal, remaining: Number(e.target.value) }); }}>
+                  {!sessionTotal && <option value="">잔여 횟수 선택</option>}
+                  {sessionTotal && Array.from({ length: sessionTotal + 1 }, (_, index) => {
+                    const remaining = sessionTotal - index;
+                    return <option key={remaining} value={remaining}>{sessionTotal}-{remaining}</option>;
+                  })}
+                </select>
+              </div>
+              <p className="text-xs text-muted-foreground">예약을 저장하면 이 예약 직전의 잔여 횟수로 적용됩니다. 완료된 예약은 회당 1회 차감되며, 서비스(SV)는 차감되지 않습니다.</p>
             </>}
           </div>}
           <div className="space-y-2 sm:col-span-2">
