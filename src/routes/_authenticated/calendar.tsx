@@ -29,6 +29,7 @@ import {
   type Schedule,
 } from "@/lib/app";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { useSwipe } from "@/hooks/use-swipe";
 import { isStaffNotice, scheduleName, schedulePeriod } from "@/lib/schedules";
 import { ScheduleDialog } from "@/components/ScheduleDialog";
@@ -48,7 +49,9 @@ type Item = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
 
 function CalendarPage() {
   const {today}=Route.useSearch();
-  const [view, setView] = useState<View>(today?"day":"week");
+  const isMobile = useIsMobile();
+  const [selectedView, setView] = useState<View | null>(today ? "day" : null);
+  const view = selectedView ?? (isMobile ? "day" : "week");
   const [cursor, setCursor] = useState(new Date());
   const [startFromSelected, setStartFromSelected] = useState(false);
   useEffect(()=>{
@@ -140,7 +143,7 @@ function CalendarPage() {
   const leavesOn = (date: Date) => (data?.sch ?? []).filter((s) => isStaffNotice(s) && new Date(s.start_at) <= endOfDay(date) && new Date(s.end_at) > startOfDay(date));
   const days = eachDayOfInterval({ start: range.from, end: range.to });
   const title =
-    view === "month" ? format(cursor, "yyyy년 M월") : view === "week" ? `${format(range.from, "M.d")} – ${format(range.to, "M.d")}` : format(cursor, "M월 d일 (EEE)", { locale: ko });
+    view === "month" ? format(cursor, "yyyy년 M월") : view === "week" ? `${format(range.from, "M.d")} – ${format(range.to, "M.d")}` : format(cursor, isMobile ? "yyyy년 M월 d일 (EEE)" : "M월 d일 (EEE)", { locale: ko });
 
   // ---------- drag & drop ----------
   const sectionName = (n: number | null) => (n ? allSections?.find((x) => x.position === n)?.name ?? `${n}번` : "미지정");
@@ -209,8 +212,8 @@ function CalendarPage() {
   const selCls = "h-9 rounded-md border border-input bg-background px-3 text-sm";
 
   return (
-    <div>
-      <PageHeader
+    <div className="flex min-w-0 flex-col">
+      <div className="order-3 mt-4 md:order-1 md:mt-0"><PageHeader
         title="캘린더"
         desc="카드 배경은 예약 상태, 왼쪽 띠는 담당자, 작은 배지는 고객 구분입니다."
         action={
@@ -221,19 +224,19 @@ function CalendarPage() {
             )}
           </div>
         }
-      />
-      <div className="mb-4 flex flex-wrap items-center gap-2" {...swipe}>
-        <div className="flex w-full rounded-lg bg-background p-1 shadow-card sm:w-auto">
+      /></div>
+      <div className="contents md:order-2 md:mb-4 md:flex md:flex-wrap md:items-center md:gap-2">
+        <div className="order-4 mb-3 flex w-full rounded-lg bg-background p-1 shadow-card md:mb-0 md:w-auto">
           {(["month", "week", "day"] as View[]).map((v) => (
             <button key={v} onClick={() => setView(v)} className={cn("h-10 flex-1 rounded-md px-4 text-sm sm:h-auto sm:flex-none sm:py-1.5", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
               {{ month: "월간", week: "주간", day: "일간" }[v]}
             </button>
           ))}
         </div>
-        <div className="flex w-full items-center gap-1 sm:w-auto">
-          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" onClick={() => step(-1)} aria-label="이전"><ChevronLeft /></Button>
-          <span className="min-w-0 flex-1 truncate text-center font-semibold text-primary sm:min-w-32 sm:flex-none">{title}</span>
-          <Button size="icon" variant="ghost" className="h-11 w-11 shrink-0 sm:h-9 sm:w-9" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
+        <div className="order-1 mb-2 flex w-full items-center gap-1 md:mb-0 md:w-auto" {...swipe}>
+          <Button size="icon" variant="ghost" className="h-11 w-8 shrink-0 md:h-9 md:w-9" onClick={() => step(-1)} aria-label="이전"><ChevronLeft /></Button>
+          <span className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-primary md:min-w-32 md:flex-none md:text-base">{title}</span>
+          <Button size="icon" variant="ghost" className="h-11 w-8 shrink-0 md:h-9 md:w-9" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
           <Button size="sm" variant="outline" className="h-10 shrink-0 sm:h-9" onClick={() => { setCursor(new Date()); setStartFromSelected(true); weekScroll.current?.scrollTo({ left: 0 }); }}>오늘</Button>
           <label className="relative flex h-10 w-11 shrink-0 items-center justify-center rounded-md border border-input bg-background sm:h-9 sm:w-auto sm:border-0 sm:bg-transparent">
             <CalendarDays className="h-5 w-5 text-primary sm:hidden" />
@@ -246,9 +249,8 @@ function CalendarPage() {
             />
           </label>
         </div>
-        <p className="w-full text-xs text-muted-foreground md:hidden">이 줄을 손가락으로 좌우로 밀면 이전·다음 {view === "month" ? "달" : view === "week" ? "주" : "날"}로 이동합니다.</p>
       </div>
-      <div className="mb-4 flex flex-wrap items-center gap-2">
+      <div className="order-5 mb-4 flex flex-wrap items-center gap-2 md:order-3">
         {me?.role !== "external" && (
           <select value={staff} onChange={(e) => setStaff(e.target.value)} className={selCls} aria-label="담당자 필터">
             <option value="">전체 담당자</option>
@@ -278,7 +280,7 @@ function CalendarPage() {
       </div>
 
       {(data?.sch ?? []).some((s) => isStaffNotice(s)) && (
-        <Panel className="mb-3 py-3">
+        <Panel className="order-6 mb-3 py-3 md:order-4">
           <h2 className="mb-2 text-sm font-semibold">직원 휴무</h2>
           <div className="flex flex-wrap gap-2">
             {(data?.sch ?? []).filter((s) => isStaffNotice(s)).map((s) => (
@@ -290,6 +292,7 @@ function CalendarPage() {
         </Panel>
       )}
 
+      <div className="order-2 min-w-0 md:order-5">
       {view === "month" && (
         <div {...swipe}>
         <Panel className="p-0">
@@ -326,7 +329,7 @@ function CalendarPage() {
 
       {view === "week" && (
         <div className="space-y-2">
-          <p className="text-xs text-muted-foreground">수정할 수 있는 예약은 끌어서 다른 날짜·시간으로 옮기고, 아래 가장자리를 끌어 길이를 바꿀 수 있습니다{me?.role === "admin" ? " (관리자는 모든 예약)" : ""}. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
+          <p className="hidden text-xs text-muted-foreground md:block">수정할 수 있는 예약은 끌어서 다른 날짜·시간으로 옮기고, 아래 가장자리를 끌어 길이를 바꿀 수 있습니다{me?.role === "admin" ? " (관리자는 모든 예약)" : ""}. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
           <Panel className="max-h-[75vh] overflow-auto p-0">
             <div ref={weekScroll} className="max-h-[75vh] overflow-auto">
             <TimeGrid
@@ -354,6 +357,7 @@ function CalendarPage() {
           items={dayItems(cursor)}
           date={cursor}
           isAdmin={me?.role === "admin"}
+          isMobile={isMobile}
           name={name}
           onRes={openReservation}
           onSch={openSchedule}
@@ -363,6 +367,7 @@ function CalendarPage() {
         />
       )}
 
+      </div>
       {sel && <ReservationDialog res={sel.reservation} initialAction={sel.action} onClose={() => setSel(null)} />}
       <AlertDialog open={!!move} onOpenChange={(o) => { if (!o && !saving) setMove(null); }}>
         <AlertDialogContent>
@@ -450,12 +455,13 @@ type GridOpts = {
 };
 
 function DayBoard({
-  items, date, isAdmin, name, onRes, onSch, onSettings, sectionFilter, grid,
+  items, date, isAdmin, isMobile, name, onRes, onSch, onSettings, sectionFilter, grid,
 }: {
   sectionFilter: number | null;
   items: Item[];
   date: Date;
   isAdmin: boolean;
+  isMobile: boolean;
   name: (id: string) => string;
   onRes: (r: ResWithCustomer, action?: "cancelled" | "no_show") => void;
   onSch: (s: Schedule) => void;
@@ -473,9 +479,9 @@ function DayBoard({
   ];
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs text-muted-foreground">빈 곳을 누르면 예약 또는 일정·휴무 추가를 선택할 수 있습니다. 수정할 수 있는 예약은 위아래로 끌면 시간, 옆 섹션으로 끌면 섹션이 바뀝니다. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
+    <div className="flex min-w-0 flex-col gap-2">
+      <div className="order-2 flex items-center justify-end gap-2 md:order-none md:justify-between">
+        <p className="hidden text-xs text-muted-foreground md:block">빈 곳을 누르면 예약 또는 일정·휴무 추가를 선택할 수 있습니다. 수정할 수 있는 예약은 위아래로 끌면 시간, 옆 섹션으로 끌면 섹션이 바뀝니다. 휴대폰은 길게 누른 뒤 끌어 주세요.</p>
         {isAdmin && (
           <Button size="sm" variant="outline" className="shrink-0" onClick={onSettings}>
             <Settings2 className="h-4 w-4" /> 섹션 설정 ({sections.length}개)
@@ -492,7 +498,7 @@ function DayBoard({
             droppable: c.key !== 0,
             items: items.filter((i) => colOf(i) === c.key),
           }))}
-          firstH={grid.firstH} lastH={grid.lastH} step={grid.step} view="day" colMinWidth={150} name={name}
+          firstH={grid.firstH} lastH={grid.lastH} step={grid.step} view="day" colMinWidth={isMobile ? 76 : 150} name={name}
           canDrag={grid.canDrag} conflict={grid.conflict} onRes={onRes} onSch={onSch} onDrop={grid.onDrop}
           onEmpty={(c, m) => grid.onEmpty(Number(c.key) || null, m)}
           colLabelText={(c) => String(c.label)}
