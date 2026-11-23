@@ -66,6 +66,13 @@ export function ReservationDialog({ res, onClose, initialAction, onEdit, movable
     .map((id) => L.category(id))
     .filter((c) => !!c);
 
+  const showCustomerNumber = res.customer_no != null && (res.access
+    ? res.visible?.includes("customerNo")
+    : me?.active && (me.role === "admin" || me.role === "internal"));
+  const customerNumber = showCustomerNumber && (
+    <span className="ml-auto shrink-0 text-sm font-medium text-muted-foreground">고객번호 No.{res.customer_no}</span>
+  );
+
   const visitList = canVisits && (
     <div className="border-t pt-4">
       <h4 className="mb-2 text-sm font-semibold text-primary">고객 방문 이력 {visits.data && `(${visits.data.filter((v) => v.status === "completed" || v.status === "paid").length}회 방문)`}</h4>
@@ -86,17 +93,17 @@ export function ReservationDialog({ res, onClose, initialAction, onEdit, movable
     return (
       <Dialog open onOpenChange={(o) => !o && onClose()}>
         <DialogContent movable={movable} className="max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
+          <DialogHeader className="flex-row items-start gap-3 space-y-0 pr-8 text-left">
             <DialogTitle className="flex flex-wrap items-center gap-2">
               {v("customer") ? res.customer_name : "다른 직원 예약"} <StatusBadge status={res.status} />
               {res.access === "detail" && cats.map((c) => <CategoryBadge key={c!.id} cat={c!} />)}
             </DialogTitle>
+            {customerNumber}
           </DialogHeader>
           <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
             <dt className="text-muted-foreground">예약 항목</dt><dd>{res.public_service}</dd>
             {res.access === "detail" && (<><dt className="text-muted-foreground">상세 시술</dt><dd>{res.service}</dd></>)}
             {v("customer") && (<><dt className="text-muted-foreground">고객명</dt><dd>{res.customer_name}</dd></>)}
-            {v("customerNo") && (<><dt className="text-muted-foreground">고객번호</dt><dd>{res.customer_no ? `No.${res.customer_no}` : "-"}</dd></>)}
             {v("phone") && (<><dt className="text-muted-foreground">연락처</dt><dd>{res.customer_phone || "-"}</dd></>)}
             {v("memo") && (<><dt className="text-muted-foreground">메모</dt><dd className="whitespace-pre-wrap">{res.memo || "-"}</dd></>)}
             <dt className="text-muted-foreground">등록</dt><dd>{name(res.created_by)}</dd>
@@ -130,11 +137,12 @@ export function ReservationDialog({ res, onClose, initialAction, onEdit, movable
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent movable={movable} className="max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
+        <DialogHeader className="flex-row items-start gap-3 space-y-0 pr-8 text-left">
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {res.customer_name} <StatusBadge status={res.status} />
             {cats.map((c) => <CategoryBadge key={c!.id} cat={c!} />)}
           </DialogTitle>
+          {customerNumber}
         </DialogHeader>
         <dl className="grid grid-cols-[80px_1fr] gap-y-2 text-sm">
           <dt className="text-muted-foreground">예약자</dt><dd>{res.customer_name}</dd>
