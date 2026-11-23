@@ -76,7 +76,7 @@ function ReservationForm() {
   const [paymentOverride, setPaymentOverride] = useState<PaymentDraft | null>(null);
   const canBill = me?.role === "admin" || me?.role === "internal";
   const [sessionsOpen, setSessionsOpen] = useState(false);
-  const [sessionDraft, setSessionDraft] = useState<{ customer: string | null; total: number; remaining: number } | null>(null);
+  const [sessionDraft, setSessionDraft] = useState<{ customer: string | null; remaining: number; total: number | null } | null>(null);
   const beforeSession = new Date(`${f.date}T${f.start}`);
   const sessionQuery = useQuery({
     queryKey: ["management-sessions", customerId, f.date, f.start, id],
@@ -234,6 +234,10 @@ function ReservationForm() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
+    if (canBill && draft && draft.total === null) {
+      toast.error("총 관리 횟수를 선택해 주세요.");
+      return;
+    }
     if (busy || !me || (!customerId && blockedKey===identityKey) || (needsConfirmation&&(!confirmationReady||confirmedKey!==identityKey))) return;
     if (replacementCustomers.length) {
       toast.error("입력한 이름의 기존 고객이 있습니다. 맞는 고객번호를 선택해 주세요.");
@@ -252,7 +256,7 @@ function ReservationForm() {
     setBusy(true);
     const cid = await saveCustomer(parsed.data.customer_name, parsed.data.customer_phone || null);
     if (!cid) { setBusy(false); return; }
-    if (canBill && draft) {
+    if (canBill && draft && draft.total !== null) {
       const { error: sessionError } = await supabase.from("customer_management_sessions").upsert({
         customer_id: cid, total: draft.total, starts_on: f.date, starts_at: start.toISOString(),
         initial_used: draft.total - draft.remaining,
@@ -375,18 +379,22 @@ function ReservationForm() {
             {sessionsOpen && <>
               <div className="grid grid-cols-2 gap-2">
               <select aria-label="총 관리 횟수" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                value={sessionTotal ?? ""} disabled={busy}
-                onChange={e => { const total = Number(e.target.value); setSessionDraft({ customer: customerId, total, remaining: total }); }}>
+                value={sessionTotal ?? ""} disabled={busy || (!!customerId && (sessionQuery.isPending || sessionQuery.isError))}
+                onChange={e => {
+                  const total = Number(e.target.value);
+                  setSessionDraft({ customer: customerId, total, remaining: Math.min(total, draft?.remaining ?? (sessionTotal ? sessionRemaining : total)) });
+                }}>
                 <option value="" disabled>총 횟수 선택</option>
                 {Array.from({ length: 30 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}회</option>)}
               </select>
                 <select aria-label="남은 관리 횟수" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
-                  value={sessionTotal ? sessionRemaining : ""} disabled={busy || !sessionTotal}
-                  onChange={e => { if (sessionTotal) setSessionDraft({ customer: customerId, total: sessionTotal, remaining: Number(e.target.value) }); }}>
-                  {!sessionTotal && <option value="">잔여 횟수 선택</option>}
-                  {sessionTotal && Array.from({ length: sessionTotal + 1 }, (_, index) => {
-                    const remaining = sessionTotal - index;
-                    return <option key={remaining} value={remaining}>{sessionTotal}-{remaining}</option>;
+                  value={draft || sessionTotal ? sessionRemaining : ""}
+                  disabled={busy || (!!customerId && (sessionQuery.isPending || sessionQuery.isError))}
+                  onChange={e => setSessionDraft({ customer: customerId, total: sessionTotal ?? null, remaining: Number(e.target.value) })}>
+                  <option value="" disabled>잔여 횟수 선택</option>
+                  {Array.from({ length: (sessionTotal ?? 30) + 1 }, (_, index) => {
+                    const remaining = (sessionTotal ?? 30) - index;
+                    return <option key={remaining} value={remaining}>-{remaining}</option>;
                   })}
                 </select>
               </div>
