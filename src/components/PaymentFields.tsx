@@ -10,9 +10,9 @@ import { MONEY_COLUMNS, PAYMENT_KINDS, productsQuery, type PaymentDraft } from "
 
 export function PaymentFields({ value, onChange, disabled }: { value: PaymentDraft; onChange?: (v: PaymentDraft) => void; disabled?: boolean }) {
   const readonly = !onChange;
-  const descriptions = useRef<Partial<Record<"service" | "care", HTMLInputElement | null>>>({});
+  const descriptions = useRef<Partial<Record<"service" | "care" | "art", HTMLInputElement | null>>>({});
   const quantities = useRef<(HTMLInputElement | null)[]>([]);
-  function updateDescription(kind: "service" | "care", description: string) {
+  function updateDescription(kind: "service" | "care" | "art", description: string) {
     onChange?.({ ...value, rows: value.rows.map(row => row.kind === kind ? { ...row, description } : row) });
   }
   function removeProduct(index: number) {

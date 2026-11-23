@@ -373,7 +373,7 @@ function ReservationForm() {
               <Button type="button" size="sm" variant="outline" aria-expanded={sessionsOpen}
                 disabled={busy || (!!customerId && (sessionQuery.isPending || sessionQuery.isError))}
                 onClick={() => setSessionsOpen(!sessionsOpen)}>횟수</Button>
-              {sessionTotal && <span className="text-sm">총 횟수-남은 횟수 <strong>{sessionTotal}-{sessionRemaining}</strong></span>}
+              {sessionTotal && <span className="text-sm">총 횟수-남은 횟수 <strong>{sessionRemaining === 0 ? "SV" : `${sessionTotal}-${sessionRemaining}`}</strong></span>}
               {sessionQuery.isError && <span role="alert" className="text-sm">횟수를 불러오지 못했습니다.</span>}
             </div>
             {sessionsOpen && <>
@@ -394,7 +394,7 @@ function ReservationForm() {
                   <option value="" disabled>잔여 횟수 선택</option>
                   {Array.from({ length: (sessionTotal ?? 30) + 1 }, (_, index) => {
                     const remaining = (sessionTotal ?? 30) - index;
-                    return <option key={remaining} value={remaining}>-{remaining}</option>;
+                    return <option key={remaining} value={remaining}>{remaining === 0 ? "SV" : `-${remaining}`}</option>;
                   })}
                 </select>
               </div>
