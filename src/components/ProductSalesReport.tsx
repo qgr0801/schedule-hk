@@ -31,7 +31,10 @@ export function ProductSalesReport({ from, to, adminRoute, settlement = false }:
       {report.data && <p className="ml-auto text-right font-semibold">판매 합계 {totalAmount}원</p>}
     </div>}
     <div className="space-y-3 rounded-lg border p-4">
-    <h4 className="font-semibold">기간별 전체 제품 판매내역</h4>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <h4 className="font-semibold">기간별 전체 제품 판매내역</h4>
+      {adminRoute === undefined && !settlement && report.data && <p className="ml-auto text-right font-semibold">총 판매매출 {totalAmount}원</p>}
+    </div>
     <p className="text-sm">{from} ~ {to}</p>
     {report.isPending && <p>판매내역을 불러오는 중입니다.</p>}
     {report.error && <p role="alert">제품 판매내역을 불러오지 못했습니다.</p>}
