@@ -182,7 +182,12 @@ export function CustomerDialog({ customer, onClose, onSaved, draggable, onReserv
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent movable={draggable ?? false} className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
-        <DialogHeader><DialogTitle>{customer ? "고객 정보" : "고객 등록"}</DialogTitle></DialogHeader>
+        <DialogHeader className="flex-row items-center justify-between gap-3 space-y-0 pr-8 text-left">
+          <DialogTitle>{customer ? "고객 정보" : "고객 등록"}</DialogTitle>
+          {customer?.customer_no != null && (
+            <span className="text-sm font-medium text-muted-foreground">고객번호 No.{customer.customer_no}</span>
+          )}
+        </DialogHeader>
         {customer ? <CustomerRecords customerId={customer.id} onReservation={onReservation} basicInfo={<>        <fieldset disabled={!canEdit} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1"><Label>고객명 *</Label><Input value={name} maxLength={50} onChange={(e) => setName(e.target.value)} placeholder="예: 김가상" /></div>
