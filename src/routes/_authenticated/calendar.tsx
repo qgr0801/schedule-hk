@@ -284,11 +284,11 @@ function CalendarPage() {
       </div>
 
       {(data?.sch ?? []).some((s) => isStaffNotice(s)) && (
-        <Panel className={cn("order-4 mb-3 py-3 md:block", !showOptions && "hidden")}>
-          <h2 className="mb-2 text-sm font-semibold">직원 휴무</h2>
-          <div className="flex flex-wrap gap-2">
+        <Panel className="order-5 mb-2 flex items-center gap-2 px-2 py-1.5 md:order-4 md:mb-3 md:block md:px-4 md:py-3">
+          <h2 className="shrink-0 text-xs font-semibold md:mb-2 md:text-sm">직원 휴무</h2>
+          <div className="flex min-w-0 gap-2 overflow-x-auto md:flex-wrap">
             {(data?.sch ?? []).filter((s) => isStaffNotice(s)).map((s) => (
-              <button key={s.id} className="rounded-md bg-red-100 px-3 py-2 text-sm text-slate-900" onClick={() => setSchView(s)}>
+              <button key={s.id} className="shrink-0 whitespace-nowrap rounded-md bg-red-100 px-2 py-1 text-xs text-slate-900 md:px-3 md:py-2 md:text-sm" onClick={() => setSchView(s)}>
                 {scheduleName(s)} · {schedulePeriod(s)}
               </button>
             ))}
