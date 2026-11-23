@@ -16,10 +16,10 @@ import { CategoryBadge } from "@/components/ReservationCard";
 import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput, type Reservation } from "@/lib/app";
 import { format } from "date-fns";
 import type { Json } from "@/integrations/supabase/types";
-import { addPaymentDescription } from "@/lib/payment-description";
+import { addPaymentDescription, type DirectPaymentKind } from "@/lib/payment-description";
 import { saleValidation } from "@/lib/reservation-sales";
 import { PaymentFields } from "@/components/PaymentFields";
-import { blankPayment, hasPayment, paymentDraft, type PaymentDraft } from "@/lib/payments";
+import { PAYMENT_KINDS, blankPayment, hasPayment, paymentDraft, type PaymentDraft } from "@/lib/payments";
 import { AlertTriangle } from "lucide-react";
 import { categoriesQuery, customersQuery, maskPhone, useCardLookups } from "@/lib/display";
 
@@ -78,7 +78,7 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
   const [reservationKey] = useState(() => id ?? crypto.randomUUID());
   const [serviceDetail, setServiceDetail] = useState("");
   const [bookingRouteId, setBookingRouteId] = useState("");
-  const [detailKind, setDetailKind] = useState<"service" | "care">("service");
+  const [detailKind, setDetailKind] = useState<DirectPaymentKind>("service");
   const [paymentOverride, setPaymentOverride] = useState<PaymentDraft | null>(null);
   const canBill = me?.role === "admin" || me?.role === "internal";
   const [sessionsOpen, setSessionsOpen] = useState(false);
@@ -123,7 +123,7 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
       const next = addPaymentDescription(payment, detailKind, serviceDetail);
       if (next === payment) { toast.info("선택한 계산 항목에 이미 등록된 내용입니다."); return; }
       setPaymentOverride(next);
-      toast.success(`${detailKind === "service" ? "시술" : "관리"} 내용에 반영했습니다. 예약 저장 시 함께 저장됩니다.`);
+      toast.success(`${PAYMENT_KINDS.find(([kind]) => kind === detailKind)?.[1]} 내용에 반영했습니다. 예약 저장 시 함께 저장됩니다.`);
     } catch (error) { toast.error(error instanceof Error ? error.message : "내용을 확인해 주세요."); }
   }
   const [creatorId, setCreatorId] = useState<string | null>(null);
@@ -439,13 +439,14 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
           </div>
           <div className="space-y-2"><Label htmlFor="direct-service-entry">시술명 직접 입력</Label>
             <div className="flex flex-wrap items-center gap-2"><Input id="direct-service-entry" className="min-w-[120px] flex-1" aria-label="시술명 직접 입력" maxLength={200} value={serviceDetail} onChange={(e) => setServiceDetail(e.target.value)} />
-              {canBill && <div className="flex shrink-0 gap-1">
+              {canBill && <div className="flex flex-wrap gap-1">
                 <Button type="button" size="sm" variant={detailKind === "service" ? "default" : "outline"} aria-pressed={detailKind === "service"} disabled={busy} onClick={() => setDetailKind("service")}>시술</Button>
                 <Button type="button" size="sm" variant={detailKind === "care" ? "default" : "outline"} aria-pressed={detailKind === "care"} disabled={busy} onClick={() => setDetailKind("care")}>관리</Button>
+                <Button type="button" size="sm" variant={detailKind === "art" ? "default" : "outline"} aria-pressed={detailKind === "art"} disabled={busy} onClick={() => setDetailKind("art")}>아트</Button>
                 <Button type="button" size="sm" disabled={busy || (!!id && (paymentQuery.isPending || !!paymentQuery.error))} onClick={registerDirectEntry}>등록</Button>
               </div>}
             </div>
-            {canBill && <p className="text-xs text-muted-foreground">시술 또는 관리를 선택하고 등록하면 아래 계산내역의 해당 내용에 추가됩니다.</p>}
+            {canBill && <p className="text-xs text-muted-foreground">시술·관리·아트 중 하나를 선택하고 등록하면 아래 계산내역의 해당 내용에 추가됩니다.</p>}
           </div>
           <div className="space-y-2">
             <Label>섹션 (공간)</Label>

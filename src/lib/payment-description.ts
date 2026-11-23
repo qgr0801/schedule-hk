@@ -1,5 +1,7 @@
 import type { PaymentDraft } from "@/lib/payments";
-export function addPaymentDescription(payment: PaymentDraft, kind: "service" | "care", text: string): PaymentDraft {
+export type DirectPaymentKind = "service" | "care" | "art";
+
+export function addPaymentDescription(payment: PaymentDraft, kind: DirectPaymentKind, text: string): PaymentDraft {
   const entry = text.trim();
   if (!entry) throw new Error("직접입력 내용을 먼저 작성해 주세요.");
   const row = payment.rows.find((r) => r.kind === kind);

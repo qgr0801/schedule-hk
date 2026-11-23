@@ -170,11 +170,11 @@ function SalesRouteFilter({route,onRouteChange,routeOptions}:{
  return <label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>경로</span><select aria-label="매출 경로" className="h-10 rounded border bg-background px-2" value={route} onChange={e=>onRouteChange(e.target.value)}>{routeOptions.map(option=><option key={option.value} value={option.value}>{option.label}</option>)}</select></label>;
 }
 
-function SalesFilters({grouping,kind,setKind,route,onRouteChange,routeOptions}:{
- grouping:SettlementGrouping;kind:string;setKind:(kind:string)=>void;route:string;onRouteChange:(route:string)=>void;routeOptions:{value:string;label:string}[];
+function SalesFilters({grouping,kind,setKind,route,onRouteChange,routeOptions,includeArt=false}:{
+ grouping:SettlementGrouping;includeArt?:boolean;kind:string;setKind:(kind:string)=>void;route:string;onRouteChange:(route:string)=>void;routeOptions:{value:string;label:string}[];
 }) {
  const filterLabelClass = buttonVariants({ size: "sm", className: "pointer-events-none" });
- return <div className="flex flex-wrap items-end gap-2"><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>내용</span><select aria-label="매출 내용" className="h-10 rounded border bg-background px-2" value={kind} onChange={e=>setKind(e.target.value)}>{grouping==="route"&&<option value="">시술·관리 전체</option>}{grouping!=="care"&&<option value="service">시술</option>}{grouping!=="service"&&<option value="care">관리</option>}</select></label><SalesRouteFilter {...{route,onRouteChange,routeOptions}}/></div>;
+ return <div className="flex flex-wrap items-end gap-2"><label className="flex items-center gap-2 text-sm"><span className={filterLabelClass}>내용</span><select aria-label="매출 내용" className="h-10 rounded border bg-background px-2" value={kind} onChange={e=>setKind(e.target.value)}>{grouping==="route"&&<option value="">{includeArt?"전체":"시술·관리 전체"}</option>}{grouping!=="care"&&<option value="service">시술</option>}{grouping!=="service"&&<option value="care">관리</option>}{includeArt&&<option value="art">아트</option>}</select></label><SalesRouteFilter {...{route,onRouteChange,routeOptions}}/></div>;
 }
 
 export function PerformanceReview() {
@@ -196,7 +196,7 @@ export function PerformanceReview() {
    <label className="grid gap-1 text-sm">종료일<Input type="date" required value={to} min={from} onChange={event=>setTo(event.target.value)}/></label>
    <Button type="submit" disabled={!valid}>기간 조회</Button>
   </form>
-  <SalesFilters grouping="route" {...{kind,setKind,route,routeOptions}} onRouteChange={setRoute}/>
+  <SalesFilters grouping="route" includeArt {...{kind,setKind,route,routeOptions}} onRouteChange={setRoute}/>
   {routesError&&<p role="alert">경로를 불러오지 못했습니다.</p>}
   <SalesEntries key={JSON.stringify([period,route,kind,me.role])} {...{period,route,kind}} scope="settlement" hideTotal/>
  </section>;
@@ -211,7 +211,7 @@ function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false
    _from:period.from,_to:period.to,_scope:hideTotal?"performance":scope,_offset:page*30,
    ...routeArgs(route),
    ...(category?{_category:category}:{}),
-   ...(kind==="service"||kind==="care"?{_kind:kind}:{}),
+   ...(kind==="service"||kind==="care"||(hideTotal&&kind==="art")?{_kind:kind}:{}),
   });
   if(error)throw error;
   return data;
@@ -222,7 +222,7 @@ function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false
   {entries.error&&<p role="alert">매출 상세 내역을 불러오지 못했습니다.</p>}
   {entries.data?.length===0&&<p>조회 기간에 매출 상세 내역이 없습니다.</p>}
   {entries.data&&entries.data.length>0&&<div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm">
-   <thead className="bg-muted"><tr>{scope==="settlement"&&<th scope="col" className="w-12 p-2 text-center">NO</th>}{[scope==="settlement"?"최근 결제일":"결제일","고객 이름",...(scope==="category"?["고객구분"]:[]),"경로","시술 내용","관리 내용",scope==="category"?"제품·메모":"메모","수납 내역"].map(label=><th key={label} className="p-2 text-left">{label}</th>)}</tr></thead>
+   <thead className="bg-muted"><tr>{scope==="settlement"&&<th scope="col" className="w-12 p-2 text-center">NO</th>}{[scope==="settlement"?"최근 결제일":"결제일","고객 이름",...(scope==="category"?["고객구분"]:[]),"경로","시술 내용","관리 내용",...(hideTotal?["아트 내용"]:[]),scope==="category"?"제품·메모":"메모","수납 내역"].map(label=><th key={label} className="p-2 text-left">{label}</th>)}</tr></thead>
    <tbody>{entries.data.map((entry,index)=>{
     const lines=entry.payment_rows as unknown as PaymentLine[];
     return <tr key={entry.entry_id} className="border-b align-top">
@@ -230,8 +230,9 @@ function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false
      <td className="whitespace-nowrap p-2">{entry.paid_on}</td>
      <td className="p-2">{entry.reservation_id?<Link className="underline" to="/reservations/new" search={{id:entry.reservation_id}}>{entry.customer_name}</Link>:entry.customer_name}</td>
      {scope==="category"&&<td className="p-2">{entry.category}</td>}<td className="p-2">{entry.route_name}</td>
-     <td className="whitespace-pre-wrap p-2">{(kind!=="care"&&entry.service_content)||"—"}</td>
-     <td className="whitespace-pre-wrap p-2">{(kind!=="service"&&entry.care_content)||"—"}</td>
+     <td className="whitespace-pre-wrap p-2">{((!kind||kind==="service")&&entry.service_content)||"—"}</td>
+     <td className="whitespace-pre-wrap p-2">{((!kind||kind==="care")&&entry.care_content)||"—"}</td>
+     {hideTotal&&<td className="whitespace-pre-wrap p-2">{lines.filter(line=>line.kind==="art"&&line.description?.trim()).map(line=>line.description).join(" · ")||"—"}</td>}
      <td className="whitespace-pre-wrap p-2">
       {lines.filter(line=>line.kind==="product"&&line.description).map((line,i)=><p key={i}>제품 · {line.description}</p>)}
       {entry.payment_memo&&<p className="text-muted-foreground">{entry.payment_memo}</p>}
