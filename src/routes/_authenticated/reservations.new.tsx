@@ -2,7 +2,7 @@ import { CustomerIdentityFields, SameNameCustomerList,normalizedCustomerName,reg
 import { BookingRouteField } from "@/components/BookingRoutes";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { z } from "zod";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { CategoryBadge } from "@/components/ReservationCard";
-import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput } from "@/lib/app";
+import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput, type Reservation } from "@/lib/app";
 import { format } from "date-fns";
 import type { Json } from "@/integrations/supabase/types";
 import { addPaymentDescription } from "@/lib/payment-description";
@@ -42,7 +42,13 @@ const schema = z.object({
 });
 
 function ReservationForm() {
-  const { id, date: qDate, start: qStart, section: qSection } = Route.useSearch();
+  return <ReservationEditor search={Route.useSearch()} />;
+}
+
+export type ReservationSearch = ReturnType<typeof Route.useSearch>;
+
+export function ReservationEditor({ search: initialSearch, onSaved, onClose, showPayment, paymentStatus }: { search: ReservationSearch; onSaved?: () => void; onClose?: () => void; showPayment?: boolean; paymentStatus?: Reservation["status"] }) {
+  const { id, date: qDate, start: qStart, section: qSection } = initialSearch;
   const { data: allSections } = useQuery(sectionsQuery);
   const sections = (allSections ?? []).filter((s) => s.active);
   const navigate = useNavigate();
@@ -106,6 +112,10 @@ function ReservationForm() {
       return data;
     },
   });
+  const paymentSection = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (showPayment && canBill) paymentSection.current?.scrollIntoView({ block: "start" });
+  }, [showPayment, canBill, paymentQuery.isPending]);
   const payment = paymentOverride ?? (paymentQuery.data ? paymentDraft(paymentQuery.data) : blankPayment(f.date || undefined));
   function registerDirectEntry() {
     if (busy || !canBill || (id && (paymentQuery.isPending || paymentQuery.error))) return;
@@ -270,6 +280,11 @@ function ReservationForm() {
         ? await supabase.from("reservations").update(payload).eq("id", id)
         : await supabase.from("reservations").insert(payload);
     if (error) { setBusy(false); toast.error(dbErrorMessage(error)); return; }
+    if (id && showPayment && paymentStatus && paymentStatus !== "paid") {
+      const { data: marked, error: markError } = await supabase.from("reservations")
+        .update({ status: "paid" }).eq("id", id).eq("status", paymentStatus).select("id");
+      if (markError || !marked?.length) toast.error("계산 내역은 저장됐지만 예약 상태를 계산 완료로 바꾸지 못했습니다.");
+    }
     const name = parsed.data.customer_name;
     const phone = parsed.data.customer_phone || null;
     if (customerId && canEditCustomer && selected && (name !== selected.name || phone !== selected.phone)) {
@@ -279,7 +294,8 @@ function ReservationForm() {
         setBusy(false);
         await qc.invalidateQueries();
         toast.error("예약은 저장됐지만 고객정보는 반영되지 않았습니다. 고객정보 화면에서 확인해 주세요.");
-        if(id) await navigate({to:"/calendar",search:{today:Date.now()}});
+        if(onSaved) onSaved();
+        else if(id) await navigate({to:"/calendar",search:{today:Date.now()}});
         else await navigate({to:"/my-reservations"});
         return;
       }
@@ -287,7 +303,8 @@ function ReservationForm() {
     setBusy(false);
     toast.success(id ? "예약이 수정되었습니다." : "예약이 등록되었습니다.");
     await qc.invalidateQueries();
-    if(id) await navigate({to:"/calendar",search:{today:Date.now()}});
+    if(onSaved) onSaved();
+    else if(id) await navigate({to:"/calendar",search:{today:Date.now()}});
     else await navigate({to:"/my-reservations"});
   }
 
@@ -295,8 +312,8 @@ function ReservationForm() {
     setF({ ...f, [k]: k === "minutes" ? Number(e.target.value) : e.target.value });
 
   return (
-    <div className="max-w-2xl">
-      <PageHeader title={id ? "예약 수정" : "예약 등록"} desc="같은 시간에 같은 담당자와 시술실로 여러 예약을 등록할 수 있습니다. 가상 데이터만 사용하세요." />
+    <div className="min-w-0 max-w-2xl">
+      {!onSaved && <PageHeader title={id ? "예약 수정" : "예약 등록"} desc="같은 시간에 같은 담당자와 시술실로 여러 예약을 등록할 수 있습니다. 가상 데이터만 사용하세요." />}
       <Panel>
         <form onSubmit={submit} className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2 sm:col-span-2">
@@ -471,13 +488,13 @@ function ReservationForm() {
             </div>
           )}
           <div className="space-y-2 sm:col-span-2"><Label>메모</Label><Textarea value={f.memo} onChange={set("memo")} /></div>
-          {canBill && <div className="min-w-0 sm:col-span-2">
+          {canBill && <div ref={paymentSection} className="min-w-0 sm:col-span-2">
             {paymentQuery.error && <p role="alert" className="text-sm text-destructive">기존 계산 내역을 불러오지 못했습니다.</p>}
             <PaymentFields value={payment} onChange={setPaymentOverride} disabled={busy || (!!id && paymentQuery.isPending)} />
           </div>}
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" disabled={busy || !me || (!customerId&&blockedKey===identityKey) || (needsConfirmation&&(!confirmationReady||confirmedKey!==identityKey)) || (canBill && !!id && (paymentQuery.isPending || !!paymentQuery.error))} className="h-11 flex-1 sm:flex-none sm:px-8">{needsConfirmation ? "동명이인 등록 및 예약 저장" : id ? "수정 저장" : "예약 등록"}</Button>
-            <Button type="button" variant="outline" className="h-11" onClick={() => history.back()}>돌아가기</Button>
+            <Button type="button" variant="outline" className="h-11" onClick={onClose ?? (() => history.back())}>{onClose ? "닫기" : "돌아가기"}</Button>
           </div>
         </form>
       </Panel>

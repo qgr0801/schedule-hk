@@ -8,7 +8,7 @@ import { PaymentHistory } from "@/components/PaymentHistory";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MONEY_COLUMNS, type PaymentLine, type ProductSale } from "@/lib/payments";
 
-export function CustomerRecords({ customerId, children, basicInfo }: { customerId: string; children: ReactNode; basicInfo?: ReactNode }) {
+export function CustomerRecords({ customerId, children, basicInfo, onReservation }: { customerId: string; children: ReactNode; basicInfo?: ReactNode; onReservation?: ((id: string) => void) | undefined }) {
   const { data: me } = useQuery(meQuery);
   const canViewSales = !!me?.active && (me.role === "admin" || me.role === "internal");
   const services = useQuery({
@@ -47,7 +47,7 @@ export function CustomerRecords({ customerId, children, basicInfo }: { customerI
       <p className="mb-2 text-xs text-muted-foreground">최근 완료된 예약 최대 100건</p>
       {services.error && <p role="alert">서비스 내역을 불러오지 못했습니다.</p>}
       {services.data?.length === 0 && <p className="text-sm">완료된 서비스 내역이 없습니다.</p>}
-      {services.data?.map((r) => <div key={r.id} className="border-b py-2 text-sm"><Link to="/reservations/new" search={{ id: r.id }}>{format(new Date(r.start_at), "yyyy.MM.dd")} · {r.service}{r.service_detail && ` · ${r.service_detail}`}</Link></div>)}
+      {services.data?.map((r) => <div key={r.id} className="border-b py-2 text-sm"><Link to="/reservations/new" search={{ id: r.id }} onClick={onReservation ? (event) => { event.preventDefault(); onReservation(r.id); } : undefined}>{format(new Date(r.start_at), "yyyy.MM.dd")} · {r.service}{r.service_detail && ` · ${r.service_detail}`}</Link></div>)}
     </TabsContent>
     <TabsContent value="reservations">{children}</TabsContent>
     {canViewSales && <><TabsContent value="products">

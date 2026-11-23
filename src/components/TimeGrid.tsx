@@ -3,7 +3,7 @@ import { ko } from "date-fns/locale";
 import { Ban, GripHorizontal } from "lucide-react";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { toast } from "sonner";
-import { ReservationCard, type ResWithCustomer } from "@/components/ReservationCard";
+import { ReservationCard, type CalendarReservationAction, type ResWithCustomer } from "@/components/ReservationCard";
 import type { Schedule } from "@/lib/app";
 import { atMinutes, HOUR_PX, layoutLanes, minutesOf, moveStart, resizeEnd } from "@/lib/drag";
 import type { CalView } from "@/lib/display";
@@ -54,7 +54,7 @@ export function TimeGrid({
   canDrag: (r: ResWithCustomer) => boolean;
   /** Reason the slot is taken, or null. */
   conflict: (r: ResWithCustomer, start: Date, end: Date, section: number | null) => string | null;
-  onRes: (r: ResWithCustomer, action?: "cancelled" | "no_show") => void;
+  onRes: (r: ResWithCustomer, action?: CalendarReservationAction) => void;
   onSch: (s: Schedule) => void;
   onEmpty?: ((col: GridCol, minutes: number) => void) | undefined;
   onDrop: (t: MoveTarget) => void;

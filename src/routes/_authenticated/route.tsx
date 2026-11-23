@@ -43,7 +43,7 @@ function AppShell() {
   function openCalendarHome() {
     void navigate({ to: "/calendar", search: { today: Date.now() } });
   }
-  const showFab = !!me && canMenu(me.role, me.perms, "reservation_new") && !path.startsWith("/reservations/new");
+  const showFab = !!me && canMenu(me.role, me.perms, "reservation_new") && !path.startsWith("/reservations/new") && path !== "/calendar";
 
   async function signOut() {
     await qc.cancelQueries();

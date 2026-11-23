@@ -1,6 +1,6 @@
 import { format } from "date-fns";
 import { useState, type ReactNode } from "react";
-import { Link, useNavigate } from "@tanstack/react-router";
+import { paymentDraft } from "@/lib/payments";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -127,6 +127,8 @@ export function CardView({
   );
 }
 
+export type CalendarReservationAction = "cancelled" | "no_show" | "edit" | "payment" | "customer";
+
 /** Calendar card wired to saved settings. */
 export function ReservationCard({
   r, view, name, compact, onClick, canOpen, modeOverride, className,
@@ -135,29 +137,42 @@ export function ReservationCard({
   view: CalView;
   name: (id: string) => string;
   compact?: boolean | undefined;
-  onClick?: ((action?: "cancelled" | "no_show") => void) | undefined;
+  onClick?: ((action?: CalendarReservationAction) => void) | undefined;
   canOpen?: (() => boolean) | undefined;
   modeOverride?: ColorMode | undefined;
   className?: string | undefined;
 }) {
   const L = useCardLookups();
   const { data: me } = useQuery(meQuery);
-  const navigate = useNavigate();
   const qc = useQueryClient();
   const [savingStatus, setSavingStatus] = useState(false);
   const [open, setOpen] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [loadingCustomer, setLoadingCustomer] = useState(false);
-  const canReadCustomer = me?.role === "admin" || me?.role === "internal";
+  const canReadCustomer = !!me?.active && (me.role === "admin" || me.role === "internal");
   const canEdit = !!me && !r.access && (me.role === "admin" || me.role === "internal" || me.id === r.created_by);
   const canChange = canEdit && (r.status !== "cancelled" || me.role === "admin");
+  const { data: payment } = useQuery({
+    queryKey: ["reservation-payment", r.id],
+    enabled: previewOpen && !open && canReadCustomer && !r.access,
+    staleTime: 30_000,
+    queryFn: async () => {
+      const { data, error } = await supabase.from("customer_payments").select("*").eq("reservation_id", r.id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  const lines = canReadCustomer && !r.access && payment ? paymentDraft(payment).rows : [];
+  const service = lines.find((line) => line.kind === "service")?.description?.trim();
+  const care = lines.find((line) => line.kind === "care")?.description?.trim();
   const start = new Date(r.start_at);
   const end = new Date(r.end_at);
   const summary = [
     canReadCustomer && (!r.access || r.visible?.includes("customer")) ? r.customer_name : null,
     canReadCustomer && r.customer_no && (!r.access || r.visible?.includes("customerNo")) ? `No.${r.customer_no}` : null,
     `${format(start, "HH:mm")}–${format(end, "HH:mm")}`,
-    r.service,
+    canReadCustomer && !r.access ? `시술: ${service || (care ? r.service : r.service_detail || r.service)}` : r.service,
+    care ? `관리: ${care}` : null,
+    r.memo?.trim() && (r.access ? r.visible?.includes("memo") : canReadCustomer || me?.id === r.created_by) ? `예약 메모: ${r.memo}` : null,
     `${Math.round((end.getTime() - start.getTime()) / 60000)}분`,
   ].filter(Boolean);
 
@@ -184,20 +199,6 @@ export function ReservationCard({
     }
   }
 
-  async function openCustomer() {
-    setLoadingCustomer(true);
-    try {
-      const { data, error } = await supabase.rpc("calendar_customer_id", { _reservation: r.id });
-      if (error || !data) {
-        toast.error("연결된 고객정보를 열 수 없습니다.");
-        return;
-      }
-      setOpen(false);
-      await navigate({ to: "/customers", search: { customer: data, fromCalendar: true } });
-    } finally {
-      setLoadingCustomer(false);
-    }
-  }
   const d = L.display(view);
   const staffHidden = !!r.access && !r.visible?.includes("staff");
   const staffId = r.staff_id ?? r.created_by;
@@ -229,7 +230,7 @@ export function ReservationCard({
             <TooltipTrigger asChild><div className={className}>{card}</div></TooltipTrigger>
           </PopoverAnchor>
           <TooltipContent side="right" align="start" collisionPadding={12} className="max-w-[min(15rem,calc(100vw-1.5rem))] space-y-0.5 border bg-popover text-popover-foreground shadow-md">
-            {summary.map((line, index) => <div key={index} className="break-words">{line}</div>)}
+            {summary.map((line, index) => <div key={index} className="whitespace-pre-wrap break-words">{line}</div>)}
           </TooltipContent>
         </Tooltip>
       </TooltipProvider>
@@ -240,16 +241,16 @@ export function ReservationCard({
               {r.status === "arrived"
                 ? <Button variant="ghost" size="sm" disabled={savingStatus} onClick={() => markVisitStatus("confirmed")}>입장취소</Button>
                 : <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "paid"} onClick={() => markVisitStatus("arrived")}>고객입장</Button>}
-              <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "paid"} onClick={() => markVisitStatus("paid")}>계산</Button>
+              <Button variant="ghost" size="sm" disabled={savingStatus} onClick={() => { setOpen(false); onClick("payment"); }}>계산</Button>
             </>
           )}
           <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick(); }}>예약 상세</Button>
           {canChange
-            ? <Button asChild variant="ghost" size="sm"><Link to="/reservations/new" search={{ id: r.id }}>예약 수정</Link></Button>
+            ? <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick("edit"); }}>예약 수정</Button>
             : canReadCustomer && <Button variant="ghost" size="sm" disabled>예약 수정</Button>}
           {(canChange || canReadCustomer) && <Button variant="ghost" size="sm" disabled={!canChange || r.status === "cancelled"} onClick={() => { setOpen(false); onClick("cancelled"); }}>예약 취소</Button>}
           {(canChange || canReadCustomer) && <Button variant="ghost" size="sm" disabled={!canChange || r.status === "no_show"} onClick={() => { setOpen(false); onClick("no_show"); }}>노쇼</Button>}
-          {canReadCustomer && <Button variant="ghost" size="sm" disabled={loadingCustomer || (!r.customer_id && !r.access)} onClick={openCustomer}>고객정보</Button>}
+          {canReadCustomer && <Button variant="ghost" size="sm" disabled={!r.customer_id && !r.access} onClick={() => { setOpen(false); onClick("customer"); }}>고객정보</Button>}
           <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>닫기</Button>
         </div>
       </PopoverContent>

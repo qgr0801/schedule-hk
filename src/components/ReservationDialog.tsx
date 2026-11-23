@@ -18,7 +18,7 @@ import { ACTION_LABEL, dbErrorMessage, meQuery, profilesQuery, sectionsQuery, ST
 import { useCardLookups } from "@/lib/display";
 import { PaymentHistory } from "@/components/PaymentHistory";
 
-export function ReservationDialog({ res, onClose, initialAction }: { initialAction?: "cancelled" | "no_show" | undefined; res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access" | "visible" | "customer_no">>) | null; onClose: () => void }) {
+export function ReservationDialog({ res, onClose, initialAction, onEdit, movable = false }: { onEdit?: () => void; movable?: boolean; initialAction?: "cancelled" | "no_show" | undefined; res: (Reservation & Partial<Pick<ResWithCustomer, "customer" | "access" | "visible" | "customer_no">>) | null; onClose: () => void }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
@@ -85,7 +85,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
     const v = (k: string) => !!res.visible?.includes(k);
     return (
       <Dialog open onOpenChange={(o) => !o && onClose()}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto">
+        <DialogContent movable={movable} className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex flex-wrap items-center gap-2">
               {v("customer") ? res.customer_name : "다른 직원 예약"} <StatusBadge status={res.status} />
@@ -129,7 +129,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto">
+      <DialogContent movable={movable} className="max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex flex-wrap items-center gap-2">
             {res.customer_name} <StatusBadge status={res.status} />
@@ -160,7 +160,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
             {canEdit && (
               <div className="grid grid-cols-2 gap-2">
                 <Button asChild variant="outline" className="h-11">
-                  <Link to="/reservations/new" search={{ id: res.id }}>예약 수정</Link>
+                  {onEdit ? <button type="button" onClick={onEdit}>예약 수정</button> : <Link to="/reservations/new" search={{ id: res.id }}>예약 수정</Link>}
                 </Button>
                 {res.status !== "cancelled" && (
                   <Button variant="outline" className="h-11" onClick={() => setMoving((m) => !m)} aria-expanded={moving}>
@@ -205,7 +205,7 @@ export function ReservationDialog({ res, onClose, initialAction }: { initialActi
         </div>
       </DialogContent>
 
-      <AlertDialog open={!!confirming && canChange} onOpenChange={(open) => { if (!open) setConfirming(null); }}>
+      <AlertDialog open={!!confirming && canChange} onOpenChange={(open) => { if (!open) { setConfirming(null); if (initialAction && movable) onClose(); } }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{confirming === "no_show" ? "노쇼로 변경할까요?" : "예약을 취소할까요?"}</AlertDialogTitle>

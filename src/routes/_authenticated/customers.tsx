@@ -121,7 +121,7 @@ function CustomersPage() {
   );
 }
 
-function CustomerDialog({ customer, onClose, onSaved }: { customer: CustomerRow | null; onClose: () => void; onSaved?: (() => void) | undefined }) {
+export function CustomerDialog({ customer, onClose, onSaved, draggable, onReservation }: { customer: CustomerRow | null; onClose: () => void; onSaved?: (() => void) | undefined; draggable?: boolean; onReservation?: ((id: string) => void) | undefined }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: categories } = useQuery(categoriesQuery);
@@ -181,9 +181,9 @@ function CustomerDialog({ customer, onClose, onSaved }: { customer: CustomerRow 
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+      <DialogContent movable={draggable ?? false} className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader><DialogTitle>{customer ? "고객 정보" : "고객 등록"}</DialogTitle></DialogHeader>
-        {customer ? <CustomerRecords customerId={customer.id} basicInfo={<>        <fieldset disabled={!canEdit} className="space-y-3">
+        {customer ? <CustomerRecords customerId={customer.id} onReservation={onReservation} basicInfo={<>        <fieldset disabled={!canEdit} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1"><Label>고객명 *</Label><Input value={name} maxLength={50} onChange={(e) => setName(e.target.value)} placeholder="예: 김가상" /></div>
             <div className="space-y-1"><Label>연락처</Label><Input value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></div>
@@ -214,7 +214,7 @@ function CustomerDialog({ customer, onClose, onSaved }: { customer: CustomerRow 
         ) : (
           <p className="text-xs text-muted-foreground">다른 직원이 등록한 고객은 등록자나 관리자만 수정할 수 있습니다.</p>
         )}
-</>}><VisitHistory customerId={customer.id} /></CustomerRecords> : <>        <fieldset disabled={!canEdit} className="space-y-3">
+</>}><VisitHistory customerId={customer.id} onReservation={onReservation} /></CustomerRecords> : <>        <fieldset disabled={!canEdit} className="space-y-3">
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1"><Label>고객명 *</Label><Input value={name} maxLength={50} onChange={(e) => setName(e.target.value)} placeholder="예: 김가상" /></div>
             <div className="space-y-1"><Label>연락처</Label><Input value={phone} maxLength={20} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" /></div>
@@ -257,7 +257,7 @@ function CustomerDialog({ customer, onClose, onSaved }: { customer: CustomerRow 
 }
 
 /** Re-visit list: only reservations this user may read in full (server rules decide). */
-function VisitHistory({ customerId }: { customerId: string }) {
+function VisitHistory({ customerId, onReservation }: { customerId: string; onReservation?: ((id: string) => void) | undefined }) {
   const {data:me}=useQuery(meQuery);
   const canViewDetails=!!me?.active&&(me.role==="admin"||me.role==="internal");
   const { data, isLoading, error } = useQuery({
@@ -284,7 +284,7 @@ function VisitHistory({ customerId }: { customerId: string }) {
       <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
         {data?.map((v) => (
           <li key={v.id} className="flex items-start justify-between gap-2 rounded-md bg-muted px-3 py-2">
-            <Link className="min-w-0 flex-1 break-words underline" to="/reservations/new" search={{ id: v.id }}><span className="block">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.public_service || v.service}</span>{v.payment ? PAYMENT_KINDS.filter(([kind])=>kind!=="product").map(([kind,label])=>{
+            <Link className="min-w-0 flex-1 break-words underline" to="/reservations/new" search={{ id: v.id }} onClick={onReservation ? (event) => { event.preventDefault(); onReservation(v.id); } : undefined}><span className="block">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.public_service || v.service}</span>{v.payment ? PAYMENT_KINDS.filter(([kind])=>kind!=="product").map(([kind,label])=>{
               const description=(v.payment!.rows as unknown as PaymentLine[]).find(row=>row.kind===kind)?.description?.trim();
               return description ? <span key={kind} className="mt-1 block whitespace-pre-wrap break-words font-medium">{label} · {description}</span> : null;
             }) : v.service_detail && <span className="mt-1 block whitespace-pre-wrap break-words font-medium">{v.service_detail}</span>}

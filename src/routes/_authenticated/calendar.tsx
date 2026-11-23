@@ -1,17 +1,19 @@
 import { canMenu } from "@/lib/permissions";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addDays, addMonths, addWeeks, eachDayOfInterval, endOfDay, endOfMonth, endOfWeek, format,
   isSameDay, isSameMonth, startOfDay, startOfMonth, startOfWeek,
 } from "date-fns";
 import { ko } from "date-fns/locale";
-import { CalendarDays, ChevronLeft, ChevronRight, Settings2 } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, Plus, Settings2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel } from "@/components/PageHeader";
-import { ReservationCard, type ResWithCustomer } from "@/components/ReservationCard";
+import { ReservationCard, type CalendarReservationAction, type ResWithCustomer } from "@/components/ReservationCard";
+import { CustomerDialog } from "./customers";
+import { ReservationEditor, type ReservationSearch } from "./reservations.new";
 import { ReservationDialog } from "@/components/ReservationDialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,7 +62,14 @@ function CalendarPage() {
   },[today]);
   const weekScroll = useRef<HTMLDivElement>(null);
   const [sel, setSel] = useState<{ reservation: ResWithCustomer; action?: "cancelled" | "no_show" | undefined } | null>(null);
-  const openReservation = (reservation: ResWithCustomer, action?: "cancelled" | "no_show") => setSel({ reservation, action });
+  const [editor, setEditor] = useState<{ search: ReservationSearch; paymentStatus?: ResWithCustomer["status"] } | null>(null);
+  const [customerReservation, setCustomerReservation] = useState<string | null>(null);
+  const openReservation = (reservation: ResWithCustomer, action?: CalendarReservationAction) => {
+    if (action === "customer") setCustomerReservation(reservation.id);
+    else if (action === "edit" || action === "payment") setEditor({ search: { id: reservation.id }, ...(action === "payment" ? { paymentStatus: reservation.status } : {}) });
+    else setSel({ reservation, action });
+  };
+  const newReservation = () => setEditor({ search: { date: format(cursor, "yyyy-MM-dd") } });
   const [schOpen, setSchOpen] = useState(false);
   const [newSlot, setNewSlot] = useState<{ date: Date; section: number | null; minutes: number } | null>(null);
   const [scheduleDate, setScheduleDate] = useState<Date | null>(null);
@@ -77,7 +86,6 @@ function CalendarPage() {
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
   const { data: booking } = useQuery(bookingSettingsQuery);
-  const navigate = useNavigate();
   const [move, setMove] = useState<MoveTarget | null>(null);
   const [saving, setSaving] = useState(false);
   const slotStep = booking?.slot_minutes ?? 30;
@@ -221,7 +229,7 @@ function CalendarPage() {
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => { setScheduleDate(null); setSchOpen(true); }}>+ 일정 추가</Button>
             {me?.active && canMenu(me.role, me.perms, "reservation_new") && (
-              <Button asChild><Link to="/reservations/new" search={{ date: format(cursor, "yyyy-MM-dd") }}>+ 예약 등록</Link></Button>
+              <Button onClick={newReservation}>+ 예약 등록</Button>
             )}
           </div>
         }
@@ -372,7 +380,22 @@ function CalendarPage() {
       )}
 
       </div>
-      {sel && <ReservationDialog res={sel.reservation} initialAction={sel.action} onClose={() => setSel(null)} />}
+      {me?.active && canMenu(me.role, me.perms, "reservation_new") && <button type="button" onClick={newReservation}
+        className="fixed right-4 z-30 flex h-14 items-center gap-2 rounded-full bg-primary px-5 text-base font-semibold text-primary-foreground shadow-card md:hidden"
+        style={{ bottom: "calc(4.75rem + env(safe-area-inset-bottom))" }}>
+        <Plus className="h-5 w-5" /> 예약 추가
+      </button>}
+      {sel && <ReservationDialog movable res={sel.reservation} initialAction={sel.action} onClose={() => setSel(null)} onEdit={() => {
+        setEditor({ search: { id: sel.reservation.id } });
+        setSel(null);
+      }} />}
+      {editor && <Dialog open onOpenChange={(open) => { if (!open) setEditor(null); }}>
+        <DialogContent movable className="max-h-[90dvh] overflow-y-auto sm:max-w-3xl">
+          <DialogHeader><DialogTitle>{editor.paymentStatus ? "계산" : editor.search.id ? "예약 수정" : "예약 등록"}</DialogTitle></DialogHeader>
+          <ReservationEditor search={editor.search} showPayment={!!editor.paymentStatus} {...(editor.paymentStatus ? { paymentStatus: editor.paymentStatus } : {})} onSaved={() => setEditor(null)} onClose={() => setEditor(null)} />
+        </DialogContent>
+      </Dialog>}
+      {customerReservation && <CalendarCustomerDialog reservationId={customerReservation} onReservation={(id) => { setCustomerReservation(null); setEditor({ search: { id } }); }} onClose={() => setCustomerReservation(null)} />}
       <AlertDialog open={!!move} onOpenChange={(o) => { if (!o && !saving) setMove(null); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -403,7 +426,7 @@ function CalendarPage() {
           <DialogHeader><DialogTitle>{format(newSlot.date, "M월 d일")} {String(Math.floor(newSlot.minutes / 60)).padStart(2, "0")}:{String(newSlot.minutes % 60).padStart(2, "0")}</DialogTitle></DialogHeader>
           <div className="flex flex-wrap gap-2">
             <Button onClick={() => {
-              navigate({ to: "/reservations/new", search: { date: format(newSlot.date, "yyyy-MM-dd"), start: `${String(Math.floor(newSlot.minutes / 60)).padStart(2, "0")}:${String(newSlot.minutes % 60).padStart(2, "0")}`, section: newSlot.section || undefined } });
+              setEditor({ search: { date: format(newSlot.date, "yyyy-MM-dd"), start: `${String(Math.floor(newSlot.minutes / 60)).padStart(2, "0")}:${String(newSlot.minutes % 60).padStart(2, "0")}`, section: newSlot.section || undefined } });
               setNewSlot(null);
             }}>예약 등록</Button>
             <Button variant="outline" onClick={() => {
@@ -467,7 +490,7 @@ function DayBoard({
   isAdmin: boolean;
   isMobile: boolean;
   name: (id: string) => string;
-  onRes: (r: ResWithCustomer, action?: "cancelled" | "no_show") => void;
+  onRes: (r: ResWithCustomer, action?: CalendarReservationAction) => void;
   onSch: (s: Schedule) => void;
   onSettings: () => void;
   grid: GridOpts;
@@ -510,6 +533,28 @@ function DayBoard({
       </Panel>
     </div>
   );
+}
+
+function CalendarCustomerDialog({ reservationId, onClose, onReservation }: { reservationId: string; onClose: () => void; onReservation: (id: string) => void }) {
+  const customer = useQuery({
+    queryKey: ["calendar-customer", reservationId],
+    staleTime: 0,
+    queryFn: async () => {
+      const { data: id, error: lookupError } = await supabase.rpc("calendar_customer_id", { _reservation: reservationId });
+      if (lookupError) throw lookupError;
+      if (!id) return null;
+      const { data, error } = await supabase.from("customers").select("*, customer_category_tags(category_id)").eq("id", id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+  });
+  if (customer.data) return <CustomerDialog draggable customer={customer.data} onClose={onClose} onReservation={onReservation} />;
+  return <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <DialogContent movable>
+      <DialogHeader><DialogTitle>고객 정보</DialogTitle></DialogHeader>
+      <p role="status">{customer.isFetching ? "고객 정보를 불러오는 중입니다." : "연결된 고객 정보를 열 수 없습니다."}</p>
+    </DialogContent>
+  </Dialog>;
 }
 
 function SectionSettingsDialog({ onClose }: { onClose: () => void }) {
