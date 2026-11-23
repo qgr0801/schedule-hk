@@ -50,6 +50,7 @@ type Item = { kind: "res"; r: ResWithCustomer } | { kind: "sch"; s: Schedule };
 function CalendarPage() {
   const {today}=Route.useSearch();
   const isMobile = useIsMobile();
+  const [showOptions, setShowOptions] = useState(false);
   const [selectedView, setView] = useState<View | null>(today ? "day" : null);
   const view = selectedView ?? (isMobile ? "day" : "week");
   const [cursor, setCursor] = useState(new Date());
@@ -213,7 +214,7 @@ function CalendarPage() {
 
   return (
     <div className="flex min-w-0 flex-col">
-      <div className="order-3 mt-4 md:order-1 md:mt-0"><PageHeader
+      <div className={cn("order-2 mt-4 md:order-1 md:mt-0 md:block", !showOptions && "hidden")}><PageHeader
         title="캘린더"
         desc="카드 배경은 예약 상태, 왼쪽 띠는 담당자, 작은 배지는 고객 구분입니다."
         action={
@@ -226,14 +227,17 @@ function CalendarPage() {
         }
       /></div>
       <div className="contents md:order-2 md:mb-4 md:flex md:flex-wrap md:items-center md:gap-2">
-        <div className="order-4 mb-3 flex w-full rounded-lg bg-background p-1 shadow-card md:mb-0 md:w-auto">
+        <div className="order-1 mb-2 flex w-full gap-1 rounded-lg bg-background p-1 shadow-card md:mb-0 md:w-auto">
           {(["month", "week", "day"] as View[]).map((v) => (
-            <button key={v} onClick={() => setView(v)} className={cn("h-10 flex-1 rounded-md px-4 text-sm sm:h-auto sm:flex-none sm:py-1.5", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
+            <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)} className={cn("h-8 flex-1 rounded-md px-2 text-sm md:h-auto md:flex-none md:px-4 md:py-1.5", view === v ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>
               {{ month: "월간", week: "주간", day: "일간" }[v]}
             </button>
           ))}
+          <Button type="button" size="sm" variant="ghost" className="shrink-0 md:hidden" aria-expanded={showOptions} onClick={() => setShowOptions((open) => !open)}>
+            <Settings2 className="h-4 w-4" /> 옵션
+          </Button>
         </div>
-        <div className="order-1 mb-2 flex w-full items-center gap-1 md:mb-0 md:w-auto" {...swipe}>
+        <div className="order-5 mb-2 flex w-full items-center gap-1 md:mb-0 md:w-auto" {...swipe}>
           <Button size="icon" variant="ghost" className="h-11 w-8 shrink-0 md:h-9 md:w-9" onClick={() => step(-1)} aria-label="이전"><ChevronLeft /></Button>
           <span className="min-w-0 flex-1 truncate text-center text-sm font-semibold text-primary md:min-w-32 md:flex-none md:text-base">{title}</span>
           <Button size="icon" variant="ghost" className="h-11 w-8 shrink-0 md:h-9 md:w-9" onClick={() => step(1)} aria-label="다음"><ChevronRight /></Button>
@@ -250,7 +254,7 @@ function CalendarPage() {
           </label>
         </div>
       </div>
-      <div className="order-5 mb-4 flex flex-wrap items-center gap-2 md:order-3">
+      <div className={cn("order-3 mb-4 flex-wrap items-center gap-2 md:order-3 md:flex", showOptions ? "flex" : "hidden")}>
         {me?.role !== "external" && (
           <select value={staff} onChange={(e) => setStaff(e.target.value)} className={selCls} aria-label="담당자 필터">
             <option value="">전체 담당자</option>
@@ -280,7 +284,7 @@ function CalendarPage() {
       </div>
 
       {(data?.sch ?? []).some((s) => isStaffNotice(s)) && (
-        <Panel className="order-6 mb-3 py-3 md:order-4">
+        <Panel className={cn("order-4 mb-3 py-3 md:block", !showOptions && "hidden")}>
           <h2 className="mb-2 text-sm font-semibold">직원 휴무</h2>
           <div className="flex flex-wrap gap-2">
             {(data?.sch ?? []).filter((s) => isStaffNotice(s)).map((s) => (
@@ -292,7 +296,7 @@ function CalendarPage() {
         </Panel>
       )}
 
-      <div className="order-2 min-w-0 md:order-5">
+      <div className="order-6 min-w-0 md:order-5">
       {view === "month" && (
         <div {...swipe}>
         <Panel className="p-0">
