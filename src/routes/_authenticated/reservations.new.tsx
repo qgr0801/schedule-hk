@@ -75,6 +75,27 @@ function ReservationForm() {
   const [detailKind, setDetailKind] = useState<"service" | "care">("service");
   const [paymentOverride, setPaymentOverride] = useState<PaymentDraft | null>(null);
   const canBill = me?.role === "admin" || me?.role === "internal";
+  const [sessionsOpen, setSessionsOpen] = useState(false);
+  const [sessionDraft, setSessionDraft] = useState<{ customer: string | null; total: number; starts_on: string } | null>(null);
+  const beforeSession = new Date(`${f.date}T${f.start}`);
+  const sessionQuery = useQuery({
+    queryKey: ["management-sessions", customerId, f.date, f.start, id],
+    enabled: canBill && !!customerId && Number.isFinite(beforeSession.getTime()),
+    queryFn: async () => {
+      const { data: plan, error } = await supabase.from("customer_management_sessions")
+        .select("total, starts_on").eq("customer_id", customerId!).maybeSingle();
+      if (error) throw error;
+      if (!plan) return null;
+      const { data: used, error: countError } = await supabase.rpc("management_sessions_used", {
+        _customer: customerId!, _before: beforeSession.toISOString(), ...(id ? { _exclude: id } : {}),
+      });
+      if (countError) throw countError;
+      return { ...plan, used };
+    },
+  });
+  const draft = sessionDraft?.customer === customerId ? sessionDraft : null;
+  const sessionTotal = draft?.total ?? sessionQuery.data?.total;
+  const sessionsUsed = sessionQuery.data?.used ?? 0;
   const paymentQuery = useQuery({
     queryKey: ["reservation-payment", id],
     enabled: !!id && canBill,
@@ -189,6 +210,7 @@ function ReservationForm() {
       }
       cid = data.id;
       setCustomerId(cid);
+      setSessionDraft(current => current?.customer === null ? { ...current, customer: cid } : current);
       setNewCustomerNo(data.customer_no);
       toast.info(`새 고객번호 No.${data.customer_no}가 부여되었습니다.`);
     } else if (canEditCustomer) {
@@ -230,6 +252,12 @@ function ReservationForm() {
     setBusy(true);
     const cid = await saveCustomer(parsed.data.customer_name, parsed.data.customer_phone || null);
     if (!cid) { setBusy(false); return; }
+    if (canBill && draft) {
+      const { error: sessionError } = await supabase.from("customer_management_sessions").upsert({
+        customer_id: cid, total: draft.total, starts_on: draft.starts_on,
+      });
+      if (sessionError) { setBusy(false); toast.error(dbErrorMessage(sessionError)); return; }
+    }
     Object.assign(payload, { customer_id: cid, staff_id: staffId || null, public_service: publicServiceValue, service_detail: serviceDetail.trim(), ...(canBill ? { booking_route_id: bookingRouteId || null } : {}) });
     const { error } = canBill
       ? await supabase.rpc("save_reservation_payment", { _id: reservationKey, _reservation: payload as unknown as Json, _payment: hasPayment(payment) ? payment as unknown as Json : null })
@@ -334,6 +362,25 @@ function ReservationForm() {
             </select>
           </div>
           {canBill && <BookingRouteField value={bookingRouteId} onChange={setBookingRouteId} disabled={busy} />}
+          {canBill && <div className="space-y-2">
+            <Label>관리 횟수</Label>
+            <div className="flex flex-wrap items-center gap-2">
+              <Button type="button" size="sm" variant="outline" aria-expanded={sessionsOpen}
+                disabled={busy || (!!customerId && (sessionQuery.isPending || sessionQuery.isError))}
+                onClick={() => setSessionsOpen(!sessionsOpen)}>횟수</Button>
+              {sessionTotal && <span className="text-sm">총 횟수-남은 횟수 <strong>{sessionTotal}-{Math.max(0, sessionTotal - sessionsUsed)}</strong></span>}
+              {sessionQuery.isError && <span role="alert" className="text-sm">횟수를 불러오지 못했습니다.</span>}
+            </div>
+            {sessionsOpen && <>
+              <select aria-label="총 관리 횟수" className="h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
+                value={sessionTotal ?? ""} disabled={busy}
+                onChange={e => setSessionDraft(e.target.value ? { customer: customerId, total: Number(e.target.value), starts_on: sessionQuery.data?.starts_on ?? f.date } : null)}>
+                <option value="" disabled>총 횟수 선택</option>
+                {Array.from({ length: 30 }, (_, index) => <option key={index + 1} value={index + 1}>{index + 1}회</option>)}
+              </select>
+              <p className="text-xs text-muted-foreground">예약을 저장하면 총 횟수가 적용됩니다. 완료된 예약은 회당 1회 차감되며, 서비스(SV)는 차감되지 않습니다.</p>
+            </>}
+          </div>}
           <div className="space-y-2 sm:col-span-2">
             <Label>보조 태그</Label>
             <div className="flex flex-wrap gap-x-4 gap-y-2 rounded-lg bg-muted p-3">

@@ -193,7 +193,7 @@ export function ReservationCard({
         return;
       }
       setOpen(false);
-      await navigate({ to: "/customers", search: { customer: data } });
+      await navigate({ to: "/customers", search: { customer: data, fromCalendar: true } });
     } finally {
       setLoadingCustomer(false);
     }

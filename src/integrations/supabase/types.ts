@@ -14,6 +14,12 @@ export type Database = {
   }
   public: {
     Tables: {
+      customer_management_sessions: {
+        Row: { customer_id: string; total: number; starts_on: string }
+        Insert: { customer_id: string; total: number; starts_on: string }
+        Update: { total?: number; starts_on?: string }
+        Relationships: []
+      }
       monthly_work_reports: {
         Row: { id: string; employee_id: string; report_month: string; report_date: string | null; shot_edit_count: number; influencer_upload_count: number; feed_upload_count: number; customer_content: string; upload_count: number; work_counts: Json; work_checks: Json; memo: string; links: Json; version: number; created_by: string; updated_by: string; created_at: string; updated_at: string }
         Insert: { id?: string; employee_id: string; report_month: string; shot_edit_count?: number; influencer_upload_count?: number; feed_upload_count?: number; customer_content?: string; upload_count?: number; work_counts?: Json; work_checks?: Json; memo?: string; links?: Json; version?: number; created_by?: string; updated_by?: string; created_at?: string; updated_at?: string }
@@ -740,6 +746,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      management_sessions_used: { Args: { _customer: string; _before: string; _exclude?: string }; Returns: number }
       admin_business_overview: { Args: { _from: string; _to: string }; Returns: Json }
       admin_route_collection_report: { Args: { _from: string; _to: string; _route?: string; _kind?: string }; Returns: Json }
       admin_sales_by_route_category: { Args: { _from: string; _to: string; _route?: string; _unassigned?: boolean }; Returns: Json }

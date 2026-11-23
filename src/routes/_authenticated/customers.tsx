@@ -27,12 +27,12 @@ export const Route = createFileRoute("/_authenticated/customers")({
       { name: "description", content: "고객 구분과 보조 태그로 고객을 등록하고 검색합니다." },
     ],
   }),
-  validateSearch: (search: Record<string, unknown>) => ({ customer: typeof search["customer"] === "string" ? search["customer"] : undefined }),
+  validateSearch: (search: Record<string, unknown>) => ({ customer: typeof search["customer"] === "string" ? search["customer"] : undefined, fromCalendar: search["fromCalendar"] === true }),
   component: CustomersPage,
 });
 
 function CustomersPage() {
-  const { customer } = Route.useSearch();
+  const { customer, fromCalendar } = Route.useSearch();
   const navigate = Route.useNavigate();
   const detail = useQuery({
     queryKey: ["customers", "detail", customer],
@@ -113,7 +113,7 @@ function CustomersPage() {
         })}
         {list.length === 0 && <p className="text-sm text-muted-foreground">조건에 맞는 고객이 없습니다.</p>}
       </div>
-      {customer && detail.data && <CustomerDialog customer={detail.data} onClose={() => navigate({ search: { customer: undefined }, replace: true })} />}
+      {customer && detail.data && <CustomerDialog customer={detail.data} onSaved={fromCalendar ? () => { void navigate({ to: "/calendar", search: {}, replace: true }); } : undefined} onClose={() => navigate({ search: { customer: undefined, fromCalendar: false }, replace: true })} />}
       {customer && (detail.isError || detail.data === null) && <p role="alert" className="text-sm text-muted-foreground">연결된 고객정보를 열 수 없습니다.</p>}
       <Panel className="mt-6"><PaymentHistory global /></Panel>
       {edit && <CustomerDialog customer={edit === "new" ? null : edit} onClose={() => setEdit(null)} />}
@@ -121,7 +121,7 @@ function CustomersPage() {
   );
 }
 
-function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; onClose: () => void }) {
+function CustomerDialog({ customer, onClose, onSaved }: { customer: CustomerRow | null; onClose: () => void; onSaved?: (() => void) | undefined }) {
   const qc = useQueryClient();
   const { data: me } = useQuery(meQuery);
   const { data: categories } = useQuery(categoriesQuery);
@@ -176,7 +176,7 @@ function CustomerDialog({ customer, onClose }: { customer: CustomerRow | null; o
     toast.success(customer ? "고객 정보가 수정되었습니다." : "고객이 등록되었습니다.");
     qc.invalidateQueries({ queryKey: customersQuery.queryKey });
     qc.invalidateQueries({ queryKey: ["calendar"] });
-    onClose();
+    (onSaved ?? onClose)();
   }
 
   return (
