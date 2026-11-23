@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { addPaymentDescription } from "@/lib/payment-description";
+import { addPaymentDescription, setPaymentDescription } from "@/lib/payment-description";
 import type { PaymentDraft } from "@/lib/payments";
-const draft = (): PaymentDraft => ({ paid_on: "2099-01-01", sales: [{ product_id: "p", quantity: 2 }], memo: "계산메모", version: 3, rows: ["service", "care", "product"].map((kind) => ({ kind, description: "", cost: 500, card: 100, bank: 0, krw: 400, jpy: 0, usd: 0, cny: 0 })) });
+const draft = (): PaymentDraft => ({ paid_on: "2099-01-01", sales: [{ product_id: "p", quantity: 2 }], memo: "계산메모", version: 3, rows: ["service", "care", "art", "product"].map((kind) => ({ kind, description: "", cost: 500, card: 100, bank: 0, krw: 400, jpy: 0, usd: 0, cny: 0 })) });
 describe("direct entry to payment content", () => {
  it("adds to only the selected category while preserving money, sale links and receipt version", () => {
    const initial = draft();
@@ -17,6 +17,13 @@ describe("direct entry to payment content", () => {
    const second = addPaymentDescription(first, "service", "보톡스");
    expect(second.rows[0]?.description).toBe("울쎄라 / 보톡스");
    expect(addPaymentDescription(second, "service", "울쎄라")).toBe(second);
+ });
+ it("replaces and clears art descriptions without changing the receipt amount", () => {
+   const registered = addPaymentDescription(draft(), "art", "눈썹");
+   const updated = setPaymentDescription(registered, "art", "입술");
+   expect(updated.rows.find(row => row.kind === "art")?.description).toBe("입술");
+   expect(setPaymentDescription(updated, "art", "").rows.find(row => row.kind === "art")).toMatchObject({ description: "", card: 100, krw: 400 });
+   expect(updated.rows.find(row => row.kind === "care")).toBe(registered.rows.find(row => row.kind === "care"));
  });
  it("rejects empty content and overflow without altering the current receipt", () => {
    const initial = draft();

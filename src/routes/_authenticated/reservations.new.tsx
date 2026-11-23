@@ -16,10 +16,10 @@ import { CategoryBadge } from "@/components/ReservationCard";
 import { bookingSettingsQuery, dbErrorMessage, meQuery, profilesQuery, PUBLIC_SERVICES, sectionsQuery, SERVICES, STATUS_LABEL, toLocalInput, type Reservation } from "@/lib/app";
 import { format } from "date-fns";
 import type { Json } from "@/integrations/supabase/types";
-import { addPaymentDescription, type DirectPaymentKind } from "@/lib/payment-description";
+import { addPaymentDescription, setPaymentDescription, type DirectPaymentKind } from "@/lib/payment-description";
 import { saleValidation } from "@/lib/reservation-sales";
 import { PaymentFields } from "@/components/PaymentFields";
-import { PAYMENT_KINDS, blankPayment, hasPayment, paymentDraft, type PaymentDraft } from "@/lib/payments";
+import { blankPayment, hasPayment, paymentDraft, type PaymentDraft } from "@/lib/payments";
 import { AlertTriangle } from "lucide-react";
 import { categoriesQuery, customersQuery, maskPhone, useCardLookups } from "@/lib/display";
 
@@ -77,6 +77,7 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
   const [busy, setBusy] = useState(false);
   const [reservationKey] = useState(() => id ?? crypto.randomUUID());
   const [serviceDetail, setServiceDetail] = useState("");
+  const [directInput, setDirectInput] = useState<string | null>(null);
   const [bookingRouteId, setBookingRouteId] = useState("");
   const [detailKind, setDetailKind] = useState<DirectPaymentKind>("service");
   const [paymentOverride, setPaymentOverride] = useState<PaymentDraft | null>(null);
@@ -117,13 +118,35 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
     if (showPayment && canBill) paymentSection.current?.scrollIntoView({ block: "start" });
   }, [showPayment, canBill, paymentQuery.isPending]);
   const payment = paymentOverride ?? (paymentQuery.data ? paymentDraft(paymentQuery.data) : blankPayment(f.date || undefined));
-  function registerDirectEntry() {
-    if (busy || !canBill || (id && (paymentQuery.isPending || paymentQuery.error))) return;
+  const directActionsDisabled = busy || (!!id && (paymentQuery.isPending || !!paymentQuery.error));
+  const descriptionFor = (kind: string) => payment.rows.find(row => row.kind === kind)?.description ?? "";
+  const legacyKind = serviceDetail && !descriptionFor("service").split(" / ").includes(serviceDetail) && (["care", "art"] as const).find(kind => descriptionFor(kind).split(" / ").includes(serviceDetail));
+  const selectedDescription = descriptionFor(detailKind) || (detailKind === "service" && !legacyKind ? serviceDetail : "");
+
+  function changePayment(next: PaymentDraft) {
+    const changedKind = legacyKind || "service";
+    const nextDescription = next.rows.find(row => row.kind === changedKind)?.description ?? "";
+    if (descriptionFor(changedKind) !== nextDescription) {
+      setServiceDetail(changedKind === "service" ? nextDescription : "");
+    }
+    setPaymentOverride(next);
+  }
+
+  function applyDirectEntry(action: "add" | "edit" | "delete") {
+    if (!canBill || directActionsDisabled) return;
+    const text = (directInput ?? selectedDescription).trim();
+    if (action !== "delete" && !text) {
+      toast.error("직접 입력 내용을 먼저 작성해 주세요.");
+      return;
+    }
     try {
-      const next = addPaymentDescription(payment, detailKind, serviceDetail);
-      if (next === payment) { toast.info("선택한 계산 항목에 이미 등록된 내용입니다."); return; }
-      setPaymentOverride(next);
-      toast.success(`${PAYMENT_KINDS.find(([kind]) => kind === detailKind)?.[1]} 내용에 반영했습니다. 예약 저장 시 함께 저장됩니다.`);
+      const next = action === "add"
+        ? addPaymentDescription(setPaymentDescription(payment, detailKind, selectedDescription), detailKind, text)
+        : setPaymentDescription(payment, detailKind, action === "delete" ? "" : text);
+      changePayment(next);
+      if (action === "delete" && detailKind === "service" && !legacyKind) setServiceDetail("");
+      setDirectInput(null);
+      toast.success("계산내역에 반영했습니다. 예약 저장 시 함께 저장됩니다.");
     } catch (error) { toast.error(error instanceof Error ? error.message : "내용을 확인해 주세요."); }
   }
   const [creatorId, setCreatorId] = useState<string | null>(null);
@@ -256,6 +279,10 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
     const salesError = canBill ? saleValidation(payment.sales) : null;
     if (salesError) { toast.error(salesError); return; }
     if (canBill && id && (paymentQuery.isPending || paymentQuery.error)) { toast.error("계산 내역을 불러온 뒤 저장해 주세요."); return; }
+    if (canBill && directInput !== null && directInput.trim() !== selectedDescription.trim()) {
+      toast.error("직접 입력 내용을 등록·수정하거나 삭제한 뒤 예약을 저장해 주세요.");
+      return;
+    }
     const parsed = schema.safeParse({ ...f, service: serviceValue });
     if (!parsed.success) { toast.error(parsed.error.issues[0]?.message ?? "입력값을 확인해 주세요"); return; }
     const start = new Date(`${f.date}T${f.start}`);
@@ -438,15 +465,17 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
             </select>
           </div>
           <div className="space-y-2"><Label htmlFor="direct-service-entry">시술명 직접 입력</Label>
-            <div className="flex flex-wrap items-center gap-2"><Input id="direct-service-entry" className="min-w-[120px] flex-1" aria-label="시술명 직접 입력" maxLength={200} value={serviceDetail} onChange={(e) => setServiceDetail(e.target.value)} />
+            <div className="flex flex-wrap items-center gap-2"><Input id="direct-service-entry" className="min-w-[120px] flex-1" aria-label="시술명 직접 입력" maxLength={canBill ? 300 : 200} disabled={canBill && directActionsDisabled} value={canBill ? directInput ?? selectedDescription : serviceDetail} onChange={(e) => canBill ? setDirectInput(e.target.value) : setServiceDetail(e.target.value)} />
               {canBill && <div className="flex flex-wrap gap-1">
                 <Button type="button" size="sm" variant={detailKind === "service" ? "default" : "outline"} aria-pressed={detailKind === "service"} disabled={busy} onClick={() => setDetailKind("service")}>시술</Button>
                 <Button type="button" size="sm" variant={detailKind === "care" ? "default" : "outline"} aria-pressed={detailKind === "care"} disabled={busy} onClick={() => setDetailKind("care")}>관리</Button>
                 <Button type="button" size="sm" variant={detailKind === "art" ? "default" : "outline"} aria-pressed={detailKind === "art"} disabled={busy} onClick={() => setDetailKind("art")}>아트</Button>
-                <Button type="button" size="sm" disabled={busy || (!!id && (paymentQuery.isPending || !!paymentQuery.error))} onClick={registerDirectEntry}>등록</Button>
+                <Button type="button" size="sm" disabled={directActionsDisabled} onClick={() => applyDirectEntry("add")}>등록</Button>
+                <Button type="button" size="sm" variant="outline" disabled={directActionsDisabled || !selectedDescription.trim()} onClick={() => applyDirectEntry("edit")}>수정</Button>
+                <Button type="button" size="sm" variant="outline" disabled={directActionsDisabled || !selectedDescription.trim()} onClick={() => applyDirectEntry("delete")}>삭제</Button>
               </div>}
             </div>
-            {canBill && <p className="text-xs text-muted-foreground">시술·관리·아트 중 하나를 선택하고 등록하면 아래 계산내역의 해당 내용에 추가됩니다.</p>}
+            {canBill && <p className="text-xs text-muted-foreground">등록은 내용을 추가하고, 수정·삭제는 선택한 항목의 내용을 바꿉니다. 변경사항은 예약을 저장하면 반영됩니다.</p>}
           </div>
           <div className="space-y-2">
             <Label>섹션 (공간)</Label>
@@ -491,7 +520,7 @@ export function ReservationEditor({ search: initialSearch, onSaved, onClose, sho
           <div className="space-y-2 sm:col-span-2"><Label>메모</Label><Textarea value={f.memo} onChange={set("memo")} /></div>
           {canBill && <div ref={paymentSection} className="min-w-0 sm:col-span-2">
             {paymentQuery.error && <p role="alert" className="text-sm text-destructive">기존 계산 내역을 불러오지 못했습니다.</p>}
-            <PaymentFields value={payment} onChange={setPaymentOverride} disabled={busy || (!!id && paymentQuery.isPending)} />
+            <PaymentFields value={payment} onChange={changePayment} disabled={directActionsDisabled} />
           </div>}
           <div className="flex gap-2 sm:col-span-2">
             <Button type="submit" disabled={busy || !me || (!customerId&&blockedKey===identityKey) || (needsConfirmation&&(!confirmationReady||confirmedKey!==identityKey)) || (canBill && !!id && (paymentQuery.isPending || !!paymentQuery.error))} className="h-11 flex-1 sm:flex-none sm:px-8">{needsConfirmation ? "동명이인 등록 및 예약 저장" : id ? "수정 저장" : "예약 등록"}</Button>
