@@ -34,7 +34,7 @@ describe("payment amount input",()=>{
  });
  it("retains a 1.6 million payment split as numeric JSON in the real payment form",()=>{
   render(<PaymentForm/>);
-  for(const [label,value] of [["시술 비용(원)","1,600,000"],["시술 카드(원)","1,000,000"],["시술 계좌(원)","600,000"]] as const){
+  for(const [label,value] of [["시술 수납(원)","1,600,000"],["시술 카드(원)","1,000,000"],["시술 계좌(원)","600,000"]] as const){
    const input=screen.getByRole("textbox",{name:label});fireEvent.focus(input);fireEvent.change(input,{target:{value}});fireEvent.blur(input);
   }
   fireEvent.click(screen.getByRole("button",{name:"저장 시험"}));

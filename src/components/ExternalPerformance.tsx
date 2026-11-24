@@ -47,7 +47,7 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
     {report.data === null && <p>연결된 정산 경로가 없습니다. 관리자에게 문의해 주세요.</p>}
     {report.data && <>
       <p className="text-sm text-muted-foreground">{period.from} ~ {period.to} · 결제일 기준</p>
-      <p className="font-semibold">매출 합계 (비용 기준) {won(entries.reduce((sum, row) => sum + Number(row.cost ?? 0), 0))}원</p>
+      <p className="font-semibold">매출 합계 (수납(원) 기준) {won(entries.reduce((sum, row) => sum + Number(row.cost ?? 0), 0))}원</p>
       <p className="text-sm">수납 합계 {amounts.map(([key, unit]) => [entries.reduce((sum, row) => sum + row[key], 0), unit] as const).filter(([amount, unit]) => amount || unit === "원").map(([amount, unit]) => `${won(amount)}${unit}`).join(" · ")}</p>
       {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" previewStaff={staffId} hideTotal readOnly /> : <>
       <div className="overflow-x-auto"><table className="w-full min-w-[440px] text-sm">

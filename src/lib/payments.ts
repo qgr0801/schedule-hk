@@ -3,7 +3,7 @@ import { format } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import type { Database } from "@/integrations/supabase/types";
 
-export const MONEY_COLUMNS = [["cost", "비용(원)"], ["card", "카드(원)"], ["bank", "계좌(원)"], ["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위엔"]] as const;
+export const MONEY_COLUMNS = [["cost", "수납(원)"], ["card", "카드(원)"], ["bank", "계좌(원)"], ["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위엔"]] as const;
 export const PAYMENT_KINDS = [["service", "시술"], ["care", "관리"], ["art", "아트"], ["product", "제품"]] as const;
 export type MoneyKey = typeof MONEY_COLUMNS[number][0];
 export type PaymentLine = { kind: string; description?: string } & Record<MoneyKey, number>;
