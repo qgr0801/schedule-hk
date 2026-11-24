@@ -5,6 +5,7 @@ import { ko } from "date-fns/locale";
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { PageHeader, Panel, StatusBadge } from "@/components/PageHeader";
+import { ExternalPerformance } from "@/components/ExternalPerformance";
 import { ReservationDialog } from "@/components/ReservationDialog";
 import { meQuery, type Reservation } from "@/lib/app";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ export const Route = createFileRoute("/_authenticated/my-reservations")({
 function MyReservations() {
   const { data: me } = useQuery(meQuery);
   const [tab, setTab] = useState<"upcoming" | "past" | "cancelled">("upcoming");
+  const [view, setView] = useState<"reservations" | "performance">("reservations");
   const [sel, setSel] = useState<Reservation | null>(null);
   const { data } = useQuery({
     queryKey: ["reservations", "mine", me?.id],
@@ -36,6 +38,11 @@ function MyReservations() {
   return (
     <div>
       <PageHeader title="내 예약" desc="내가 등록한 예약만 표시됩니다. 취소된 예약도 이력과 함께 보관됩니다." />
+      {me?.role === "external" && <div className="mb-4 flex gap-2">
+        <button type="button" aria-pressed={view === "reservations"} className="rounded-md border px-4 py-2 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground" onClick={() => setView("reservations")}>예약 목록</button>
+        <button type="button" aria-pressed={view === "performance"} className="rounded-md border px-4 py-2 text-sm aria-pressed:bg-primary aria-pressed:text-primary-foreground" onClick={() => setView("performance")}>내 성과</button>
+      </div>}
+      {view === "performance" && me?.role === "external" ? <Panel><ExternalPerformance staffId={me.id} /></Panel> : <>
       <div className="mb-4 flex gap-1 rounded-lg bg-background p-1 shadow-card sm:w-fit">
         {([["upcoming", "예정"], ["past", "지난 예약"], ["cancelled", "취소"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={cn("flex-1 rounded-md px-4 py-2 text-sm", tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{l}</button>
@@ -55,6 +62,7 @@ function MyReservations() {
           ))}
         </ul>
       </Panel>
+      </>}
       <ReservationDialog res={sel} onClose={() => setSel(null)} />
     </div>
   );

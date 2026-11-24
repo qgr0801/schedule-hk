@@ -33,6 +33,13 @@ export type Database = {
         Relationships: []
       }
 
+      external_performance_routes: {
+        Row: { staff_id: string; route_id: string }
+        Insert: { staff_id: string; route_id: string }
+        Update: { route_id?: string }
+        Relationships: []
+      }
+
       booking_routes: {
         Row: { id: string; name: string; is_active: boolean; created_at: string }
         Insert: { id?: string; name: string; is_active?: boolean; created_at?: string }
@@ -771,6 +778,7 @@ export type Database = {
       save_booking_route: { Args: { _id: string; _name: string; _active?: boolean }; Returns: string }
       payment_summary_v2: { Args: { _customer?: string; _from?: string; _to?: string; _product_only?: boolean }; Returns: { kind: string; cost: number; card: number; bank: number; krw: number; jpy: number; usd: number; cny: number }[] }
       booking_activity_report: { Args: { _from: string; _to: string; _route?: string; _staff?: string; _customer?: string; _offset?: number }; Returns: { reservation_id: string; start_at: string; customer_name: string; staff_name: string; route_name: string; service_content: string; care_content: string; paid_on: string | null; payment_rows: Json; payment_memo: string; status: string }[] }
+      my_external_performance: { Args: { _from: string; _to: string }; Returns: Json }
       admin_sales_entries: {
         Args: { _from: string; _to: string; _scope: "category" | "settlement" | "performance"; _kind?: "service" | "care" | "art"; _route?: string; _unassigned?: boolean; _category?: string; _offset?: number };
         Returns: { entry_id: string; reservation_id: string | null; paid_on: string; customer_name: string; category: string; route_name: string; service_content: string; care_content: string; payment_rows: Json; payment_memo: string }[];
