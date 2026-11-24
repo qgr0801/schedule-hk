@@ -50,12 +50,13 @@ function MyReservations() {
   const [view, setView] = useState<"reservations" | "performance">("reservations");
   const [sel, setSel] = useState<Reservation | null>(null);
   const { data, isPending, error } = useQuery({
-    queryKey: ["reservations", "mine", me?.id, owner, routeFilter],
-    enabled: !!me,
+    queryKey: ["reservations", "mine", me?.id, owner, routeFilter, linkedRoute],
+    enabled: !!me && (!preview || links.isSuccess),
     queryFn: async () => {
       const query = supabase.from("reservations").select("*");
       const { data, error } = await (routeFilter
         ? query.eq("booking_route_id", routeFilter)
+        : linkedRoute ? query.or(`created_by.eq.${owner},booking_route_id.eq.${linkedRoute}`)
         : query.eq("created_by", owner!)).order("start_at", { ascending: false });
       if (error) throw error;
       return data;
@@ -79,7 +80,7 @@ function MyReservations() {
         </label>
         <BookingRouteManager />
         <label className="grid gap-1 text-sm">외부 직원 화면 미리보기
-          <select value={previewId} onChange={e => { setPreviewId(e.target.value); setView("reservations"); setSel(null); }} className="h-9 rounded-md border bg-background px-3">
+          <select value={previewId} onChange={e => { setPreviewId(e.target.value); setView(e.target.value ? "performance" : "reservations"); setSel(null); }} className="h-9 rounded-md border bg-background px-3">
             <option value="">선택 안 함</option>
             {staff?.filter(person => person.is_active && external.data?.some(role => role.user_id === person.id)).map(person =>
               <option key={person.id} value={person.id}>{person.full_name}</option>)}
@@ -101,8 +102,8 @@ function MyReservations() {
         ))}
       </div>
       <Panel className="p-0">
-        {error && <p role="alert" className="p-6 text-sm">예약을 불러오지 못했습니다.</p>}
-        {isPending && <p role="status" className="p-6 text-sm">예약을 불러오는 중입니다.</p>}
+        {(error || (preview && links.error)) && <p role="alert" className="p-6 text-sm">예약을 불러오지 못했습니다.</p>}
+        {isPending && !(preview && links.error) && <p role="status" className="p-6 text-sm">예약을 불러오는 중입니다.</p>}
         {!error && !isPending && list.length === 0 && <p className="p-6 text-sm text-muted-foreground">예약이 없습니다.</p>}
         <ul className="divide-y">
           {list.map((r) => (
