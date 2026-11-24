@@ -53,11 +53,11 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
       </p>
       {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" previewStaff={staffId} hideTotal readOnly /> : <>
       <div className="overflow-x-auto"><table className="w-full min-w-[440px] text-sm">
-        <thead className="bg-muted"><tr>{["결제일", "구분", "내용", "수납 방법"].map(title => <th key={title} scope="col" className="p-2 text-left">{title}</th>)}</tr></thead>
+        <thead className="bg-muted"><tr>{["결제일", "구분", "내용", "수납 방법"].map(title => <th key={title} scope="col" className={title==="수납 방법"||title.endsWith("(원)")?"p-2 text-right":"p-2 text-left"}>{title}</th>)}</tr></thead>
         <tbody>{entries.map((row, index) => <tr key={index} className="border-b">
           <td className="whitespace-nowrap p-2">{row.paid_on}</td><td className="p-2">{label(row.kind)}</td>
           <td className="whitespace-pre-wrap p-2">{row.description || "—"}</td>
-          <td className="p-2">{amounts.filter(([key]) => row[key]).map(([key, unit]) => `${key === "bank" || key === "bank_jpy" ? "계좌 " : ""}${won(row[key])}${unit}`).join(" · ") || "—"}</td>
+          <td className="p-2 text-right tabular-nums">{amounts.filter(([key]) => row[key]).map(([key, unit]) => `${key === "bank" || key === "bank_jpy" ? "계좌 " : ""}${won(row[key])}${unit}`).join(" · ") || "—"}</td>
         </tr>)}</tbody>
       </table></div>
       {!entries.length && <p className="text-sm">조회 기간에 실적이 없습니다.</p>}
@@ -65,9 +65,9 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
       <h3 className="font-semibold">정산 내역</h3>
       <p className="text-sm text-muted-foreground">관리자가 같은 시작일·종료일로 저장한 정산이 표시됩니다.</p>
       {settlements.length ? <table className="w-full text-sm">
-        <thead className="bg-muted"><tr>{["구분", "정산(원)", "정산완료(원)"].map(title => <th key={title} scope="col" className="p-2 text-left">{title}</th>)}</tr></thead>
-        <tbody>{settlements.map(row => <tr key={row.kind} className="border-b"><td className="p-2">{label(row.kind)}</td><td className="p-2">{won(row.amount)}</td><td className="p-2">{won(row.completed_amount)}</td></tr>)}</tbody>
-        <tfoot><tr className="bg-muted font-semibold"><th scope="row" className="p-2 text-left">정산 합계</th><td className="p-2">{won(settlements.reduce((sum, row) => sum + row.amount, 0))}</td><td className="p-2">{won(settlements.reduce((sum, row) => sum + row.completed_amount, 0))}</td></tr></tfoot>
+        <thead className="bg-muted"><tr>{["구분", "정산(원)", "정산완료(원)"].map(title => <th key={title} scope="col" className={title==="수납 방법"||title.endsWith("(원)")?"p-2 text-right":"p-2 text-left"}>{title}</th>)}</tr></thead>
+        <tbody>{settlements.map(row => <tr key={row.kind} className="border-b"><td className="p-2">{label(row.kind)}</td><td className="p-2 text-right tabular-nums">{won(row.amount)}</td><td className="p-2 text-right tabular-nums">{won(row.completed_amount)}</td></tr>)}</tbody>
+        <tfoot><tr className="bg-muted font-semibold"><th scope="row" className="p-2 text-left">정산 합계</th><td className="p-2 text-right tabular-nums">{won(settlements.reduce((sum, row) => sum + row.amount, 0))}</td><td className="p-2 text-right tabular-nums">{won(settlements.reduce((sum, row) => sum + row.completed_amount, 0))}</td></tr></tfoot>
       </table> : <p className="text-sm">이 기간에 등록된 정산이 없습니다.</p>}
     </>}
   </section>;
