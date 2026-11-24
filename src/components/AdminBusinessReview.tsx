@@ -134,12 +134,15 @@ function RouteCollections({period,grouping,route,onRouteChange,routeOptions,cate
   (!category && !!row.record_id)
  );
  const amountKeys=category?(["cost","collected"] as const):(["cost","collected","amount","completed"] as const);
- const totals=(items:SettlementReview[],key:"cost"|"collected"|"amount"|"completed"|"jpy"|"usd"|"cny")=>won(items.reduce((sum,row)=>sum+Number(row[key]??0),0));
+ const totals=(items:SettlementReview[],key:"bank"|"bank_jpy"|"cost"|"collected"|"amount"|"completed"|"jpy"|"usd"|"cny")=>won(items.reduce((sum,row)=>sum+Number(row[key]??0),0));
  const orderedRows=[...rows].sort((a,b)=>grouping==="route"?a.route_name.localeCompare(b.route_name,"ko"):Number(b.kind===grouping)-Number(a.kind===grouping)||a.route_name.localeCompare(b.route_name,"ko"));
  return <section className="space-y-3">
   <div className="flex flex-wrap items-center justify-between gap-2">
    <h3 className="text-lg font-semibold">매출·정산</h3>
-   {report.data && <p className="ml-auto text-right font-semibold">매출 합계 (수납(원) 기준) {totals(rows,"cost")}원</p>}
+   {report.data && <div className="ml-auto text-right">
+     <p className="font-semibold">매출 합계 (수납(원) 기준) {totals(rows,"cost")}원</p>
+     <p className="text-sm">계좌 수납 {totals(rows,"bank")}원{rows.some(row => Number(row.bank_jpy)) && ` · ${totals(rows,"bank_jpy")}엔`}</p>
+   </div>}
   </div>
   <SalesFilters includeArt {...{grouping,kind,setKind,route,onRouteChange,routeOptions}}/>
   <SalesEntries key={JSON.stringify([period,kind,route,category])} period={period} scope="settlement" route={route} category={category} kind={kind}/>
