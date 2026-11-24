@@ -1,3 +1,4 @@
+import { SalesEntries } from "@/components/AdminBusinessReview";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +14,7 @@ type Report = {
 const amounts = [["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위안"]] as const;
 const label = (kind: string) => PAYMENT_KINDS.find(([key]) => key === kind)?.[1];
 
-export function ExternalPerformance({ staffId, preview = false, routeOnly = false }: { staffId: string; preview?: boolean; routeOnly?: boolean }) {
+export function ExternalPerformance({ staffId, preview = false, routeOnly = false, detailRoute }: { staffId: string; preview?: boolean; routeOnly?: boolean; detailRoute?: string | undefined }) {
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", dateStyle: "short" }).format(new Date());
   const [from, setFrom] = useState(today.slice(0, 8) + "01");
   const [to, setTo] = useState(today);
@@ -47,6 +48,7 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
     {report.data && <>
       <p className="text-sm text-muted-foreground">{period.from} ~ {period.to} · 결제일 기준</p>
       <p className="font-semibold">수납 합계 {amounts.map(([key, unit]) => [entries.reduce((sum, row) => sum + row[key], 0), unit] as const).filter(([amount, unit]) => amount || unit === "원").map(([amount, unit]) => `${won(amount)}${unit}`).join(" · ")}</p>
+      {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" route={detailRoute} hideTotal readOnly /> : <>
       <div className="overflow-x-auto"><table className="w-full min-w-[440px] text-sm">
         <thead className="bg-muted"><tr>{["결제일", "구분", "내용", "수납"].map(title => <th key={title} scope="col" className="p-2 text-left">{title}</th>)}</tr></thead>
         <tbody>{entries.map((row, index) => <tr key={index} className="border-b">
@@ -56,6 +58,7 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
         </tr>)}</tbody>
       </table></div>
       {!entries.length && <p className="text-sm">조회 기간에 실적이 없습니다.</p>}
+      </>}
       <h3 className="font-semibold">정산 내역</h3>
       <p className="text-sm text-muted-foreground">관리자가 같은 시작일·종료일로 저장한 정산이 표시됩니다.</p>
       {settlements.length ? <table className="w-full text-sm">

@@ -202,8 +202,8 @@ export function PerformanceReview() {
  </section>;
 }
 
-function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false}:{
- period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;hideTotal?:boolean;
+export function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false,readOnly=false}:{
+ period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;hideTotal?:boolean;readOnly?:boolean;
 }) {
  const [page,setPage]=useState(0);
  const entries=useQuery({queryKey:["admin-sales-entries",period,scope,hideTotal,route,category,kind,page],queryFn:async()=>{
@@ -228,7 +228,7 @@ function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false
     return <tr key={entry.entry_id} className="border-b align-top">
      {scope==="settlement"&&<td className="p-2 text-center tabular-nums">{page*30+index+1}</td>}
      <td className="whitespace-nowrap p-2">{entry.paid_on}</td>
-     <td className="p-2">{entry.reservation_id?<Link className="underline" to="/reservations/new" search={{id:entry.reservation_id}}>{entry.customer_name}</Link>:entry.customer_name}</td>
+     <td className="p-2">{entry.reservation_id&&!readOnly?<Link className="underline" to="/reservations/new" search={{id:entry.reservation_id}}>{entry.customer_name}</Link>:entry.customer_name}</td>
      {scope==="category"&&<td className="p-2">{entry.category}</td>}<td className="p-2">{entry.route_name}</td>
      <td className="whitespace-pre-wrap p-2">{((!kind||kind==="service")&&entry.service_content)||"—"}</td>
      <td className="whitespace-pre-wrap p-2">{((!kind||kind==="care")&&entry.care_content)||"—"}</td>
