@@ -8,10 +8,10 @@ import { PAYMENT_KINDS } from "@/lib/payments";
 import { won } from "@/lib/admin-review";
 
 type Report = {
-  entries: { paid_on: string; kind: string; description: string | null; cost: number; krw: number; jpy: number; usd: number; cny: number }[];
+  entries: { paid_on: string; kind: string; description: string | null; cost: number; bank: number; bank_jpy: number; krw: number; jpy: number; usd: number; cny: number }[];
   settlements: { kind: string; amount: number; completed_amount: number }[];
 };
-const amounts = [["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위안"]] as const;
+const amounts = [["bank", "원"], ["bank_jpy", "엔"], ["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위안"]] as const;
 const label = (kind: string) => PAYMENT_KINDS.find(([key]) => key === kind)?.[1];
 
 export function ExternalPerformance({ staffId, preview = false, routeOnly = false, detailRoute }: { staffId: string; preview?: boolean; routeOnly?: boolean; detailRoute?: string | undefined }) {
@@ -48,14 +48,16 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
     {report.data && <>
       <p className="text-sm text-muted-foreground">{period.from} ~ {period.to} · 결제일 기준</p>
       <p className="font-semibold">매출 합계 (수납(원) 기준) {won(entries.reduce((sum, row) => sum + Number(row.cost ?? 0), 0))}원</p>
-      <p className="text-sm">수납 방법별 금액 {amounts.map(([key, unit]) => [entries.reduce((sum, row) => sum + row[key], 0), unit] as const).filter(([amount, unit]) => amount || unit === "원").map(([amount, unit]) => `${won(amount)}${unit}`).join(" · ")}</p>
+      <p className="text-sm">계좌 수납 {won(entries.reduce((sum, row) => sum + Number(row.bank ?? 0), 0))}원
+        {entries.some(row => row.bank_jpy) && ` · ${won(entries.reduce((sum, row) => sum + Number(row.bank_jpy ?? 0), 0))}엔`}
+      </p>
       {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" previewStaff={staffId} hideTotal readOnly /> : <>
       <div className="overflow-x-auto"><table className="w-full min-w-[440px] text-sm">
         <thead className="bg-muted"><tr>{["결제일", "구분", "내용", "수납 방법"].map(title => <th key={title} scope="col" className="p-2 text-left">{title}</th>)}</tr></thead>
         <tbody>{entries.map((row, index) => <tr key={index} className="border-b">
           <td className="whitespace-nowrap p-2">{row.paid_on}</td><td className="p-2">{label(row.kind)}</td>
           <td className="whitespace-pre-wrap p-2">{row.description || "—"}</td>
-          <td className="p-2">{amounts.filter(([key]) => row[key]).map(([key, unit]) => `${won(row[key])}${unit}`).join(" · ") || "—"}</td>
+          <td className="p-2">{amounts.filter(([key]) => row[key]).map(([key, unit]) => `${key === "bank" || key === "bank_jpy" ? "계좌 " : ""}${won(row[key])}${unit}`).join(" · ") || "—"}</td>
         </tr>)}</tbody>
       </table></div>
       {!entries.length && <p className="text-sm">조회 기간에 실적이 없습니다.</p>}

@@ -69,8 +69,8 @@ export function PaymentHistory({ customerId, reservationId, global = false }: { 
       <h4 className="mb-2 text-sm font-semibold">{me?.role === "internal" ? "제품판매 합계" : customerId && period === "all" ? "고객 누적 합계" : "조회 기간 총 수납 합계"} · 통화별</h4>
       {summary.error && <p role="alert">합계를 불러오지 못했습니다.</p>}
       {summary.isPending && <p>합계를 불러오는 중입니다.</p>}
-      <table className="w-full min-w-[520px] text-sm"><thead><tr><th className="text-left">내용</th>{MONEY_COLUMNS.map(([k, label]) => <th key={k} className="text-right">{label}</th>)}</tr></thead>
-        <tbody>{(me?.role === "admin" ? [...PAYMENT_KINDS, ["total", "합계"] as const] : [["product", "제품판매 합계"] as const]).map(([kind, label]) => <tr key={kind}><th className="text-left">{label}</th>{MONEY_COLUMNS.map(([k]) => <td key={k} className="text-right">{Number(summary.data?.find((r) => r.kind === kind)?.[k] ?? 0).toLocaleString("ko-KR")}</td>)}</tr>)}</tbody>
+      <table className="w-full min-w-[520px] text-sm"><thead><tr><th className="text-left">내용</th>{MONEY_COLUMNS.filter(([key]) => key !== "bank_jpy").map(([k, label]) => <th key={k} className="text-right">{label}</th>)}</tr></thead>
+        <tbody>{(me?.role === "admin" ? [...PAYMENT_KINDS, ["total", "합계"] as const] : [["product", "제품판매 합계"] as const]).map(([kind, label]) => <tr key={kind}><th className="text-left">{label}</th>{MONEY_COLUMNS.filter(([key]) => key !== "bank_jpy").map(([k]) => <td key={k} className="text-right">{Number((k === "bank_jpy" ? 0 : summary.data?.find((r) => r.kind === kind)?.[k]) ?? 0).toLocaleString("ko-KR")}</td>)}</tr>)}</tbody>
       </table>
     </div>}
     {entries.isPending && <p>계산 내역을 불러오는 중입니다.</p>}

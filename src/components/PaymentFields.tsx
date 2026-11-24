@@ -1,4 +1,4 @@
-import { useRef } from "react";
+import { useState, useRef } from "react";
 import { MoneyInput } from "@/components/MoneyInput";
 import { useQuery } from "@tanstack/react-query";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,11 @@ import { MONEY_COLUMNS, PAYMENT_KINDS, productsQuery, type PaymentDraft } from "
 
 export function PaymentFields({ value, onChange, disabled }: { value: PaymentDraft; onChange?: (v: PaymentDraft) => void; disabled?: boolean }) {
   const readonly = !onChange;
+  const [bankCurrency, setBankCurrency] = useState<"bank" | "bank_jpy">(
+    value.rows.some(row => row.bank_jpy) ? "bank_jpy" : "bank",
+  );
+  const columns = MONEY_COLUMNS.filter(([key]) => readonly ||
+    (key !== "bank" && key !== "bank_jpy") || key === bankCurrency);
   const descriptions = useRef<Partial<Record<"service" | "care" | "art", HTMLInputElement | null>>>({});
   const quantities = useRef<(HTMLInputElement | null)[]>([]);
   function updateDescription(kind: "service" | "care" | "art", description: string) {
@@ -54,9 +59,16 @@ export function PaymentFields({ value, onChange, disabled }: { value: PaymentDra
               <th rowSpan={2} scope="col" className="w-14 whitespace-nowrap p-2 text-left">구분</th>
               <th rowSpan={2} scope="col" className="min-w-[270px] p-2 text-left">내용</th>
               <th rowSpan={2} scope="col" className="p-2 text-right">{MONEY_COLUMNS[0][1]}</th>
-              <th colSpan={MONEY_COLUMNS.length - 1} className="border-l p-2 text-left">수납 방법</th>
+              <th colSpan={columns.length - 1} className="border-l p-2 text-left">수납 방법</th>
             </tr>
-            <tr>{MONEY_COLUMNS.slice(1).map(([key, label]) => <th key={key} scope="col" className="p-2 text-right">{label}</th>)}</tr>
+            <tr>{columns.slice(1).map(([key, label]) => <th key={key} scope="col" className="p-2 text-right">
+              {!readonly && key === bankCurrency ? <div className="flex items-center justify-end gap-1 whitespace-nowrap">
+                <span>계좌</span>
+                {([["bank", "원"], ["bank_jpy", "엔"]] as const).map(([currency, unit]) =>
+                  <Button key={currency} type="button" size="sm" variant={currency === bankCurrency ? "default" : "outline"}
+                    aria-pressed={currency === bankCurrency} aria-label={`계좌 통화 ${unit}`} onClick={() => setBankCurrency(currency)}>{unit}</Button>)}
+              </div> : label}
+            </th>)}</tr>
           </thead>
           <tbody>{PAYMENT_KINDS.map(([kind, label]) => {
             const row = value.rows.find((r) => r.kind === kind)!;
@@ -66,8 +78,8 @@ export function PaymentFields({ value, onChange, disabled }: { value: PaymentDra
                 <Button type="button" size="sm" variant="outline" aria-label={`${label} 내용 수정`} disabled={disabled} onClick={() => focusField(descriptions.current[kind])}>수정</Button>
                 <Button type="button" size="sm" variant="outline" aria-label={`${label} 내용 삭제`} disabled={disabled || !row.description} onClick={() => updateDescription(kind, "")}>삭제</Button>
               </div>
-            </div>}</td>{MONEY_COLUMNS.map(([key, title]) => <td key={key} className="min-w-[156px] p-1 text-right">
-              {readonly ? row[key].toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : <MoneyInput aria-label={`${label} ${title}`} disabled={!!disabled} value={row[key]} onValueChange={(amount) => onChange?.({ ...value, rows: value.rows.map((r) => r.kind === kind ? { ...r, [key]: amount } : r) })} />}
+            </div>}</td>{columns.map(([key, title]) => <td key={key} className="min-w-[156px] p-1 text-right">
+              {readonly ? (row[key] ?? 0).toLocaleString("ko-KR", { maximumFractionDigits: 2 }) : <MoneyInput aria-label={`${label} ${title}`} disabled={!!disabled} value={row[key] ?? 0} onValueChange={(amount) => onChange?.({ ...value, rows: value.rows.map((r) => r.kind === kind ? { ...r, [key]: amount } : r) })} />}
             </td>)}</tr>;
           })}</tbody>
         </table>
