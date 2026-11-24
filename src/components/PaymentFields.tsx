@@ -49,7 +49,15 @@ export function PaymentFields({ value, onChange, disabled }: { value: PaymentDra
       <label className="block space-y-1 text-sm">결제일<Input aria-label="결제일" type="date" value={value.paid_on} disabled={disabled || readonly} onChange={(e) => onChange?.({ ...value, paid_on: e.target.value })} /></label>
       <div className="overflow-x-auto">
         <table className="w-full min-w-[900px] text-sm">
-          <thead><tr className="bg-muted"><th className="w-14 whitespace-nowrap p-2 text-left">구분</th><th className="min-w-[270px] p-2 text-left">내용</th>{MONEY_COLUMNS.map(([key, label]) => <th key={key} className="p-2 text-right">{label}</th>)}</tr></thead>
+          <thead className="bg-muted">
+            <tr>
+              <th rowSpan={2} scope="col" className="w-14 whitespace-nowrap p-2 text-left">구분</th>
+              <th rowSpan={2} scope="col" className="min-w-[270px] p-2 text-left">내용</th>
+              <th rowSpan={2} scope="col" className="p-2 text-right">{MONEY_COLUMNS[0][1]}</th>
+              <th colSpan={MONEY_COLUMNS.length - 1} className="border-l p-2 text-left">수납 방법</th>
+            </tr>
+            <tr>{MONEY_COLUMNS.slice(1).map(([key, label]) => <th key={key} scope="col" className="p-2 text-right">{label}</th>)}</tr>
+          </thead>
           <tbody>{PAYMENT_KINDS.map(([kind, label]) => {
             const row = value.rows.find((r) => r.kind === kind)!;
             return <tr key={kind} className="border-b"><th className="whitespace-nowrap p-2 text-left">{label}</th><td className="p-1">{readonly ? <div className="whitespace-pre-wrap">{row.description || (kind !== "product" || !value.sales.length ? "-" : "")}{kind === "product" && value.sales.map((sale) => <p key={sale.product_id}>{sale.name ?? "제품"} · {sale.quantity} · 단가 {Number(sale.unit_price ?? 0).toLocaleString("ko-KR")}원</p>)}</div> : kind === "product" ? productInputs : <div className="space-y-1">
