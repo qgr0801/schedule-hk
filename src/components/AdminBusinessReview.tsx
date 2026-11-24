@@ -202,14 +202,14 @@ export function PerformanceReview() {
  </section>;
 }
 
-export function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false,readOnly=false}:{
- period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;hideTotal?:boolean;readOnly?:boolean;
+export function SalesEntries({period,scope,route="",category="",kind="",hideTotal=false,readOnly=false,previewStaff}:{
+ period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;hideTotal?:boolean;readOnly?:boolean;previewStaff?:string;
 }) {
  const [page,setPage]=useState(0);
- const entries=useQuery({queryKey:["admin-sales-entries",period,scope,hideTotal,route,category,kind,page],queryFn:async()=>{
+ const entries=useQuery({queryKey:["admin-sales-entries",period,scope,hideTotal,route,category,kind,page,previewStaff],queryFn:async()=>{
   const {data,error}=await supabase.rpc("admin_sales_entries",{
    _from:period.from,_to:period.to,_scope:hideTotal?"performance":scope,_offset:page*30,
-   ...routeArgs(route),
+   ...(previewStaff ? {_preview_staff:previewStaff} : routeArgs(route)),
    ...(category?{_category:category}:{}),
    ...(kind==="service"||kind==="care"||(scope==="settlement"&&kind==="art")?{_kind:kind}:{}),
   });

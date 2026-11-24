@@ -48,7 +48,7 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
     {report.data && <>
       <p className="text-sm text-muted-foreground">{period.from} ~ {period.to} · 결제일 기준</p>
       <p className="font-semibold">수납 합계 {amounts.map(([key, unit]) => [entries.reduce((sum, row) => sum + row[key], 0), unit] as const).filter(([amount, unit]) => amount || unit === "원").map(([amount, unit]) => `${won(amount)}${unit}`).join(" · ")}</p>
-      {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" route={detailRoute} hideTotal readOnly /> : <>
+      {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" previewStaff={staffId} hideTotal readOnly /> : <>
       <div className="overflow-x-auto"><table className="w-full min-w-[440px] text-sm">
         <thead className="bg-muted"><tr>{["결제일", "구분", "내용", "수납"].map(title => <th key={title} scope="col" className="p-2 text-left">{title}</th>)}</tr></thead>
         <tbody>{entries.map((row, index) => <tr key={index} className="border-b">

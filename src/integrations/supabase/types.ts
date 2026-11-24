@@ -781,7 +781,7 @@ export type Database = {
       external_performance_for_staff: { Args: { _from: string; _to: string; _staff: string; _route_only?: boolean }; Returns: Json }
       my_external_performance: { Args: { _from: string; _to: string }; Returns: Json }
       admin_sales_entries: {
-        Args: { _from: string; _to: string; _scope: "category" | "settlement" | "performance"; _kind?: "service" | "care" | "art"; _route?: string; _unassigned?: boolean; _category?: string; _offset?: number };
+        Args: { _from: string; _to: string; _scope: "category" | "settlement" | "performance"; _preview_staff?: string; _kind?: "service" | "care" | "art"; _route?: string; _unassigned?: boolean; _category?: string; _offset?: number };
         Returns: { entry_id: string; reservation_id: string | null; paid_on: string; customer_name: string; category: string; route_name: string; service_content: string; care_content: string; payment_rows: Json; payment_memo: string }[];
       }
       booking_activity_report_by_kind: { Args: { _from: string; _to: string; _kind?: "service" | "care"; _route?: string; _unassigned?: boolean; _offset?: number; _staff?: string; _customer?: string }; Returns: { reservation_id: string; start_at: string; customer_name: string; staff_name: string; route_name: string; service_content: string; care_content: string; paid_on: string | null; payment_rows: Json; payment_memo: string; status: string }[] }
