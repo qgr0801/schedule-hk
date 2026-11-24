@@ -13,15 +13,18 @@ type Report = {
 const amounts = [["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위안"]] as const;
 const label = (kind: string) => PAYMENT_KINDS.find(([key]) => key === kind)?.[1];
 
-export function ExternalPerformance({ staffId }: { staffId: string }) {
+export function ExternalPerformance({ staffId, preview = false }: { staffId: string; preview?: boolean }) {
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", dateStyle: "short" }).format(new Date());
   const [from, setFrom] = useState(today.slice(0, 8) + "01");
   const [to, setTo] = useState(today);
   const [period, setPeriod] = useState({ from, to });
   const report = useQuery({
-    queryKey: ["my-external-performance", staffId, period],
+    queryKey: ["my-external-performance", staffId, period, preview],
     queryFn: async () => {
-      const { data, error } = await supabase.rpc("my_external_performance", { _from: period.from, _to: period.to });
+      const args = { _from: period.from, _to: period.to };
+      const { data, error } = preview
+        ? await supabase.rpc("external_performance_for_staff", { ...args, _staff: staffId })
+        : await supabase.rpc("my_external_performance", args);
       if (error) throw error;
       return data as Report | null;
     },
