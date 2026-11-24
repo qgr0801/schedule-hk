@@ -8,7 +8,7 @@ import { PAYMENT_KINDS } from "@/lib/payments";
 import { won } from "@/lib/admin-review";
 
 type Report = {
-  entries: { paid_on: string; kind: string; description: string | null; krw: number; jpy: number; usd: number; cny: number }[];
+  entries: { paid_on: string; kind: string; description: string | null; cost: number; krw: number; jpy: number; usd: number; cny: number }[];
   settlements: { kind: string; amount: number; completed_amount: number }[];
 };
 const amounts = [["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위안"]] as const;
@@ -47,7 +47,8 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
     {report.data === null && <p>연결된 정산 경로가 없습니다. 관리자에게 문의해 주세요.</p>}
     {report.data && <>
       <p className="text-sm text-muted-foreground">{period.from} ~ {period.to} · 결제일 기준</p>
-      <p className="font-semibold">수납 합계 {amounts.map(([key, unit]) => [entries.reduce((sum, row) => sum + row[key], 0), unit] as const).filter(([amount, unit]) => amount || unit === "원").map(([amount, unit]) => `${won(amount)}${unit}`).join(" · ")}</p>
+      <p className="font-semibold">매출 합계 (비용 기준) {won(entries.reduce((sum, row) => sum + Number(row.cost ?? 0), 0))}원</p>
+      <p className="text-sm">수납 합계 {amounts.map(([key, unit]) => [entries.reduce((sum, row) => sum + row[key], 0), unit] as const).filter(([amount, unit]) => amount || unit === "원").map(([amount, unit]) => `${won(amount)}${unit}`).join(" · ")}</p>
       {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" previewStaff={staffId} hideTotal readOnly /> : <>
       <div className="overflow-x-auto"><table className="w-full min-w-[440px] text-sm">
         <thead className="bg-muted"><tr>{["결제일", "구분", "내용", "수납"].map(title => <th key={title} scope="col" className="p-2 text-left">{title}</th>)}</tr></thead>
