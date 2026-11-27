@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { ScheduleDialog } from "@/components/ScheduleDialog";
 import { scheduleName, schedulePeriod } from "@/lib/schedules";
 import { useSwipe } from "@/hooks/use-swipe";
-import { meQuery, profilesQuery, ROLE_LABEL, type Reservation } from "@/lib/app";
+import { meQuery, profilesQuery, ROLE_LABEL, sectionsQuery, type Reservation } from "@/lib/app";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   head: () => ({ meta: [{ title: "대시보드 | Schedule HK" }] }),
@@ -20,6 +20,7 @@ export const Route = createFileRoute("/_authenticated/dashboard")({
 function Dashboard() {
   const { data: me } = useQuery(meQuery);
   const { data: profiles } = useQuery(profilesQuery);
+  const { data: sections } = useQuery(sectionsQuery);
   const [sel, setSel] = useState<Reservation | null>(null);
   const [scheduleOpen, setScheduleOpen] = useState(false);
   const now = new Date();
@@ -70,6 +71,8 @@ function Dashboard() {
     { label: "시술 완료", value: (week ?? []).filter((r) => r.status === "completed" || r.status === "paid").length },
   ];
   const name = (id: string) => profiles?.find((p) => p.id === id)?.full_name ?? "-";
+  const sectionName = (r: Reservation) =>
+    (sections?.find((section) => section.position === r.section)?.name ?? r.room) || "미지정";
   const byStaff = Object.entries(
     active.reduce<Record<string, number>>((a, r) => ((a[r.created_by] = (a[r.created_by] ?? 0) + 1), a), {}),
   ).sort((a, b) => b[1] - a[1]);
@@ -116,6 +119,7 @@ function Dashboard() {
                   <span className="flex-1">
                     <span className="font-medium">{r.customer_name}</span>
                     <span className="ml-2 text-sm text-muted-foreground">{r.service} · {name(r.created_by)}</span>
+                    <span className="block text-sm text-muted-foreground">섹션 {sectionName(r)}</span>
                   </span>
                   <StatusBadge status={r.status} />
                 </button>
