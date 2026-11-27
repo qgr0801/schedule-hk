@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { CustomerRecords } from "@/components/CustomerRecords";
+import { CustomerRecordMemo, CustomerRecords } from "@/components/CustomerRecords";
 import { PAYMENT_KINDS, type PaymentLine } from "@/lib/payments";
 import { PaymentHistory } from "@/components/PaymentHistory";
 import { Link } from "@tanstack/react-router";
@@ -268,9 +268,11 @@ function VisitHistory({ customerId, onReservation }: { customerId: string; onRes
   const { data, isLoading, error } = useQuery({
     queryKey: ["customer_visits", customerId, me?.id, canViewDetails],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("reservations")
-        .select("id, start_at, public_service, service, service_detail, status")
+      const reservations = supabase.from("reservations");
+      const query = canViewDetails
+        ? reservations.select("id, start_at, public_service, service, service_detail, status, memo")
+        : reservations.select("id, start_at, public_service, service, service_detail, status");
+      const { data, error } = await query
         .eq("customer_id", customerId)
         .order("start_at", { ascending: false })
         .limit(100);
@@ -289,11 +291,14 @@ function VisitHistory({ customerId, onReservation }: { customerId: string; onRes
       <ul className="max-h-56 space-y-1 overflow-y-auto text-sm">
         {data?.map((v) => (
           <li key={v.id} className="flex items-start justify-between gap-2 rounded-md bg-muted px-3 py-2">
-            <Link className="min-w-0 flex-1 break-words underline" to="/reservations/new" search={{ id: v.id }} onClick={onReservation ? (event) => { event.preventDefault(); onReservation(v.id); } : undefined}><span className="block">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.public_service || v.service}</span>{v.payment ? PAYMENT_KINDS.filter(([kind])=>kind!=="product").map(([kind,label])=>{
+            <div className="min-w-0 flex-1">
+            <Link className="break-words underline" to="/reservations/new" search={{ id: v.id }} onClick={onReservation ? (event) => { event.preventDefault(); onReservation(v.id); } : undefined}><span className="block">{format(new Date(v.start_at), "yyyy.MM.dd HH:mm")} · {v.public_service || v.service}</span>{v.payment ? PAYMENT_KINDS.filter(([kind])=>kind!=="product").map(([kind,label])=>{
               const description=(v.payment!.rows as unknown as PaymentLine[]).find(row=>row.kind===kind)?.description?.trim();
               return description ? <span key={kind} className="mt-1 block whitespace-pre-wrap break-words font-medium">{label} · {description}</span> : null;
             }) : v.service_detail && <span className="mt-1 block whitespace-pre-wrap break-words font-medium">{v.service_detail}</span>}
             {v.payment?.paid_on&&v.payment.paid_on!==format(new Date(v.start_at),"yyyy-MM-dd")&&<span className="mt-1 block text-xs text-muted-foreground">결제일 {v.payment.paid_on}</span>}</Link>
+            <CustomerRecordMemo memo={canViewDetails && "memo" in v ? v.memo : null} />
+            </div>
             <StatusBadge status={v.status} />
           </li>
         ))}
