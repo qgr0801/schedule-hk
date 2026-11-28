@@ -207,6 +207,7 @@ export function SalesEntries({period,scope,route="",category="",kind="",hideTota
  period:ReviewPeriod;scope:"category"|"settlement";route?:string;category?:string;kind?:string;hideTotal?:boolean;readOnly?:boolean;previewStaff?:string | undefined;routeStaff?:string | undefined;
 }) {
  const [page,setPage]=useState(0);
+ const showMemo = !previewStaff && !routeStaff;
  const entries=useQuery({queryKey:["admin-sales-entries",period,scope,hideTotal,route,category,kind,page,previewStaff,routeStaff],queryFn:async()=>{
   const contentKind = kind==="service" ? "service" : kind==="care" ? "care" : scope==="settlement"&&kind==="art" ? "art" : null;
   const args: { _from: string; _to: string; _offset: number; _kind?: "service" | "care" | "art" } = {
@@ -229,7 +230,7 @@ export function SalesEntries({period,scope,route="",category="",kind="",hideTota
   {entries.error&&<p role="alert">매출 상세 내역을 불러오지 못했습니다.</p>}
   {entries.data?.length===0&&<p>조회 기간에 매출 상세 내역이 없습니다.</p>}
   {entries.data&&entries.data.length>0&&<div className="overflow-x-auto"><table className="w-full min-w-[760px] text-sm">
-   <thead className="bg-muted"><tr>{scope==="settlement"&&<th scope="col" className="w-12 p-2 text-center">NO</th>}{[scope==="settlement"?"최근 결제일":"결제일","고객 이름",...(scope==="category"?["고객구분"]:[]),"경로","시술 내용","관리 내용",...(scope==="settlement"?["아트 내용"]:[]),...(previewStaff&&!routeStaff?[]:[scope==="category"?"제품·메모":"메모"]),...(scope==="settlement"?["수납(원)"]:[]),"수납 방법"].map(label=><th key={label} className={label==="수납(원)"||label==="수납 방법"?"p-2 text-right":"p-2 text-left"}>{label}</th>)}</tr></thead>
+   <thead className="bg-muted"><tr>{scope==="settlement"&&<th scope="col" className="w-12 p-2 text-center">NO</th>}{[scope==="settlement"?"최근 결제일":"결제일","고객 이름",...(scope==="category"?["고객구분"]:[]),"경로","시술 내용","관리 내용",...(scope==="settlement"?["아트 내용"]:[]),...(showMemo?[scope==="category"?"제품·메모":"메모"]:[]),...(scope==="settlement"?["수납(원)"]:[]),"수납 방법"].map(label=><th key={label} className={label==="수납(원)"||label==="수납 방법"?"p-2 text-right":"p-2 text-left"}>{label}</th>)}</tr></thead>
    <tbody>{entries.data.map((entry,index)=>{
     const lines=entry.payment_rows as unknown as PaymentLine[];
     return <tr key={entry.entry_id} className="border-b align-top">
@@ -240,7 +241,7 @@ export function SalesEntries({period,scope,route="",category="",kind="",hideTota
      <td className="whitespace-pre-wrap p-2">{((!kind||kind==="service")&&entry.service_content)||"—"}</td>
      <td className="whitespace-pre-wrap p-2">{((!kind||kind==="care")&&entry.care_content)||"—"}</td>
      {scope==="settlement"&&<td className="whitespace-pre-wrap p-2">{lines.filter(line=>line.kind==="art"&&line.description?.trim()).map(line=>line.description).join(" · ")||"—"}</td>}
-     {(!previewStaff||routeStaff)&&<td className="whitespace-pre-wrap p-2">
+     {showMemo&&<td className="whitespace-pre-wrap p-2">
       {lines.filter(line=>line.kind==="product"&&line.description).map((line,i)=><p key={i}>제품 · {line.description}</p>)}
       {entry.payment_memo&&<p className="text-muted-foreground">{entry.payment_memo}</p>}
      </td>}
