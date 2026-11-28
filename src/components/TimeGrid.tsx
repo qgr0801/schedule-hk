@@ -42,7 +42,7 @@ type Ghost = { colKey: string; start: number; end: number; valid: boolean; reaso
 const LONG_PRESS_MS = 400;
 
 export function TimeGrid({
-  cols, firstH, lastH, step, view, colMinWidth, name, canDrag, conflict, onRes, onSch, onEmpty, onDrop, colLabelText,
+  cols, firstH, lastH, step, view, colMinWidth, minLaneWidth, name, canDrag, conflict, onRes, onSch, onEmpty, onDrop, colLabelText,
 }: {
   cols: GridCol[];
   firstH: number;
@@ -50,6 +50,7 @@ export function TimeGrid({
   step: number;
   view: CalView;
   colMinWidth: number;
+  minLaneWidth?: number | undefined;
   name: (id: string) => string;
   canDrag: (r: ResWithCustomer) => boolean;
   /** Reason the slot is taken, or null. */
@@ -176,7 +177,19 @@ export function TimeGrid({
 
   useEffect(() => () => cleanup(), []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const gridStyle = { gridTemplateColumns: `56px repeat(${Math.max(cols.length, 1)}, minmax(${colMinWidth}px, 1fr))` };
+  const columns = cols.map((col) => ({
+    col,
+    placed: layoutLanes(col.items, (i) => {
+      const s = minutesOf(new Date(i.kind === "res" ? i.r.start_at : i.s.start_at));
+      const e = minutesOf(new Date(i.kind === "res" ? i.r.end_at : i.s.end_at)) || 24 * 60;
+      return [s, Math.max(e, s + 15)];
+    }),
+  }));
+  const tracks = columns.map(({ placed }) => {
+    const lanes = placed.reduce((max, item) => Math.max(max, item.lanes), 1);
+    return `minmax(${Math.max(colMinWidth, lanes * (minLaneWidth ?? 0))}px, 1fr)`;
+  });
+  const gridStyle = { gridTemplateColumns: `56px ${tracks.join(" ") || `minmax(${colMinWidth}px, 1fr)`}` };
   const HOURS = Array.from({ length: lastH - firstH + 1 }, (_, k) => k + firstH);
   const dragging = !!draggingId;
 
@@ -198,12 +211,7 @@ export function TimeGrid({
             </div>
           ))}
         </div>
-        {cols.map((c) => {
-          const placed = layoutLanes(c.items, (i) => {
-            const s = minutesOf(new Date(i.kind === "res" ? i.r.start_at : i.s.start_at));
-            const e = minutesOf(new Date(i.kind === "res" ? i.r.end_at : i.s.end_at)) || 24 * 60;
-            return [s, Math.max(e, s + 15)];
-          });
+        {columns.map(({ col: c, placed }) => {
           const g = ghost?.colKey === c.key ? ghost : null;
           return (
             <div
@@ -248,7 +256,7 @@ export function TimeGrid({
                 return (
                   <div
                     key={i.r.id}
-                    style={{ ...style, touchAction: movable ? "pan-x pan-y" : undefined, WebkitTouchCallout: "none" } as React.CSSProperties}
+                    style={{ ...style, touchAction: movable ? "pan-x pan-y pinch-zoom" : undefined, WebkitTouchCallout: "none" } as React.CSSProperties}
                     className={cn("group/card absolute z-[2]", movable && "cursor-grab active:cursor-grabbing", draggingId === i.r.id && "opacity-40")}
                     onPointerDown={(ev) => begin(ev, i.r, "move", c.key)}
                     onContextMenu={(ev) => movable && ev.preventDefault()}
@@ -256,6 +264,7 @@ export function TimeGrid({
                     <ReservationCard
                       r={i.r}
                       view={view}
+                      prioritizeCustomer={minLaneWidth !== undefined}
                       name={name}
                       className="h-full"
                       onClick={(action) => onRes(i.r, action)}

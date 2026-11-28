@@ -525,7 +525,7 @@ function DayBoard({
             droppable: c.key !== 0,
             items: items.filter((i) => colOf(i) === c.key),
           }))}
-          firstH={grid.firstH} lastH={grid.lastH} step={grid.step} view="day" colMinWidth={isMobile ? 76 : 150} name={name}
+          firstH={grid.firstH} lastH={grid.lastH} step={grid.step} view="day" colMinWidth={150} minLaneWidth={isMobile ? 144 : undefined} name={name}
           canDrag={grid.canDrag} conflict={grid.conflict} onRes={onRes} onSch={onSch} onDrop={grid.onDrop}
           onEmpty={(c, m) => grid.onEmpty(Number(c.key) || null, m)}
           colLabelText={(c) => String(c.label)}

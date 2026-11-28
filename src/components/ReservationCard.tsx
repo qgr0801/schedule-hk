@@ -64,7 +64,7 @@ export function StatusPill({ status, colors, small }: { status: ResStatus; color
 
 /** Pure presentational card, also used for the settings preview. */
 export function CardView({
-  r, fields, mode, status, staffColor, categories, creatorName, staffName, customerNumber, compact, onClick, className,
+  r, fields, mode, status, staffColor, categories, creatorName, staffName, customerNumber, compact, prioritizeCustomer, onClick, className,
 }: {
   r: Pick<ResWithCustomer, "start_at" | "end_at" | "customer_name" | "customer_phone" | "service" | "memo" | "status">;
   fields: CardField[];
@@ -76,6 +76,7 @@ export function CardView({
   staffName: string;
   customerNumber?: string | undefined;
   compact?: boolean | undefined;
+  prioritizeCustomer?: boolean | undefined;
   onClick?: (() => void) | undefined;
   className?: string | undefined;
 }) {
@@ -83,10 +84,13 @@ export function CardView({
   const c = cardColors(isVisitStatus ? "status" : mode, status, staffColor);
   const has = (f: CardField) => fields.includes(f);
   const showStatus = isVisitStatus || has("status") || mode === "staff" || r.status === "cancelled" || r.status === "no_show";
+  const customerName = has("customer") && prioritizeCustomer
+    ? <span className="block break-words font-semibold">{r.customer_name}</span>
+    : null;
   const lines: ReactNode[] = [];
-  if (has("customer") || customerNumber) lines.push(
+  if ((!prioritizeCustomer && has("customer")) || customerNumber) lines.push(
     <span key="c" className="flex min-w-0 flex-wrap items-center gap-x-1 font-semibold">
-      {has("customer") && <span className="min-w-0 truncate">고객: {r.customer_name}</span>}
+      {!prioritizeCustomer && has("customer") && <span className="min-w-0 truncate">고객: {r.customer_name}</span>}
       {customerNumber && <span className="shrink-0 text-[10px]">{customerNumber}</span>}
     </span>,
   );
@@ -123,6 +127,7 @@ export function CardView({
         </span>
       ) : (
         <>
+          {customerName}
           <span className="flex flex-wrap items-center justify-between gap-1">
             {has("time") ? <b className="shrink-0">{format(new Date(r.start_at), "HH:mm")}–{format(new Date(r.end_at), "HH:mm")}</b> : <span />}
             {showStatus && <StatusPill status={r.status} colors={status} small />}
@@ -138,12 +143,13 @@ export type CalendarReservationAction = "cancelled" | "no_show" | "edit" | "paym
 
 /** Calendar card wired to saved settings. */
 export function ReservationCard({
-  r, view, name, compact, onClick, canOpen, modeOverride, className,
+  r, view, name, compact, prioritizeCustomer, onClick, canOpen, modeOverride, className,
 }: {
   r: ResWithCustomer;
   view: CalView;
   name: (id: string) => string;
   compact?: boolean | undefined;
+  prioritizeCustomer?: boolean | undefined;
   onClick?: ((action?: CalendarReservationAction) => void) | undefined;
   canOpen?: (() => boolean) | undefined;
   modeOverride?: ColorMode | undefined;
@@ -175,8 +181,9 @@ export function ReservationCard({
   const end = new Date(r.end_at);
   const customerNumber = canReadCustomer && r.customer_no != null && (!r.access || r.visible?.includes("customerNo"))
     ? `No.${r.customer_no}` : undefined;
+  const customerName = canReadCustomer && (!r.access || r.visible?.includes("customer")) ? r.customer_name : null;
   const summary = [
-    canReadCustomer && (!r.access || r.visible?.includes("customer")) ? r.customer_name : null,
+    customerName,
     customerNumber,
     `${format(start, "HH:mm")}–${format(end, "HH:mm")}`,
     canReadCustomer && !r.access ? `시술: ${service || (care ? r.service : r.service_detail || r.service)}` : r.service,
@@ -227,6 +234,7 @@ export function ReservationCard({
       staffName={name(staffId)}
       customerNumber={customerNumber}
       compact={compact}
+      prioritizeCustomer={prioritizeCustomer}
       onClick={onClick ? () => { if (canOpen?.() !== false) { setPreviewOpen(false); setOpen(true); } } : undefined}
       className={className}
     />
@@ -245,7 +253,12 @@ export function ReservationCard({
         </Tooltip>
       </TooltipProvider>
       <PopoverContent side="left" align="start" collisionPadding={12} className="w-36 max-w-[calc(100vw-1.5rem)] p-1.5" aria-label="예약 메뉴">
-        {customerNumber && <div className="mb-1 border-b px-2 py-1 text-center text-xs font-semibold">고객번호 {customerNumber}</div>}
+        {(customerNumber || customerName) && (
+          <div className="mb-1 border-b px-2 py-1 text-center text-xs font-semibold">
+            {customerNumber && <div>고객번호 {customerNumber}</div>}
+            {customerName && <div className="break-words">{customerName}</div>}
+          </div>
+        )}
         <div className="grid gap-1">
           {canEdit && r.status !== "cancelled" && (
             <>
