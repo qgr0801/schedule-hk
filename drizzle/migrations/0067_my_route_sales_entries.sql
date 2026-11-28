@@ -1,0 +1,82 @@
+CREATE FUNCTION public.my_route_sales_entries(_from date, _to date, _kind text DEFAULT NULL, _offset integer DEFAULT 0, _preview_staff uuid DEFAULT NULL)
+ RETURNS TABLE(entry_id uuid, reservation_id uuid, paid_on date, customer_name text, category text, route_name text, service_content text, care_content text, payment_rows jsonb, payment_memo text)
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+DECLARE linked_route uuid;
+ viewer uuid := auth.uid();
+ staff uuid := coalesce(_preview_staff, viewer);
+BEGIN
+ IF (public.is_active_staff(viewer)
+     AND public.is_active_staff(staff) AND public.has_role(staff,'external')
+     AND (_preview_staff IS NULL OR public.has_role(viewer,'admin'))) IS NOT TRUE THEN
+  RAISE EXCEPTION '조회 권한이 없습니다.' USING ERRCODE='42501';
+ END IF;
+ SELECT route_id INTO linked_route FROM public.external_performance_routes WHERE staff_id=staff;
+ IF _from IS NULL OR _to IS NULL OR _to<_from
+ OR (_kind IS NOT NULL AND _kind NOT IN ('service','care','art')) THEN
+  RAISE EXCEPTION '조회 조건을 확인해 주세요.';
+ END IF;
+ RETURN QUERY WITH entries AS (
+  SELECT cp.reservation_id AS entry_id,cp.reservation_id,cp.paid_on,cp.customer_id,
+   coalesce(nullif(r.customer_name,''),c.name,'고객 미지정') AS customer_name,
+   coalesce(cc.name,'미지정') AS category,coalesce(br.name,'미지정') AS route_name,
+   coalesce(payment.service_content,nullif(r.service_detail,''),r.service,'') AS service_content,
+   coalesce(payment.care_content,'') AS care_content,payment.lines AS payment_rows,concat_ws(E'\n', nullif(r.memo,''), CASE WHEN cp.memo IS DISTINCT FROM r.memo THEN nullif(cp.memo,'') END) AS payment_memo
+  FROM public.customer_payments cp
+  LEFT JOIN public.reservations r ON r.id=cp.reservation_id
+  LEFT JOIN public.customers c ON c.id=cp.customer_id
+  LEFT JOIN public.customer_categories cc ON cc.id=c.category_id
+  LEFT JOIN public.booking_routes br ON br.id=r.booking_route_id
+  CROSS JOIN LATERAL (
+   SELECT jsonb_agg(v) AS lines,
+    max(nullif(v->>'description','')) FILTER (WHERE v->>'kind'='service') AS service_content,
+    max(nullif(v->>'description','')) FILTER (WHERE v->>'kind'='care') AS care_content
+   FROM jsonb_array_elements(cp.rows) v
+   WHERE v->>'kind' IN ('service','care','art')
+    AND (_kind IS NULL OR v->>'kind'=_kind)
+    AND (nullif(btrim(v->>'description'),'') IS NOT NULL OR EXISTS (
+     SELECT 1 FROM jsonb_each(v) AS amount(key,value)
+     WHERE key IN ('cost','card','bank','bank_jpy','krw','jpy','usd','cny')
+      AND CASE WHEN jsonb_typeof(value)='number' THEN value::numeric<>0 ELSE false END
+    ))
+  ) payment
+  WHERE cp.paid_on BETWEEN _from AND _to
+   AND r.booking_route_id=linked_route AND payment.lines IS NOT NULL
+ ), collected AS (
+ SELECT e.*,coalesce(e.customer_id,e.entry_id) AS group_id
+ FROM entries e
+ WHERE EXISTS (
+  SELECT 1
+  FROM jsonb_array_elements(e.payment_rows) AS line(value)
+  CROSS JOIN LATERAL jsonb_each(line.value) AS amount(key,value)
+  WHERE amount.key IN ('cost','card','bank','bank_jpy','krw','jpy','usd','cny')
+   AND CASE WHEN jsonb_typeof(amount.value)='number' THEN amount.value::numeric>0 ELSE false END
+ )
+ ), grouped AS (
+ SELECT (array_agg(e.entry_id ORDER BY e.paid_on DESC,e.entry_id))[1] AS entry_id,
+  (array_agg(e.reservation_id ORDER BY e.paid_on DESC,e.entry_id))[1] AS reservation_id,
+  max(e.paid_on) AS paid_on,
+  (array_agg(e.customer_name ORDER BY e.paid_on DESC,e.entry_id))[1] AS customer_name,
+  (array_agg(e.category ORDER BY e.paid_on DESC,e.entry_id))[1] AS category,
+  string_agg(DISTINCT e.route_name,' · ' ORDER BY e.route_name) AS route_name,
+  string_agg(nullif(e.service_content,''),' · ' ORDER BY e.paid_on DESC,e.entry_id) AS service_content,
+  string_agg(nullif(e.care_content,''),' · ' ORDER BY e.paid_on DESC,e.entry_id) AS care_content,
+  string_agg(nullif(e.payment_memo,''),' · ' ORDER BY e.paid_on DESC,e.entry_id) AS payment_memo,
+  jsonb_agg(e.payment_rows ORDER BY e.paid_on DESC,e.entry_id) AS payments
+ FROM collected e
+ GROUP BY e.group_id
+ )
+ SELECT g.entry_id,g.reservation_id,g.paid_on,g.customer_name,g.category,g.route_name,
+  coalesce(g.service_content,''),coalesce(g.care_content,''),
+  (SELECT jsonb_agg(line.value ORDER BY batch.position,line.position)
+   FROM jsonb_array_elements(g.payments) WITH ORDINALITY AS batch(value,position)
+   CROSS JOIN LATERAL jsonb_array_elements(batch.value) WITH ORDINALITY AS line(value,position)),
+  coalesce(g.payment_memo,'')
+ FROM grouped g
+ ORDER BY g.paid_on DESC,g.entry_id,g.reservation_id NULLS LAST
+ LIMIT 30 OFFSET greatest(coalesce(_offset,0),0);
+END $function$;
+REVOKE ALL ON FUNCTION public.my_route_sales_entries(date,date,text,integer,uuid) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.my_route_sales_entries(date,date,text,integer,uuid) TO authenticated;

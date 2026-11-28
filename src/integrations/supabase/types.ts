@@ -792,6 +792,10 @@ export type Database = {
           route_name: string
         }[]
       }
+      my_route_sales_entries: {
+        Args: { _from: string; _to: string; _kind?: "service" | "care" | "art"; _offset?: number; _preview_staff?: string };
+        Returns: Database["public"]["Functions"]["admin_sales_entries"]["Returns"];
+      }
       my_external_performance: { Args: { _from: string; _to: string }; Returns: Json }
       admin_sales_entries: {
         Args: { _from: string; _to: string; _scope: "category" | "settlement" | "performance"; _preview_staff?: string; _kind?: "service" | "care" | "art"; _route?: string; _unassigned?: boolean; _category?: string; _offset?: number };

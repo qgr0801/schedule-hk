@@ -115,7 +115,7 @@ function MyReservations() {
       {view === "performance" && owner && (me?.role === "external" || preview) ? <Panel>{preview && links.isPending ? <p role="status">연결 경로를 불러오는 중입니다.</p>
         : preview && links.error ? <p role="alert">연결 경로를 불러오지 못했습니다.</p>
         : preview && !linkedRoute ? <p>연결된 정산 경로가 없습니다.</p>
-        : <ExternalPerformance key={owner} staffId={owner} preview={!!preview} detailRoute={linkedRoute} />}</Panel> : <>
+        : <ExternalPerformance key={owner} staffId={owner} preview={!!preview} />}</Panel> : <>
       <div className="mb-4 flex gap-1 rounded-lg bg-background p-1 shadow-card sm:w-fit">
         {([["upcoming", "예정"], ["past", "지난 예약"], ["cancelled", "취소"]] as const).map(([k, l]) => (
           <button key={k} onClick={() => setTab(k)} className={cn("flex-1 rounded-md px-4 py-2 text-sm", tab === k ? "bg-primary text-primary-foreground" : "text-muted-foreground")}>{l}</button>

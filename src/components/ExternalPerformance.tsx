@@ -11,20 +11,20 @@ type Report = {
   entries: { paid_on: string; kind: string; description: string | null; cost: number; bank: number; bank_jpy: number; krw: number; jpy: number; usd: number; cny: number }[];
   settlements: { kind: string; amount: number; completed_amount: number }[];
 };
-const amounts = [["bank", "원"], ["bank_jpy", "엔"], ["krw", "원"], ["jpy", "엔"], ["usd", "달러"], ["cny", "위안"]] as const;
 const label = (kind: string) => PAYMENT_KINDS.find(([key]) => key === kind)?.[1];
 
-export function ExternalPerformance({ staffId, preview = false, routeOnly = false, detailRoute }: { staffId: string; preview?: boolean; routeOnly?: boolean; detailRoute?: string | undefined }) {
+export function ExternalPerformance({ staffId, preview = false }: { staffId: string; preview?: boolean }) {
   const today = new Intl.DateTimeFormat("sv-SE", { timeZone: "Asia/Seoul", dateStyle: "short" }).format(new Date());
   const [from, setFrom] = useState(today.slice(0, 8) + "01");
   const [to, setTo] = useState(today);
+  const [kind, setKind] = useState("");
   const [period, setPeriod] = useState({ from, to });
   const report = useQuery({
-    queryKey: ["my-external-performance", staffId, period, preview, routeOnly],
+    queryKey: ["my-external-performance", staffId, period, preview],
     queryFn: async () => {
       const args = { _from: period.from, _to: period.to };
       const { data, error } = preview
-        ? await supabase.rpc("external_performance_for_staff", { ...args, _staff: staffId, _route_only: routeOnly })
+        ? await supabase.rpc("external_performance_for_staff", { ...args, _staff: staffId, _route_only: true })
         : await supabase.rpc("my_external_performance", args);
       if (error) throw error;
       return data as Report | null;
@@ -33,7 +33,7 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
   const entries = report.data?.entries ?? [];
   const settlements = report.data?.settlements ?? [];
   return <section className="space-y-4">
-    <h2 className="text-xl font-semibold">내 성과</h2>
+    <h2 className="text-xl font-semibold">내 성과 · 본인 경로</h2>
     <form className="flex flex-wrap items-end gap-3" onSubmit={event => {
       event.preventDefault();
       if (from && to && from <= to) setPeriod({ from, to });
@@ -51,17 +51,15 @@ export function ExternalPerformance({ staffId, preview = false, routeOnly = fals
       <p className="text-sm">계좌 수납 {won(entries.reduce((sum, row) => sum + Number(row.bank ?? 0), 0))}원
         {entries.some(row => row.bank_jpy) && ` · ${won(entries.reduce((sum, row) => sum + Number(row.bank_jpy ?? 0), 0))}엔`}
       </p>
-      {preview && detailRoute ? <SalesEntries key={JSON.stringify([period, detailRoute])} period={period} scope="settlement" previewStaff={staffId} hideTotal readOnly /> : <>
-      <div className="overflow-x-auto"><table className="w-full min-w-[440px] text-sm">
-        <thead className="bg-muted"><tr>{["결제일", "구분", "내용", "수납 방법"].map(title => <th key={title} scope="col" className={title==="수납 방법"||title.endsWith("(원)")?"p-2 text-right":"p-2 text-left"}>{title}</th>)}</tr></thead>
-        <tbody>{entries.map((row, index) => <tr key={index} className="border-b">
-          <td className="whitespace-nowrap p-2">{row.paid_on}</td><td className="p-2">{label(row.kind)}</td>
-          <td className="whitespace-pre-wrap p-2">{row.description || "—"}</td>
-          <td className="p-2 text-right tabular-nums">{amounts.filter(([key]) => row[key]).map(([key, unit]) => `${key === "bank" || key === "bank_jpy" ? "계좌 " : ""}${won(row[key])}${unit}`).join(" · ") || "—"}</td>
-        </tr>)}</tbody>
-      </table></div>
-      {!entries.length && <p className="text-sm">조회 기간에 실적이 없습니다.</p>}
-      </>}
+      <label className="flex items-center gap-2 text-sm">
+        내용
+        <select value={kind} onChange={event => setKind(event.target.value)} className="h-9 rounded-md border bg-background px-3">
+          <option value="">전체</option>
+          {PAYMENT_KINDS.filter(([key]) => key !== "product").map(([key, label]) => <option key={key} value={key}>{label}</option>)}
+        </select>
+      </label>
+      <SalesEntries key={JSON.stringify([period, kind])} period={period} scope="settlement" kind={kind}
+        routeStaff={staffId} previewStaff={preview ? staffId : undefined} hideTotal readOnly />
       <h3 className="font-semibold">정산 내역</h3>
       <p className="text-sm text-muted-foreground">관리자가 같은 시작일·종료일로 저장한 정산이 표시됩니다.</p>
       {settlements.length ? <table className="w-full text-sm">
