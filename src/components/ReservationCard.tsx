@@ -266,6 +266,7 @@ export function ReservationCard({
                 ? <Button variant="ghost" size="sm" disabled={savingStatus} onClick={() => markVisitStatus("confirmed")}>입장취소</Button>
                 : <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "paid"} onClick={() => markVisitStatus("arrived")}>고객입장</Button>}
               <Button variant="ghost" size="sm" disabled={savingStatus} onClick={() => { setOpen(false); onClick("payment"); }}>계산</Button>
+              {canReadCustomer && <Button variant="ghost" size="sm" disabled={savingStatus || r.status === "paid"} onClick={() => markVisitStatus("paid")}>계산 완료</Button>}
             </>
           )}
           <Button variant="ghost" size="sm" onClick={() => { setOpen(false); onClick(); }}>예약 상세</Button>
